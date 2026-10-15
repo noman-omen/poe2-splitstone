@@ -1,0 +1,91 @@
+{
+  "name": "splitstone",
+  "productName": "Splitstone",
+  "version": "0.6.0",
+  "description": "Path of Exile 2 campaign speedrun tracker — install and play, no setup.",
+  "author": "Splitstone <noman-omen@users.noreply.github.com>",
+  "license": "MIT",
+  "main": "src/main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noman-omen/poe2-splitstone.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.js",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.splitstone.app",
+    "productName": "Splitstone",
+    "copyright": "Copyright © 2026 Splitstone",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "overlay/**/*",
+      "build/icon.png",
+      {
+        "from": "..",
+        "to": ".",
+        "filter": [
+          "index.html",
+          "css/**/*",
+          "js/**/*",
+          "data/**/*",
+          "assets/**/*"
+        ]
+      }
+    ],
+    "extraMetadata": {
+      "main": "src/main.js"
+    },
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "Splitstone-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Splitstone",
+      "installerIcon": "build/icon.png",
+      "uninstallerIcon": "build/icon.png",
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Splitstone-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Splitstone-Portable-${version}.${ext}"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Game",
+      "icon": "build/icon.png",
+      "artifactName": "Splitstone-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "noman-omen",
+        "repo": "poe2-splitstone"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  }
+}

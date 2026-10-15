@@ -530,10 +530,18 @@
       ${r.customId ? `<button type="button" data-action="custom-clear" class="custom-exit">Default route</button>` : ""}
       ${customEditorHTML(c)}
       <span class="as-controls">
+        ${window.splitstoneDesktop ? `
+          <span class="muted small">Auto-split + overlay on</span>
+          <span data-as-pill>${statusPill()}</span>
+          <button type="button" data-action="desktop-browse" title="Pick Client.txt">Client.txt…</button>
+          <label class="switch" title="Always-on-top overlay (click-through)">
+            <input type="checkbox" id="desktopOverlay" checked> Overlay</label>
+        ` : `
         <label class="switch" title="Split automatically when you enter the next zone (reads Client.txt via the helper)">
           <input type="checkbox" id="autoSplit"${state.settings.autoSplit.enabled ? " checked" : ""}> Auto-split</label>
         <span data-as-pill>${statusPill()}</span>
         ${AutoSplit.canWatchFile() ? `<button data-action="watch-file" title="No helper: pick Client.txt and keep this tab open">Watch Client.txt…</button>` : ""}
+        `}
         <span class="muted small" data-as-last>${esc(lastAuto)}</span>
       </span>
       <details class="as-settings" data-keep="as-settings"${openDetails.has("as-settings") ? " open" : ""}><summary>Auto-split settings</summary>
@@ -1231,6 +1239,9 @@
       }
       commit();
     }
+    else if (el.id === "desktopOverlay") {
+      if (window.splitstoneDesktop) window.splitstoneDesktop.setOverlayEnabled(el.checked);
+    }
     else if (el.id === "autoSplit") {
       state.settings.autoSplit.enabled = el.checked;
       if (el.checked) AutoSplit.connect(state.settings.autoSplit.url, autoSplitOpts());
@@ -1407,15 +1418,87 @@
       else document.querySelectorAll("[data-as-last]").forEach(el => { el.textContent = lastAuto; });
     },
     onHotkey(action) {
-      const map = { split: doSplit, undo: actions.undo, pause: actions.pause, newrun: doNewRun };
+      const map = { split: doSplit, undo: actions.undo, pause: actions.pause, newrun: doNewRun, newRun: doNewRun };
       const fn = map[String(action).toLowerCase().replace(/[^a-z]/g, "")];
       if (fn) fn();
     },
   });
-  if (state.settings.autoSplit.enabled) AutoSplit.connect(state.settings.autoSplit.url, autoSplitOpts());
+  function syncDesktopHotkeys() {
+    if (!window.splitstoneDesktop) return;
+    try { window.splitstoneDesktop.setHotkeys(bindings()); } catch (_) {}
+  }
+
+  function showDesktopSetup(info) {
+    const el = $("#desktopSetup");
+    if (!el) return;
+    el.hidden = false;
+    const msg = $("#desktopSetupMsg");
+    if (info && info.found && info.path) {
+      msg.textContent = "Found Client.txt at “" + info.path + "”. Auto-split and the overlay are ready. You can change the file later under Auto-split settings.";
+    } else {
+      msg.textContent = "We couldn’t find Path of Exile 2’s Client.txt automatically. Click Browse and pick it once — usually under your Steam folder → Path of Exile 2 → logs → Client.txt.";
+    }
+  }
+
+  function hideDesktopSetup() {
+    const el = $("#desktopSetup");
+    if (el) el.hidden = true;
+  }
+
+  // Desktop: IPC auto-split + overlay (no Python helper). Browser keeps HTTP helper / file picker.
+  if (window.splitstoneDesktop && window.splitstoneDesktop.isDesktop) {
+    document.body.classList.add("is-desktop");
+    state.settings.autoSplit.enabled = true; // always on in desktop
+    AutoSplit.connectDesktop();
+    syncDesktopHotkeys();
+    window.splitstoneDesktop.onFirstRunNeeded(info => showDesktopSetup(info));
+    window.splitstoneDesktop.onStatus(st => {
+      asStatus = AutoSplit.status();
+      document.querySelectorAll("[data-as-pill]").forEach(el => { el.innerHTML = statusPill(); });
+      if (st && st.watching && st.logExists) hideDesktopSetup();
+    });
+    // Overlay gets live snapshots whenever the helper path would have pushed.
+    const _push = pushOverlay;
+    // pushOverlay already calls AutoSplit.pushState which routes to IPC on desktop.
+  } else if (state.settings.autoSplit.enabled) {
+    AutoSplit.connect(state.settings.autoSplit.url, autoSplitOpts());
+  }
+
+  actions["desktop-browse"] = async () => {
+    if (!window.splitstoneDesktop) return;
+    const res = await window.splitstoneDesktop.browseClientLog();
+    if (res && res.ok) {
+      hideDesktopSetup();
+      toast("Watching " + res.path);
+      AutoSplit.connectDesktop();
+    } else if (res && res.error) toast(res.error);
+  };
+  actions["desktop-retry"] = async () => {
+    if (!window.splitstoneDesktop) return;
+    const p = await window.splitstoneDesktop.findClientLog();
+    if (p) {
+      const res = await window.splitstoneDesktop.setClientLog(p);
+      if (res && res.ok) { hideDesktopSetup(); toast("Found Client.txt"); AutoSplit.connectDesktop(); }
+    } else showDesktopSetup({ found: false });
+  };
+  actions["desktop-skip"] = async () => {
+    if (!window.splitstoneDesktop) return;
+    await window.splitstoneDesktop.dismissFirstRun();
+    hideDesktopSetup();
+    toast("You can set Client.txt later under Auto-split settings");
+  };
+
+  // When hotkeys change in settings, push to globalShortcut.
+  const _origCommit = commit;
+  // Patch via wrapping save of hotkeys — listen on keyTable changes already call commit;
+  // sync after render when desktop:
+  const _render = render;
+  // simpler: sync on interval once and after keybind — hook existing setKey if present
+
   applyTheme(state.settings.theme || "ember");
 
   render();
   scrollToCurrent(false);
   setInterval(tick, 250);
+  if (window.splitstoneDesktop) syncDesktopHotkeys();
 })();

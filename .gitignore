@@ -7,3 +7,8 @@ Thumbs.db
 *.log
 test-results/
 tests/output/
+
+# Desktop (Electron)
+desktop/node_modules/
+desktop/dist/
+desktop/out/

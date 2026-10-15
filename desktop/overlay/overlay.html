@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Splitstone Overlay</title>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden;
+    font-family: "Segoe UI", system-ui, sans-serif; user-select: none; }
+  #panel {
+    margin: 8px; padding: 10px 14px; border-radius: 10px;
+    background: rgba(18, 14, 10, 0.82); border: 1px solid rgba(201, 137, 58, 0.45);
+    color: #f0e6d8; min-width: 220px; max-width: 340px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.45);
+  }
+  .row { margin: 2px 0; line-height: 1.35; word-break: break-word; }
+  .zone { font-weight: 700; font-size: 13px; color: #e8c07a; }
+  .step { font-size: 12.5px; color: #f5efe6; }
+  .tip { font-size: 11.5px; color: #c9b89a; }
+  .next { font-size: 11px; color: #9a8f7e; }
+  .seg, .run { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #ddd; display: inline-block; margin-right: 10px; }
+  .delta { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #8fd18f; }
+  .delta.behind { color: #e08888; }
+  .status { font-size: 11px; font-weight: 700; color: #e8c07a; letter-spacing: .04em; margin-top: 4px; }
+  .hk { font-size: 10px; color: #7a7064; margin-top: 6px; }
+</style>
+</head>
+<body>
+  <div id="panel"><div class="row zone">Splitstone</div><div class="row step">Connecting…</div></div>
+<script>
+(function () {
+  const panel = document.getElementById("panel");
+  function fmtDelta(ms) {
+    if (ms == null) return "";
+    const sign = ms > 0 ? "+" : ms < 0 ? "−" : "±";
+    const s = Math.max(0, Math.floor(Math.abs(ms) / 1000));
+    const m = Math.floor(s / 60), sec = s % 60;
+    return sign + m + ":" + String(sec).padStart(2, "0");
+  }
+  function fmtMs(ms) {
+    if (ms == null) return "—";
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    return h ? h + ":" + String(m).padStart(2,"0") + ":" + String(sec).padStart(2,"0") : m + ":" + String(sec).padStart(2,"0");
+  }
+  function render(st) {
+    if (!st) return;
+    let head = st.zone || "—";
+    if (st.section) head = st.section + " · " + head;
+    if (st.progress) head += "  (" + st.progress + ")";
+    const bits = [];
+    bits.push('<div class="row zone">' + esc(head) + '</div>');
+    bits.push('<div class="row step">' + esc(st.step || "—") + '</div>');
+    if (st.tip) bits.push('<div class="row tip">➤ ' + esc(st.tip) + '</div>');
+    const nxt = [];
+    if (st.nextStep) nxt.push(st.nextStep);
+    if (st.nextZone) nxt.push(st.nextZone);
+    if (nxt.length) bits.push('<div class="row next">Next · ' + esc(nxt.join(" · ")) + '</div>');
+    bits.push('<div class="row"><span class="seg">seg  ' + fmtMs(st.zoneMs) + '</span>' +
+      '<span class="run">run  ' + fmtMs(st.runMs) + '</span>' +
+      (st.deltaMs != null ? '<span class="delta' + (st.deltaMs > 0 ? ' behind' : '') + '">Δ  ' + fmtDelta(st.deltaMs) + '</span>' : '') +
+      '</div>');
+    if (st.paused) bits.push('<div class="row status">PAUSED</div>');
+    else if (st.finished) bits.push('<div class="row status">DONE</div>');
+    const hk = st.hotkeys || {};
+    bits.push('<div class="hk">Split ' + label(hk.split) + ' · Pause ' + label(hk.pause) + ' · Undo ' + label(hk.undo) + '</div>');
+    panel.innerHTML = bits.join("");
+  }
+  function label(k) { return k === " " ? "Space" : (k || "—"); }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+  }
+  if (window.splitstoneOverlay) {
+    window.splitstoneOverlay.onState(render);
+    window.splitstoneOverlay.ready();
+  }
+})();
+</script>
+</body>
+</html>

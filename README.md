@@ -50,6 +50,25 @@ A browser tab cannot sit on top of fullscreen PoE2. I ship a small always-on-top
 
 ---
 
+
+## Download
+
+**[Download Splitstone for Windows](https://github.com/noman-omen/poe2-splitstone/releases/latest)** — get the installer from the latest Release, run it, done.
+
+1. Open the [latest Release](https://github.com/noman-omen/poe2-splitstone/releases/latest).
+2. Download **Splitstone-Setup-…exe** (recommended) or the portable **Splitstone-Portable-…exe**.
+3. Run the installer. It adds Start menu and desktop shortcuts. Use Add/Remove Programs to uninstall.
+4. If Windows SmartScreen says “Windows protected your PC”:
+   - Click **More info**
+   - Click **Run anyway**
+   - (The app is not code-signed yet; this warning is expected for new open-source builds.)
+5. Start Splitstone. It looks for Path of Exile 2’s `Client.txt` automatically. If it can’t find it, click **Browse for Client.txt…** once (usually under your Steam folder → `Path of Exile 2` → `logs` → `Client.txt`).
+6. Play. Auto-split, global hotkeys, and the top-right overlay work with no Python or terminal.
+
+Optional: the app can check GitHub Releases for updates when you’re online.
+
+---
+
 ## Features
 
 - **Campaign checklist** — 111 steps grouped by act / interlude → zone (patch 0.5.5 route data), with objectives, levels, hints, rewards, waypoints, and skips.
@@ -223,3 +242,15 @@ MIT — see [LICENSE](LICENSE). Copyright © 2026 Splitstone contributors.
 ## Disclaimer
 
 This is a fan-made project. It is **not affiliated with or endorsed by Grinding Gear Games**. Path of Exile is a trademark of Grinding Gear Games. Route information is compiled from community sources, may be outdated, and is provided as-is. Use at your own risk.
+
+---
+
+## Develop (web + desktop)
+
+For contributors. Players: use **Download** above.
+
+**Web (browser):** serve the repo root over HTTP (any static server), open `index.html`. Optional: run `helper/splitstone_helper.py` for auto-split + overlay while using a browser.
+
+**Desktop (Electron):** see [desktop/README.md](desktop/README.md) — `cd desktop && npm install && npm start`. Release builds: push a `v*` tag; GitHub Actions attaches the Windows installer to the Release.
+
+The Python helper remains a legacy/optional fallback for browser-only setups.

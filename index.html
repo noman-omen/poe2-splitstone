@@ -8,6 +8,18 @@
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+  <div id="desktopSetup" class="desktop-setup" hidden>
+    <div class="desktop-setup-inner">
+      <strong>Welcome to Splitstone</strong>
+      <p id="desktopSetupMsg">We look for Path of Exile 2’s Client.txt so auto-split and the overlay work automatically.</p>
+      <div class="desktop-setup-actions">
+        <button type="button" class="primary" data-action="desktop-browse">Browse for Client.txt…</button>
+        <button type="button" data-action="desktop-retry">Try again</button>
+        <button type="button" data-action="desktop-skip">Skip for now</button>
+      </div>
+      <p class="muted small">Usual places: Steam folder → Path of Exile 2 → logs → Client.txt</p>
+    </div>
+  </div>
   <header class="topbar">
     <div class="brand">
       <span class="logo" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">

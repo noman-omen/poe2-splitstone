@@ -124,9 +124,46 @@
     }, 1000);
   }
 
+
+  /** Electron desktop: zone events + hotkeys over IPC (no localhost helper). */
+  let desktopUnsubs = [];
+  function connectDesktop() {
+    const api = global.splitstoneDesktop;
+    if (!api || !api.isDesktop) {
+      setStatus({ source: "desktop", state: "error", detail: "Desktop bridge missing" });
+      return;
+    }
+    disconnect();
+    setStatus({ source: "desktop", state: "connecting", detail: "desktop" });
+    desktopUnsubs.push(api.onZone(ev => dispatch(ev)));
+    desktopUnsubs.push(api.onHotkey(action => dispatch({ type: "hotkey", action })));
+    desktopUnsubs.push(api.onStatus(st => {
+      if (!st) return;
+      if (st.watching && st.logExists)
+        setStatus({ source: "desktop", state: "connected",
+          detail: "watching " + (st.resolvedLogPath || st.clientLogPath || "Client.txt") });
+      else if (st.resolvedLogPath || st.clientLogPath)
+        setStatus({ source: "desktop", state: "connecting",
+          detail: "waiting for " + (st.resolvedLogPath || st.clientLogPath) });
+      else
+        setStatus({ source: "desktop", state: "error",
+          detail: "Client.txt not found — use Browse in the setup banner" });
+    }));
+    api.getStatus().then(st => {
+      if (st && st.watching && st.logExists)
+        setStatus({ source: "desktop", state: "connected",
+          detail: "watching " + (st.resolvedLogPath || "Client.txt") });
+      else
+        setStatus({ source: "desktop", state: "connecting", detail: "desktop starting…" });
+      handlers.onStatus && handlers.onStatus(status);
+    }).catch(() => {});
+  }
+
   function disconnect() {
     if (es) { es.close(); es = null; }
     if (fileTimer) { clearInterval(fileTimer); fileTimer = null; }
+    desktopUnsubs.forEach(u => { try { u(); } catch (_) {} });
+    desktopUnsubs = [];
     setStatus({ source: null, state: "off", detail: "" });
   }
 
@@ -134,6 +171,13 @@
   let lastPush = 0, pushUrl = null;
   function pushState(snapshot, url, opts) {
     if (!snapshot) return;
+    if (global.splitstoneDesktop && global.splitstoneDesktop.isDesktop) {
+      const now = Date.now();
+      if (now - lastPush < 200 && snapshot._force !== true) return;
+      lastPush = now;
+      try { global.splitstoneDesktop.pushOverlayState(snapshot); } catch (_) {}
+      return;
+    }
     const options = opts || {};
     if (typeof options.token === "string") helperToken = options.token;
     const base = (global.Storage2 && Storage2.canonicalHelperUrl)
@@ -159,8 +203,9 @@
 
 
   global.AutoSplit = {
-    init: h => { handlers = h; }, connect, watchFile, disconnect, match, zoneMatches,
+    init: h => { handlers = h; }, connect, connectDesktop, watchFile, disconnect, match, zoneMatches,
     pushState, status: () => status, helperAuth: () => helperAuth, setToken: t => { helperToken = String(t || ""); },
     canWatchFile: () => !!global.showOpenFilePicker,
+    isDesktop: () => !!(global.splitstoneDesktop && global.splitstoneDesktop.isDesktop),
   };
 })(window);
