@@ -24,6 +24,19 @@
   Object.values(state.characters).forEach(Run.prune);
   const collapsed = new Set();           // UI-only: collapsed section ids
   let pobError = "";
+  let asStatus = AutoSplit.status(), lastAuto = "";
+  const openDetails = new Set();          // UI-only: <details data-keep> that stay open across re-renders
+  document.addEventListener("toggle", ev => {
+    const k = ev.target.dataset && ev.target.dataset.keep;
+    if (k) ev.target.open ? openDetails.add(k) : openDetails.delete(k);
+  }, true);
+
+  const STATUS_TEXT = { off: "off", connecting: "connecting…", connected: "connected", error: "not connected" };
+  function statusPill() {
+    if (asStatus.state === "off") return "";
+    return `<span class="pill as-${esc(asStatus.state)}" title="${esc(asStatus.detail)}">
+      ${asStatus.source === "file" ? "Client.txt" : "Helper"}: ${STATUS_TEXT[asStatus.state]}</span>`;
+  }
 
   const char = () => state.characters[state.activeId];
   /** Steps visible under the character's route variant. */
@@ -97,7 +110,7 @@
     const label = running ? "Split" : paused ? "Resume" : Run.isStarted(c) ? "Resume" : "Start run";
     $("#now").innerHTML = `
       <div class="now-main">
-        <div class="now-where">${esc(cur.section.name)} · zone ${cur.index >= 0 ? cur.index + 1 : "–"}/${Run.order(c).length}${paused ? ' · <span class="behind">PAUSED</span>' : ""}</div>
+        <div class="now-where"><span data-as-pill>${statusPill()}</span> ${esc(cur.section.name)} · zone ${cur.index >= 0 ? cur.index + 1 : "–"}/${Run.order(c).length}${paused ? ' · <span class="behind">PAUSED</span>' : ""}</div>
         <div class="now-zone">${esc(z.name)}</div>
         <ul class="now-steps">${(todo.length ? todo : vis).slice(0, 3).map(s => `<li>
           <label><input type="checkbox" data-action="step" data-id="${esc(s.id)}"${c.done[s.id] ? " checked" : ""}>
@@ -256,7 +269,18 @@
         `<option value="${esc(k)}"${k === r.mode ? " selected" : ""}>${esc(x.label)}</option>`).join("")}</select></label>
       <label class="switch"><input type="checkbox" id="requiredOnly"${r.requiredOnly ? " checked" : ""}> Required steps only</label>
       <span class="muted small">${esc(v.desc || "")} · ${Run.order(c).length} zones, ${allSteps(c).length} steps</span>
-      ${v.tips && v.tips.length ? `<details class="tips"><summary>Speedrun tips (${v.tips.length})</summary><ul>${v.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul></details>` : ""}
+      <span class="as-controls">
+        <label class="switch" title="Split automatically when you enter the next zone (reads Client.txt via the helper)">
+          <input type="checkbox" id="autoSplit"${state.settings.autoSplit.enabled ? " checked" : ""}> Auto-split</label>
+        <span data-as-pill>${statusPill()}</span>
+        ${AutoSplit.canWatchFile() ? `<button data-action="watch-file" title="No helper: pick Client.txt and keep this tab open">Watch Client.txt…</button>` : ""}
+        <span class="muted small" data-as-last>${esc(lastAuto)}</span>
+      </span>
+      <details class="as-settings" data-keep="as-settings"${openDetails.has("as-settings") ? " open" : ""}><summary>Auto-split settings</summary>
+        <label>Helper URL <input type="text" id="autoSplitUrl" value="${esc(state.settings.autoSplit.url)}" size="28"></label>
+        <span class="muted small">Run <code>helper/poe2_splitter.py</code> on the PC that runs the game (see README).</span>
+      </details>
+      ${v.tips && v.tips.length ? `<details class="tips" data-keep="tips"${openDetails.has("tips") ? " open" : ""}><summary>Speedrun tips (${v.tips.length})</summary><ul>${v.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul></details>` : ""}
     </section>`;
     $("#campaign").innerHTML = routeBar + sections + maps;
   }
@@ -383,6 +407,10 @@
       toast("Exported");
     },
     import() { $("#importFile").click(); },
+    async "watch-file"() {
+      try { await AutoSplit.watchFile(); toast("Watching Client.txt"); }
+      catch (e) { if (e.name !== "AbortError") toast(e.message); }
+    },
     help() { $("#help").toggleAttribute("hidden"); },
     async "pob-import"() {
       const code = $("#pobCode").value;
@@ -416,6 +444,16 @@
       const running = Run.runningZone(c);
       c.route = next;
       if (running && !Run.inOrder(c, running)) Run.stopAllZones(c);
+      commit();
+    }
+    else if (el.id === "autoSplit") {
+      state.settings.autoSplit.enabled = el.checked;
+      if (el.checked) AutoSplit.connect(state.settings.autoSplit.url); else AutoSplit.disconnect();
+      commit();
+    }
+    else if (el.id === "autoSplitUrl") {
+      state.settings.autoSplit.url = el.value.trim() || "http://127.0.0.1:8766";
+      if (state.settings.autoSplit.enabled) AutoSplit.connect(state.settings.autoSplit.url);
       commit();
     }
     else if (el.id === "charSelect") { state.activeId = el.value; pobError = ""; commit(); scrollToCurrent(false); }
@@ -467,6 +505,32 @@
   document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
   // Another tab changed the save: reload it instead of overwriting it later.
   window.addEventListener("storage", ev => { if (ev.key === Storage2.KEY) { state = Storage2.load(); render(); } });
+
+  /* ---------- Auto-split wiring ---------- */
+  AutoSplit.init({
+    onStatus(st) {
+      asStatus = st;
+      document.querySelectorAll("[data-as-pill]").forEach(el => { el.innerHTML = statusPill(); });
+    },
+    onZone(ev) {
+      const c = char(), m = AutoSplit.match(c, ev);
+      const where = ev.name || ev.area;
+      lastAuto = `Last: ${where} → ${m.action}${m.reason ? " (" + m.reason + ")" : ""}`;
+      if (m.action === "start") { Run.startZone(c, Run.current(c).zone.id); commit(); toast(`Run started: ${where}`); }
+      else if (m.action === "split") {
+        const res = Run.split(c, { to: m.to, start: true });
+        commit(); scrollToCurrent();
+        if (res === "finished") toast("Run finished");
+      } else if (m.action === "finish") doSplit();
+      else document.querySelectorAll("[data-as-last]").forEach(el => { el.textContent = lastAuto; });
+    },
+    onHotkey(action) {
+      const map = { split: doSplit, undo: actions.undo, pause: actions.pause, newrun: doNewRun };
+      const fn = map[String(action).toLowerCase().replace(/[^a-z]/g, "")];
+      if (fn) fn();
+    },
+  });
+  if (state.settings.autoSplit.enabled) AutoSplit.connect(state.settings.autoSplit.url);
 
   render();
   scrollToCurrent(false);

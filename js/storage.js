@@ -30,10 +30,15 @@
     };
   }
 
+  function defaultSettings() {
+    return { hideHints: false, hideExtra: false, focusMode: false,
+             autoSplit: { enabled: false, url: "http://127.0.0.1:8766" } };
+  }
+
   function defaultState() {
     const c = newCharacter("My character");
     return { schema: SCHEMA, activeId: c.id, characters: { [c.id]: c },
-             settings: { hideHints: false, hideExtra: false, focusMode: false } };
+             settings: defaultSettings() };
   }
 
   /** Validate and normalise anything loaded from disk or an import file. */
@@ -41,7 +46,8 @@
     if (!s || typeof s !== "object" || !s.characters || typeof s.characters !== "object")
       throw new Error("Not a campaign tracker file");
     const out = { schema: SCHEMA, characters: {},
-                  settings: Object.assign({ hideHints: false, hideExtra: false, focusMode: false }, s.settings || {}) };
+                  settings: Object.assign(defaultSettings(), s.settings || {}) };
+    out.settings.autoSplit = Object.assign(defaultSettings().autoSplit, (s.settings || {}).autoSplit || {});
     for (const [id, c] of Object.entries(s.characters)) {
       const base = newCharacter(String(c.name || "Character"));
       out.characters[id] = Object.assign(base, c, { id });

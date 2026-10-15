@@ -169,3 +169,11 @@ details summary { cursor: pointer; color: var(--muted); margin-top: 8px; }
 .route-bar { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin-bottom: 16px; }
 .route-bar .tips { flex-basis: 100%; }
 .route-bar .tips ul { margin: 6px 0 0; padding-left: 18px; color: #cfc3a6; font-size: 13px; }
+.as-controls { display: inline-flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.as-settings { flex-basis: 100%; font-size: 13px; }
+.as-settings label { margin-right: 10px; }
+.pill { font-size: 11px; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--line); text-transform: none; letter-spacing: 0; }
+.pill.as-connected { color: var(--ok); border-color: var(--ok); }
+.pill.as-connecting { color: var(--run); border-color: var(--run); }
+.pill.as-error { color: var(--bad); border-color: var(--bad); }
+code { font-family: ui-monospace, monospace; font-size: 12px; color: var(--gold-2); }
