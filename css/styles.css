@@ -356,3 +356,15 @@ body.focus-mode .now-actions .big-btn { font-size: 16px; padding: 10px 14px; }
 .map-row .tw .primary, .map-row > .primary { font-weight: 600; }
 table.seg td.ahead, table.seg .ahead { color: var(--ok); }
 table.seg td.behind, table.seg .behind { color: var(--bad); }
+
+/* Level / XP cues (hide-extra respects .lvl-cue) */
+.char-level { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 12px; }
+.char-level input { width: 72px; }
+.zone-lvl { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
+.zone-lvl.warn, .now-lvl.warn { color: var(--gold-2, var(--gold)); border-color: var(--gold); background: color-mix(in srgb, var(--gold) 12%, transparent); }
+.zone-lvl.bad, .now-lvl.bad { color: var(--bad); border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); font-weight: 650; }
+.zone-lvl.uncertain::after { content: "≈"; margin-left: 2px; opacity: .7; }
+.zone.underlevel { box-shadow: inset 3px 0 0 var(--bad); }
+.now-lvl { margin: 2px 0 4px; font-size: 13px; }
+body.hide-extra .lvl-cue { display: none; }
+body.hide-extra .zone-lvl { display: none; }

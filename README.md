@@ -60,6 +60,7 @@ A browser tab cannot sit on top of fullscreen PoE2. I ship a small always-on-top
 - **Map history** — Timed map runs with per-map PB / average and CSV export (separate from the campaign run).
 - **Characters** — Create, switch, rename, delete; one saved campaign per character.
 - **Persistence** — `localStorage` (`splitstone:v1`; older `poe2-campaign-tracker:v1` saves migrate automatically). JSON export / import.
+- **Level / XP warnings** — Per-zone recommended / area level from the route; warns when your character level (manual field or PoB) is under-leveled or near the XP-penalty window (`±(3 + ⌊level/16⌋)`, Malura 0.5.x). Glanceable in the zone list + now bar; hidden with **Hide extra info**.
 - **Auto-split from Client.txt** — Optional local helper (SSE) or Chrome/Edge File System Access. Hideouts, re-entries, and backtracking are ignored.
 - **Rebindable hotkeys** — Settings panel with conflict detection; bindings export with the save.
 - **PoB2 import** — Decode a build code in-browser (base64url + zlib → XML); bad codes fail gracefully.
@@ -75,6 +76,8 @@ A browser tab cannot sit on top of fullscreen PoE2. I ship a small always-on-top
 Skills are **not** class-locked in PoE2 — Uncut gems just highlight class-recommended options. The class picker (Warrior, Sorceress, Ranger, Monk, Mercenary, Witch, or None) adds inline tips on relevant steps and a **Recommended for [Class]** chip when a campaign reward choice matters. Ascendancy layers come later.
 
 ![Class notes](screenshots/class-notes.png)
+
+![Level / XP warnings](screenshots/level-xp-warnings.png)
 
 ## Vision
 
@@ -100,7 +103,7 @@ A browser tab cannot draw over a fullscreen game. I am shipping a **small top-ri
 ### Campaign intelligence
 
 - **Class-aware notes** for the basic classes first (Warrior, Sorceress, Ranger, Monk, Mercenary, Witch) — not subclass-specific yet: class-flavoured campaign steps and recommended campaign reward choices by class
-- Level / XP warnings per zone
+- Level / XP warnings per zone (shipped: route bands + Malura XP window)
 - Gear and gem checkpoints along the route
 - Build-specific route notes later (Monk / Oracle ascendancy layers)
 - Custom shareable routes

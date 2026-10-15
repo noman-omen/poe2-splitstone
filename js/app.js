@@ -224,6 +224,13 @@
       <div class="now-main">
         <div class="now-where"><span data-as-pill>${statusPill()}</span> ${esc(cur.section.name)} · zone ${cur.index >= 0 ? cur.index + 1 : "–"}/${Run.order(c).length}${paused ? ' · <span class="behind">PAUSED</span>' : ""}</div>
         <div class="now-zone">${esc(z.name)}</div>
+        ${(() => {
+          const info = Levels.zoneLevelInfo(z), st = Levels.status(Levels.charLevel(c), info);
+          if (!info) return "";
+          if (!st) return `<div class="now-lvl muted small lvl-cue">Route lvl ${esc(info.label)}</div>`;
+          if (st.kind === "ok") return `<div class="now-lvl muted small lvl-cue" title="${esc(st.detail)}">${esc(st.text)}</div>`;
+          return `<div class="now-lvl lvl-cue ${st.kind}" title="${esc(st.detail)}">${esc(st.text)}</div>`;
+        })()}
         ${nowStepHTML(c, step, true)}
         ${step ? `<div class="now-class">${classNoteHTML(c, step.id)}</div>` : ""}
         ${others.length ? `<ul class="now-more">${others.map(x => `<li><label><input type="checkbox" data-action="step" data-id="${esc(x.id)}"${c.done[x.id] ? " checked" : ""}>
@@ -310,12 +317,24 @@
             `<option value="${esc(x.id)}"${c.classId === x.id ? " selected" : ""}>${esc(x.name)}</option>`).join("")}
         </select>
         ${cls ? `<span class="muted small">${esc(cls.weapon)} — ${esc(cls.summary)}</span>` : `<span class="muted small">Optional: unlocks campaign gem &amp; reward tips for that class.</span>`}
+      </div>
+      <div class="char-level"><label for="charLevel">Level</label>
+        <input type="number" id="charLevel" min="1" max="100" step="1"
+          value="${c.level != null ? esc(c.level) : ""}" placeholder="${b && b.level ? esc(b.level) : "–"}"
+          title="Manual level for XP warnings. Leave blank to use PoB level.">
+        <span class="muted small">${(() => {
+          const eff = Levels.charLevel(c);
+          const w = eff && Levels.xpWindow(eff);
+          if (!eff) return "Set a level (or import PoB) for zone XP warnings.";
+          const src = c.level != null ? "manual" : "PoB";
+          return `Using ${eff} (${src})${w != null ? ` · XP window ±${w}` : ""}`;
+        })()}</span>
       </div>`;
     if (b) {
       html += `<dl class="kv">
         <dt>Class</dt><dd>${esc(b.className)}</dd>
         <dt>Ascendancy</dt><dd>${esc(b.ascendancy || "None")}</dd>
-        <dt>Level</dt><dd>${esc(b.level)}</dd>
+        <dt>PoB level</dt><dd>${esc(b.level)}</dd>
         <dt>Passives</dt><dd>${b.passives}</dd>
         <dt>Items</dt><dd>${b.items}</dd>
         ${b.stats.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}
@@ -376,8 +395,11 @@
     const p = Run.pb(c), isSplit = !!c.split[z.id], isCur = cur && cur.zone.id === z.id;
     const ms = Run.zoneMs(c, z.id), pbSeg = p && p.zones[z.id];
     const delta = isSplit && pbSeg ? ms - pbSeg : null;
-    return `<div class="zone${isSplit ? " complete" : ""}${isCur ? " current" : ""}" data-zone="${esc(z.id)}" id="zone-${esc(z.id)}">
+    const zLvl = Levels.zoneLevelInfo(z), zStat = Levels.status(Levels.charLevel(c), zLvl);
+    const lvlCue = zLvl ? `<span class="zone-lvl${zStat && zStat.kind !== "ok" ? " " + zStat.kind : ""}${zLvl.uncertain ? " uncertain" : ""}" title="${esc((zStat && zStat.detail) || ("Route level " + zLvl.label))}">${zStat && zStat.kind !== "ok" ? esc(zStat.text) : "lvl " + esc(zLvl.label)}</span>` : "";
+    return `<div class="zone${isSplit ? " complete" : ""}${isCur ? " current" : ""}${zStat && zStat.kind === "bad" ? " underlevel" : ""}" data-zone="${esc(z.id)}" id="zone-${esc(z.id)}">
       <div class="zone-head"><h3>${isSplit ? "✓ " : isCur ? "▶ " : ""}${esc(z.name)}</h3>
+        ${lvlCue}
         ${c.golds[z.id] ? '<span class="gold" title="Best segment ever">★ gold</span>' : ""}
         ${delta !== null ? `<span class="delta ${deltaClass(delta)}" title="vs PB segment ${fmt(pbSeg)}">${fmtDelta(delta)}</span>`
           : pbSeg ? `<span class="muted small" title="PB segment">PB ${fmt(pbSeg)}</span>` : ""}
@@ -785,6 +807,17 @@
       commit();
     }
     else if (el.id === "statSeg") { statSeg = el.value; renderCampaign(); }
+    else if (el.id === "charLevel") {
+      const raw = el.value.trim();
+      const c = char();
+      if (raw === "") c.level = null;
+      else {
+        const n = Number(raw);
+        if (!Number.isFinite(n) || n < 1 || n > 100) { toast("Level must be 1–100"); render(); return; }
+        c.level = Math.floor(n);
+      }
+      commit();
+    }
     else if (el.id === "autoSplit") {
       state.settings.autoSplit.enabled = el.checked;
       if (el.checked) AutoSplit.connect(state.settings.autoSplit.url); else AutoSplit.disconnect();
