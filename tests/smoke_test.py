@@ -259,6 +259,33 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     check("bad import rejected gracefully", "Import failed" in page.text_content("#toast"))
 
+    # --- Rebindable hotkeys ---
+    page.click('[data-action="settings"] >> nth=0')
+    check("hotkey settings open", page.locator("#settings").is_visible())
+    page.click('tr[data-hk="split"] button')
+    page.keyboard.press("s")
+    check("split rebound to S", js(page, "JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).settings.hotkeys.split") == "s")
+    page.click('tr[data-hk="undo"] button')
+    page.keyboard.press("s")
+    check("conflict detected", "already used" in page.text_content("#keyError"))
+    page.keyboard.press("Escape")
+    check("conflicting bind not saved", js(page, "JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).settings.hotkeys.undo") is None)
+    page.click('[data-action="settings-close"]')
+    check("help overlay reflects bindings", "S" in page.locator("#helpKeys kbd").first.text_content())
+    check("split button shows new key", "S" in page.text_content('#now [data-action="split"]'))
+    with page.expect_download() as dl:
+        page.click('[data-action="export"]')
+    check("hotkeys in JSON export", json.loads(Path(dl.value.path()).read_text())["settings"]["hotkeys"]["split"] == "s")
+    page.keyboard.press("r")
+    page.keyboard.press("s")
+    check("new key starts/splits", js(page, "!!Run.runningZone(state_c())"))
+    page.keyboard.press("Space")
+    check("old key no longer splits", not char(page)["split"])
+    page.click('[data-action="settings"] >> nth=0')
+    page.click('[data-action="keys-reset"]')
+    page.click('[data-action="settings-close"]')
+    check("reset defaults", js(page, "JSON.stringify(JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).settings.hotkeys)") == "{}")
+
     # --- Screenshot (desktop): mid-run with a PB to compare against ---
     page.keyboard.press("r")
     for _ in range(25):

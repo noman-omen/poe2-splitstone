@@ -28,6 +28,7 @@
       <button data-action="export">Export JSON</button>
       <button data-action="import">Import JSON</button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
+      <button data-action="settings" title="Change hotkeys" aria-label="Hotkey settings">⌨</button>
       <button data-action="help" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
     </div>
   </header>
@@ -36,18 +37,18 @@
 
   <div id="help" class="help card" hidden>
     <h2>Keyboard shortcuts</h2>
-    <dl class="kv">
-      <dt><kbd>Space</kbd> / <kbd>Enter</kbd></dt><dd>Start run, or split: complete the current zone and start the next</dd>
-      <dt><kbd>U</kbd> / <kbd>Backspace</kbd></dt><dd>Undo last split</dd>
-      <dt><kbd>P</kbd></dt><dd>Pause / resume</dd>
-      <dt><kbd>R</kbd></dt><dd>New run (unfinished runs are kept in history)</dd>
-      <dt><kbd>C</kbd></dt><dd>Scroll to current zone</dd>
-      <dt><kbd>F</kbd></dt><dd>Focus mode (only the current act/interlude)</dd>
-      <dt><kbd>H</kbd> / <kbd>E</kbd></dt><dd>Hide hints / hide extra info</dd>
-      <dt><kbd>?</kbd> / <kbd>Esc</kbd></dt><dd>Show / hide this help; Esc also leaves a text field</dd>
-    </dl>
+    <dl class="kv" id="helpKeys"></dl>
     <p class="muted small">Ticking the last required step of the zone you are timing also splits automatically.
-      Hotkeys only work while this window has focus.</p>
+      Hotkeys only work while this window has focus (use the helper's global hotkeys while in game).</p>
+    <div class="row"><button data-action="settings">Change hotkeys…</button></div>
+  </div>
+
+  <div id="settings" class="help card" hidden role="dialog" aria-label="Hotkey settings">
+    <h2>Hotkeys</h2>
+    <p class="muted small">Click "Change", then press the new key. Esc cancels.</p>
+    <table class="keys" id="keyTable"></table>
+    <div class="error" id="keyError"></div>
+    <div class="row"><button data-action="keys-reset">Reset defaults</button><button data-action="settings-close" class="primary">Done</button></div>
   </div>
 
   <div class="layout">

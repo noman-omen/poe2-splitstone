@@ -32,7 +32,8 @@
 
   function defaultSettings() {
     return { hideHints: false, hideExtra: false, focusMode: false,
-             autoSplit: { enabled: false, url: "http://127.0.0.1:8766" } };
+             autoSplit: { enabled: false, url: "http://127.0.0.1:8766" },
+             hotkeys: {} };  // action -> key overrides; defaults live in app.js (HOTKEY_DEFS)
   }
 
   function defaultState() {
@@ -80,8 +81,9 @@
 
   /** Import merges characters into the current state (same id = overwrite). */
   function importJSON(state, text) {
-    const incoming = normalise(JSON.parse(text));
+    const raw = JSON.parse(text), incoming = normalise(raw);
     Object.assign(state.characters, incoming.characters);
+    if (raw.settings) state.settings = incoming.settings;  // includes hotkey bindings
     state.activeId = incoming.activeId;
     return Object.keys(incoming.characters).length;
   }

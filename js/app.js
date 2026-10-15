@@ -80,6 +80,7 @@
       .sort((a, b) => a.created.localeCompare(b.created))
       .map(x => `<option value="${esc(x.id)}"${x.id === c.id ? " selected" : ""}>${esc(x.name)}</option>`).join("");
     renderNow(); renderTotals(); renderHistory(); renderCharacter(); renderCampaign();
+    renderHelp();
     layoutSticky();
   }
 
@@ -100,8 +101,8 @@
       const last = c.history[0];
       $("#now").innerHTML = `<div class="now-main"><div class="now-zone">🏁 Campaign complete</div>
         <div class="now-sub">${last ? `Final time <b class="mono">${fmt(last.total)}</b>${p && p.id === last.id ? " · <span class='ahead'>New PB!</span>" : ""}` : ""}</div></div>
-        <div class="now-actions"><button data-action="undo">Undo split <kbd>U</kbd></button>
-        <button class="primary" data-action="new-run">New run <kbd>R</kbd></button></div>`;
+        <div class="now-actions"><button data-action="undo">Undo split <kbd>${esc(keyName(bindings().undo))}</kbd></button>
+        <button class="primary" data-action="new-run">New run <kbd>${esc(keyName(bindings().newRun))}</kbd></button></div>`;
       return;
     }
     const z = cur.zone, pbSeg = p && p.zones[z.id], best = Run.bestsFor(c)["zone:" + z.id];
@@ -125,10 +126,10 @@
           <span id="liveDelta" class="${deltaClass(Run.deltaVsPb(c))}">${p ? fmtDelta(Run.deltaVsPb(c)) : ""}</span></div>
       </div>
       <div class="now-actions">
-        <button class="primary big-btn" data-action="split">${label} <kbd>Space</kbd></button>
-        <button data-action="pause"${running || paused ? "" : " disabled"}>${paused ? "Resume" : "Pause"} <kbd>P</kbd></button>
-        <button data-action="undo"${c.undo.length ? "" : " disabled"}>Undo <kbd>U</kbd></button>
-        <button data-action="new-run">New run <kbd>R</kbd></button>
+        <button class="primary big-btn" data-action="split">${label} <kbd>${esc(keyName(bindings().split))}</kbd></button>
+        <button data-action="pause"${running || paused ? "" : " disabled"}>${paused ? "Resume" : "Pause"} <kbd>${esc(keyName(bindings().pause))}</kbd></button>
+        <button data-action="undo"${c.undo.length ? "" : " disabled"}>Undo <kbd>${esc(keyName(bindings().undo))}</kbd></button>
+        <button data-action="new-run">New run <kbd>${esc(keyName(bindings().newRun))}</kbd></button>
       </div>`;
   }
 
@@ -313,7 +314,7 @@
   /* ---------- Actions ---------- */
   function doSplit() {
     const c = char(), cur = Run.current(c);
-    if (!cur) return toast("Run complete. Press R for a new run.");
+    if (!cur) return toast(`Run complete. Press ${keyName(bindings().newRun)} for a new run.`);
     if (!Run.runningZone(c)) {           // nothing timing: Space starts/resumes
       if (Run.isPaused(c)) Run.togglePause(c); else Run.startZone(c, cur.zone.id);
       commit(); return;
@@ -334,7 +335,7 @@
       Run.finish(c, false);
     } else if (Run.isStarted(c) && !confirm("Start a new run?")) return;
     Run.newRun(c);
-    commit(); window.scrollTo({ top: 0 }); toast("New run ready. Press Space to start.");
+    commit(); window.scrollTo({ top: 0 }); toast(`New run ready. Press ${keyName(bindings().split)} to start.`);
   }
 
   const actions = {
@@ -478,28 +479,81 @@
     $("#mapName").focus();
   });
 
-  /* ---------- Hotkeys (ignored while typing) ---------- */
+  /* ---------- Hotkeys (rebindable, ignored while typing) ---------- */
   const flip = key => { state.settings[key] = !state.settings[key]; commit(); };
-  const HOTKEYS = {
-    " ": doSplit, Enter: doSplit,
-    p: actions.pause, u: actions.undo, Backspace: actions.undo, r: doNewRun,
-    h: () => flip("hideHints"), e: () => flip("hideExtra"), f: () => { flip("focusMode"); scrollToCurrent(false); },
-    c: () => scrollToCurrent(), "?": actions.help, Escape: () => $("#help").setAttribute("hidden", ""),
-  };
+  const HOTKEY_DEFS = [
+    // [action id, default key (KeyboardEvent.key, lower-case letters), label, handler]
+    ["split", " ", "Start run / split current zone", () => doSplit()],
+    ["undo", "u", "Undo last split", () => actions.undo()],
+    ["pause", "p", "Pause / resume", () => actions.pause()],
+    ["newRun", "r", "New run", () => doNewRun()],
+    ["scroll", "c", "Scroll to current zone", () => scrollToCurrent()],
+    ["focus", "f", "Focus mode", () => { flip("focusMode"); scrollToCurrent(false); }],
+    ["hints", "h", "Hide / show hints", () => flip("hideHints")],
+    ["extra", "e", "Hide / show extra info", () => flip("hideExtra")],
+    ["help", "?", "Show / hide shortcuts", () => actions.help()],
+  ];
+  const RESERVED = ["Escape", "Tab"];
+  const bindings = () => Object.fromEntries(HOTKEY_DEFS.map(([id, def]) =>
+    [id, (state.settings.hotkeys || {})[id] ?? def]));
+  const keyName = k => (k === " " ? "Space" : k === "" || k == null ? "—" : k.length === 1 ? k.toUpperCase() : k);
+  const normKey = k => (k.length === 1 ? k.toLowerCase() : k);
+  let capturing = null;                   // action id waiting for a new key
+
+  function renderHelp() {
+    const b = bindings();
+    $("#helpKeys").innerHTML = HOTKEY_DEFS.map(([id, , label]) =>
+      `<dt><kbd>${esc(keyName(b[id]))}</kbd></dt><dd>${esc(label)}</dd>`).join("") +
+      `<dt><kbd>Esc</kbd></dt><dd>Close dialogs / leave a text field</dd>`;
+    $("#keyTable").innerHTML = HOTKEY_DEFS.map(([id, def, label]) => `<tr data-hk="${id}">
+      <td>${esc(label)}</td><td><kbd>${capturing === id ? "press a key…" : esc(keyName(b[id]))}</kbd></td>
+      <td><button data-action="key-change" data-id="${id}">${capturing === id ? "Cancel" : "Change"}</button></td>
+      <td class="muted small">${b[id] !== def ? "default " + esc(keyName(def)) : ""}</td></tr>`).join("");
+  }
+
+  /** Assign `key` to action `id` unless another action already uses it. */
+  function bindKey(id, key) {
+    const b = bindings(), clash = Object.keys(b).find(a => a !== id && b[a] === key);
+    if (RESERVED.includes(key)) return `${keyName(key)} is reserved.`;
+    if (clash) return `${keyName(key)} is already used by "${HOTKEY_DEFS.find(d => d[0] === clash)[2]}".`;
+    state.settings.hotkeys = Object.assign({}, state.settings.hotkeys, { [id]: key });
+    commit();
+    return "";
+  }
+
+  Object.assign(actions, {
+    settings() { $("#help").setAttribute("hidden", ""); capturing = null; renderHelp(); $("#settings").removeAttribute("hidden"); },
+    "settings-close"() { capturing = null; $("#settings").setAttribute("hidden", ""); },
+    "key-change"(el) { capturing = capturing === el.dataset.id ? null : el.dataset.id; $("#keyError").textContent = ""; renderHelp(); },
+    "keys-reset"() { state.settings.hotkeys = {}; capturing = null; $("#keyError").textContent = ""; commit(); toast("Hotkeys reset"); },
+  });
+
   document.addEventListener("keydown", ev => {
+    if (capturing) {                     // settings dialog: record the new key
+      ev.preventDefault(); ev.stopPropagation();
+      if (ev.key === "Escape") { capturing = null; renderHelp(); return; }
+      if (["Shift", "Control", "Alt", "Meta"].includes(ev.key)) return;
+      const err = bindKey(capturing, normKey(ev.key));
+      $("#keyError").textContent = err;
+      if (!err) capturing = null;
+      renderHelp();
+      return;
+    }
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     const t = ev.target;
     if (t.closest && t.closest("input[type=text], textarea, select, [contenteditable]")) {
       if (ev.key === "Escape") t.blur();  // Esc leaves the field so hotkeys work again
       return;
     }
-    const fn = HOTKEYS[ev.key.length === 1 ? ev.key.toLowerCase() : ev.key] || HOTKEYS[ev.key];
-    if (!fn) return;
-    // Enter/Space on a focused button should click that button, not split.
+    if (ev.key === "Escape") { $("#help").setAttribute("hidden", ""); $("#settings").setAttribute("hidden", ""); return; }
+    const b = bindings(), key = normKey(ev.key);
+    const def = HOTKEY_DEFS.find(([id]) => b[id] === key);
+    if (!def) return;
+    // Space/Enter on a focused button should click that button, not trigger a hotkey.
     if ((ev.key === " " || ev.key === "Enter") && t.tagName === "BUTTON") return;
     ev.preventDefault();
-    fn();
-  });
+    def[3]();
+  }, true);
 
   // Keep timers correct when coming back from a background tab / other monitor.
   document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
