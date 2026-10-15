@@ -336,3 +336,23 @@ body.hide-extra .now-info { display: none; }
 .class-rec .for { color: var(--muted); font-size: 10px; text-transform: uppercase; margin-right: 4px; }
 body.hide-hints .class-note { display: none; }
 .now-class { margin: 4px 0 0 30px; }
+
+/* Now-bar tip expand + focus density */
+.now-more-tips { margin: 2px 0 0 30px; font-size: 13px; color: var(--muted); }
+.now-more-tips summary { cursor: pointer; color: var(--gold); }
+body.focus-mode .now { padding: 8px 16px 10px; }
+body.focus-mode .now-zone { font-size: 26px; margin: 0 0 2px; }
+body.focus-mode .now-objective { font-size: 17px; }
+body.focus-mode .now-hints { font-size: 14px; margin-left: 24px; }
+body.focus-mode .now-info, body.focus-mode .now-more, body.focus-mode .now-class { display: none; }
+body.focus-mode .now-clock .big { font-size: 48px; }
+body.focus-mode .now-actions .big-btn { font-size: 16px; padding: 10px 14px; }
+.map-more { position: relative; }
+.map-more summary { list-style: none; cursor: pointer; padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); }
+.map-more summary::-webkit-details-marker { display: none; }
+.map-more[open] summary { border-color: var(--gold); color: var(--gold-2); }
+.map-more[open] { position: relative; }
+.map-more button { display: block; width: 100%; margin-top: 4px; text-align: left; }
+.map-row .tw .primary, .map-row > .primary { font-weight: 600; }
+table.seg td.ahead, table.seg .ahead { color: var(--ok); }
+table.seg td.behind, table.seg .behind { color: var(--bad); }

@@ -112,17 +112,23 @@
     renderNow(); renderTotals(); renderHistory(); renderCharacter(); renderCampaign();
     renderHelp();
     layoutSticky();
+    if (state.settings.focusMode) _layoutStickySoon();
     pushOverlay();
   }
 
   /** The top bar wraps on narrow screens, so sticky offsets are measured, not hard-coded. */
   function layoutSticky() {
-    const top = $(".topbar"), now = $("#now"), root = document.documentElement.style;
+    const top = $(".topbar"), now = $("#now");
+    if (!top || !now) return;
+    const root = document.documentElement.style;
     const topH = getComputedStyle(top).position === "sticky" ? top.offsetHeight : 0;
     now.style.top = topH + "px";
+    // Measure after density classes apply (focus mode shrinks the now bar).
     root.setProperty("--sticky-top", topH + now.offsetHeight + 12 + "px");
   }
   window.addEventListener("resize", () => layoutSticky());
+  // Recalc after fonts/layout settle when focus mode toggles.
+  const _layoutStickySoon = () => requestAnimationFrame(() => requestAnimationFrame(layoutSticky));
 
   /** Big current-step block: objective, hints (unless hidden) and key route info (unless hidden). */
   function nowStepHTML(c, s) {
@@ -132,10 +138,13 @@
     if (s.waypoint) info.push(`<span class="k">Waypoint</span> ${esc(s.waypoint === true ? "Yes" : s.waypoint)}`);
     if (s.skip.length) info.push(`<span class="k">Skip</span> ${esc(s.skip.join("; "))}`);
     if (s.warning) info.push(`<span class="warn">⚠ ${esc(s.warning)}</span>`);
+    const more = hints.length > 1 ? hints.length - 1 : 0;
     return `<div class="now-step">
       <label class="now-objective"><input type="checkbox" data-action="step" data-id="${esc(s.id)}"${c.done[s.id] ? " checked" : ""}>
         <span>${esc(s.objective)}${s.level ? ` <span class="lvl">lvl ${esc(s.level)}</span>` : ""}${s.optional ? ' <span class="optional">optional</span>' : ""}</span></label>
-      ${hints.length ? `<ul class="now-hints">${hints.map(h => `<li>${esc(h)}</li>`).join("")}</ul>` : ""}
+      ${hints.length ? `<ul class="now-hints"><li>${esc(hints[0])}</li></ul>
+        ${more ? `<details class="now-more-tips"><summary>+${more} more tip${more > 1 ? "s" : ""}</summary>
+          <ul class="now-hints">${hints.slice(1).map(h => `<li>${esc(h)}</li>`).join("")}</ul></details>` : ""}` : ""}
       ${info.length ? `<div class="now-info">${info.map(x => `<div>${x}</div>`).join("")}</div>` : ""}
     </div>`;
   }
@@ -231,8 +240,15 @@
   function renderTotals() {
     const c = char(), steps = allSteps(c), p = Run.pb(c), bests = Run.bestsFor(c);
     const done = steps.filter(s => c.done[s.id]).length;
-    const row = (label, kind, id, ms, pbMs, bestMs, cls = "") => `<tr class="${cls}"><th>${esc(label)}</th>
-      <td>${sumTimer(kind, id, ms)}</td><td class="muted">${pbMs ? fmt(pbMs) : "–"}</td><td class="muted">${bestMs ? fmt(bestMs) : "–"}</td></tr>`;
+    const row = (label, kind, id, ms, pbMs, bestMs, cls = "") => {
+      const d = (pbMs && ms) ? ms - pbMs : null;
+      const dCls = d === null ? "" : deltaClass(d);
+      return `<tr class="${cls}"><th>${esc(label)}</th>
+        <td class="${dCls}">${sumTimer(kind, id, ms)}</td>
+        <td class="mono ${dCls}" data-seg-delta="${kind}:${esc(id)}">${d !== null ? fmtDelta(d) : "–"}</td>
+        <td class="muted">${pbMs ? fmt(pbMs) : "–"}</td>
+        <td class="muted">${bestMs ? fmt(bestMs) : "–"}</td></tr>`;
+    };
     const rows = [];
     DATA.groups.forEach(g => {
       const secs = DATA.sections.filter(s => s.group === g.id);
@@ -246,11 +262,13 @@
     $("#totals").innerHTML = `<h2>Run &amp; segments</h2>
       <div>${done} / ${steps.length} steps · ${Run.order(c).filter(o => c.split[o.zone.id]).length}/${Run.order(c).length} zones split</div>
       <div class="progress"><div style="width:${(100 * done / steps.length).toFixed(1)}%"></div></div>
-      <table class="seg"><thead><tr><th></th><th>Now</th><th>PB</th><th>Best</th></tr></thead><tbody>
+      <table class="seg"><thead><tr><th></th><th>Now</th><th>Δ</th><th>PB</th><th>Best</th></tr></thead><tbody>
       ${rows.join("")}
-      <tr class="sum"><th>Acts</th><td><span class="timer" data-sum="acts:">${fmt(actsMs)}</span></td><td></td><td></td></tr>
-      <tr class="sum"><th>Interludes</th><td><span class="timer" data-sum="interludes:">${fmt(intMs)}</span></td><td></td><td></td></tr>
-      <tr class="grand"><th>Campaign</th><td>${sumTimer("total", "", Run.totalMs(c))}</td><td>${p ? fmt(p.total) : "–"}</td><td>${sob ? fmt(sob) : "–"}</td></tr>
+      <tr class="sum"><th>Acts</th><td><span class="timer" data-sum="acts:">${fmt(actsMs)}</span></td><td></td><td></td><td></td></tr>
+      <tr class="sum"><th>Interludes</th><td><span class="timer" data-sum="interludes:">${fmt(intMs)}</span></td><td></td><td></td><td></td></tr>
+      <tr class="grand"><th>Campaign</th><td>${sumTimer("total", "", Run.totalMs(c))}</td>
+        <td class="mono ${p ? deltaClass(Run.totalMs(c) - p.total) : ""}" data-seg-delta="total:">${p ? fmtDelta(Run.totalMs(c) - p.total) : "–"}</td>
+        <td>${p ? fmt(p.total) : "–"}</td><td>${sob ? fmt(sob) : "–"}</td></tr>
       </tbody></table>
       <div class="muted small">Best = best segment ever (gold). Campaign best = sum of best zones.</div>
       <div class="totals-row"><span>Maps total</span><span class="mono" data-sum="maps:">${fmt(Timers.sum(c, "map:"))}</span></div>`;
@@ -432,13 +450,20 @@
           <datalist id="mapNames">${[...new Set((c.mapHistory || []).map(m => m.name))].map(n => `<option value="${esc(n)}">`).join("")}</datalist>
           <button class="primary" type="submit">Add map</button></form>
         ${c.maps.length ? c.maps.map(m => {
-          const st = stats[mapKey(m.name)], ms = Timers.value(c, "map:" + m.id);
+          const st = stats[mapKey(m.name)], key = "map:" + m.id, ms = Timers.value(c, key);
+          const running = Timers.isRunning(c, key);
           return `<div class="map-row" data-map="${esc(m.id)}"><span class="name">${esc(m.name)} ${statLine(st)}</span>
           ${st && ms ? `<span class="delta ${deltaClass(ms - st.pb)}" data-map-delta="${esc(m.id)}">${fmtDelta(ms - st.pb)}</span>` : ""}
-          ${timerWidget("map:" + m.id, m.name)}
-          <button data-action="map-finish" data-id="${esc(m.id)}" title="Save this run to map history and reset the timer"${ms ? "" : " disabled"}>✓ Finish</button>
-          <button data-action="map-delete" data-id="${esc(m.id)}" class="danger" title="Remove map from the list (history is kept)">✕</button></div>`;
-        }).join("") : `<div class="empty">No maps yet. Add one, press Start when you enter it and ✓ Finish when done.</div>`}
+          <span class="tw${running ? " running" : ""}" data-key="${esc(key)}">
+            <span class="timer" data-timer="${esc(key)}">${fmt(ms)}</span>
+            <button class="tt primary" data-action="timer-toggle" data-key="${esc(key)}">${running ? "Stop" : "Start"}</button>
+          </span>
+          <button class="primary" data-action="map-finish" data-id="${esc(m.id)}" title="Save this run"${ms ? "" : " disabled"}>Finish</button>
+          <details class="map-more"><summary title="More">⋯</summary>
+            <button data-action="timer-reset" data-key="${esc(key)}">Reset timer</button>
+            <button data-action="map-delete" data-id="${esc(m.id)}" class="danger">Delete map</button>
+          </details></div>`;
+        }).join("") : `<div class="empty">No maps yet. Add one, press Start when you enter it, then Finish.</div>`}
         ${hist.length ? `<h3 class="chart-title" style="padding:0 16px">Recent map runs</h3><ol class="runs map-runs">${hist.map(m => {
           const st = stats[mapKey(m.name)], isPb = st && st.pb === m.ms;
           return `<li class="${isPb ? "is-pb" : ""}"><span class="mono">${fmt(m.ms)}</span><span>${esc(m.name)}${isPb ? " · PB" : ""}</span>
@@ -448,7 +473,7 @@
   }
 
   /* ---------- Run analytics (history charts / trends) ---------- */
-  let statSeg = "total";                  // UI-only: segment shown in the trend chart
+  let statSeg = null;                   // UI-only; null = pick worst avg−best group once
   const segValue = (h, seg) => {
     if (seg === "total") return h.total;
     const [kind, id] = seg.split(":");
@@ -475,6 +500,20 @@
     const totals = complete.map(h => h.total), last5 = totals.slice(-5);
     const card = (label, v) => `<div class="stat"><div class="muted small">${label}</div><div class="mono">${v}</div></div>`;
     const opts = segmentOptions(c);
+    // Default the secondary chart to the group with the worst avg−best (most time to gain),
+    // not a duplicate of the campaign-total chart above.
+    if (statSeg === null) {
+      let worst = null, worstGain = -1;
+      DATA.groups.forEach(g => {
+        const vals = runs.map(h => h.groups[g.id]).filter(Boolean);
+        const b = Run.bestsFor(c)["group:" + g.id];
+        if (b && vals.length >= 2) {
+          const gain = avg(vals) - b;
+          if (gain > worstGain) { worstGain = gain; worst = "group:" + g.id; }
+        }
+      });
+      statSeg = worst || "total";
+    }
     if (!opts.some(o => o[0] === statSeg)) statSeg = "total";
     const segRuns = (statSeg === "total" ? complete : runs).filter(h => segValue(h, statSeg));
     const segVals = segRuns.map(h => segValue(h, statSeg));
@@ -557,7 +596,20 @@
     });
     const d = $("#liveDelta");
     if (d && Run.pb(c)) { const v = Run.deltaVsPb(c, now); d.textContent = fmtDelta(v); d.className = deltaClass(v); }
-    // Keep the overlay clock in sync (~4 Hz cap inside pushState).
+    const p = Run.pb(c);
+    if (p) {
+      document.querySelectorAll("[data-seg-delta]").forEach(el => {
+        const [kind, id] = el.dataset.segDelta.split(":");
+        let ms, pbMs;
+        if (kind === "total") { ms = Run.totalMs(c, now); pbMs = p.total; }
+        else if (kind === "group") { ms = Run.groupMs(c, id, now); pbMs = p.groups[id]; }
+        else { ms = Run.sectionMs(c, id, now); pbMs = p.sections[id]; }
+        if (!pbMs || !ms) { el.textContent = "–"; el.className = "mono muted"; return; }
+        const v = ms - pbMs;
+        el.textContent = fmtDelta(v);
+        el.className = "mono " + deltaClass(v);
+      });
+    }
     if (Run.runningZone(c) || Run.isPaused(c)) pushOverlay();
   }
 
@@ -624,6 +676,7 @@
       render();
     },
     "map-delete"(el) {
+      if (!confirm("Remove this map from the list? History is kept.")) return;
       const c = char();
       c.maps = c.maps.filter(m => m.id !== el.dataset.id);
       Timers.reset(c, "map:" + el.dataset.id);
