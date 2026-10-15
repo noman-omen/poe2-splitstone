@@ -80,7 +80,7 @@ Optional: the app can check GitHub Releases for updates when you’re online.
 - **Characters** — Create, switch, rename, delete; one saved campaign per character.
 - **Persistence** — `localStorage` (`splitstone:v1`; older `poe2-campaign-tracker:v1` saves migrate automatically). JSON export / import.
 - **Practice mode** — Run a single act, interlude, or zone. Splits, auto-split, and PB/bests are scoped to that practice variant and never overwrite the full-campaign PB. Exit anytime from the route bar or now bar.
-- **Gear / gem checkpoints** — Glanceable cues for vendor checks, weapon crafts (e.g. lvl 16), Uncut skill/support/Spirit gems, and class-specific swaps (six basic classes). Uncertain notes are dashed. Hidden with **Hide hints** / **Hide extra info**.
+- **Gear / gem checkpoints** — Glanceable cues for vendor checks, weapon crafts (e.g. lvl 16), Uncut skill/support/Spirit gems, and class-specific swaps (six basic classes). Act 4 (weapon pieces, tattoos, Kaimana) and the Interludes (Spirit, Boons, passives) are covered. Uncertain notes are dashed. Hidden with **Hide hints** / **Hide extra info**.
 - **Level / XP warnings** — Per-zone recommended / area level from the route; warns when your character level (manual field or PoB) is under-leveled or near the XP-penalty window (`±(3 + ⌊level/16⌋)`, Malura 0.5.x). Glanceable in the zone list + now bar; hidden with **Hide extra info**.
 - **Auto-split from Client.txt** — Optional local helper (SSE) or Chrome/Edge File System Access. Hideouts, re-entries, and backtracking are ignored.
 - **Rebindable hotkeys** — Settings panel with conflict detection; bindings export with the save.

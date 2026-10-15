@@ -96,11 +96,111 @@ window.GEAR_CHECKPOINTS = {
     "act3-16": [
       S("craft", "Reforging Bench", "Mektul → Hammer of Kamasa to Oswald unlocks the Reforging Bench.", ["campaign"]),
     ],
+    "act4-01": [
+      S("vendor", "Kingsmarch gear", "Before sailing: sell junk, check Kingsmarch vendors for ~lvl 40–42 weapon/armour upgrades.", ["campaign", "malura"], { uncertain: true }),
+    ],
+    "act4-02": [
+      S("support", "Beast Pen support", "Optional Beast Pen: Uncut Support Gem Lv4. Blind Beast: Greater Blank Rune.", ["campaign"]),
+    ],
     "act4-03": [
-      S("weapon", "Weapon piece 1/3", "Island bosses drop Tavakai weapon pieces (or free Matiki) — track 3 pieces for Arastas.", ["campaign"]),
+      S("weapon", "Weapon piece 1/3", "Krutog (or free Matiki): Tavakai weapon piece 1/3 — track all three before Arastas.", ["campaign"]),
+      S("tip", "Nest ring", "Optional Nest: Ruby/Topaz Ring if your fire/lightning res is soft.", ["campaign"], { uncertain: true }),
+    ],
+    "act4-05": [
+      S("gem", "Tujen skill gem", "After Omniphobia: Tujen Uncut Skill Gem + Mist-shrouded Tome (+2 passives).", ["campaign"]),
+      S("vendor", "Mid-Act4 vendor", "Around here: refresh weapon if DPS stalled — island content is dense.", ["malura"], { uncertain: true }),
+    ],
+    "act4-06": [
+      S("craft", "Goddess flask", "Optional Goddess of Justice: +30% life or mana flask recovery (swappable).", ["campaign"]),
+    ],
+    "act4-07": [
+      S("weapon", "Weapon piece 2/3", "The Prisoner (or Matiki): weapon piece 2/3.", ["campaign"]),
+    ],
+    "act4-08": [
+      S("weapon", "Weapon piece 3/3", "Scourge of the Skies (or Matiki): final weapon piece — Arastas unlocks after all three.", ["campaign"]),
+    ],
+    "act4-09": [
+      S("tip", "Shark Fin", "Great White One → Shark Fin for Kaimana's permanent Lesson after Tavakai.", ["campaign"]),
+      S("support", "Crabshell support", "Optional Crabshell Cavern: Uncut Support Gem.", ["campaign"]),
+    ],
+    "act4-10": [
+      S("craft", "Humming Pearl", "Optional Diamora: Humming Pearl → Rog Pearlescent Amulet (all res) — strong campaign neck.", ["campaign"]),
+    ],
+    "act4-11": [
+      S("spirit", "Waterfall Spirit", "Eye of Hinekora: Spirit Gem in the waterfall chest; Silent Hall +5% max mana.", ["campaign"]),
+    ],
+    "act4-12": [
+      S("craft", "Halls tattoos", "3 permanent tattoos: each +5% fire/cold/lightning res OR +5 Str/Int/Dex — pick for your softest check.", ["campaign"]),
+    ],
+    "act4-13": [
+      S("tip", "Hinekora tattoo", "Navali: Tattoo of Hinekora (+2 passive points).", ["campaign"]),
     ],
     "act4-14": [
-      S("weapon", "Pieces → Arastas", "Need all 3 weapon pieces before Makoru sails to Arastas.", ["campaign"]),
+      S("weapon", "Pieces → Arastas", "Confirm all 3 weapon pieces before Makoru sails to Arastas.", ["campaign"]),
+      S("tip", "Ange hideout", "Optional Ange: claim hideout before the siege push.", ["campaign"]),
+    ],
+    "act4-15": [
+      S("craft", "Verisium Anvil", "Runeseeker Expedition → Farrow / Verisium Anvil in hideout (crafting bench upgrade).", ["campaign"]),
+    ],
+    "act4-16": [
+      S("tip", "Arastas bells", "Optional bells: 3 Exalted + 3 Regal — nice currency spike before Benedictus.", ["campaign"]),
+      S("vendor", "Pre-Tavakai gear", "Last big vendor pass before Ngakanu: weapon + res for Tavakai (~46–48).", ["malura"], { uncertain: true }),
+    ],
+    "act4-19": [
+      S("tip", "Tavakai fight", "Final Act 4 boss — bring flask charges and a sapphire/topaz charm if ele-res soft.", ["campaign"], { uncertain: true }),
+    ],
+    "act4-20": [
+      S("craft", "Kaimana Lesson", "Shark Fin → Kaimana: permanent Lesson (Kaom's or Rakiata's). Interludes unlock after Hooded One.", ["campaign"]),
+    ],
+
+    // —— Interlude 2 · part 1 ——
+    "interludes-01": [
+      S("vendor", "Bazaar gear", "Khari Bazaar (~50): refresh weapon/armour before the desert stretch.", ["campaign", "malura"], { uncertain: true }),
+    ],
+    "interludes-02": [
+      S("craft", "+5% max life", "Skullmaw: Molten One's Gift — permanent +5% maximum life.", ["campaign"]),
+    ],
+    "interludes-04": [
+      S("tip", "+2 passives", "Akthi & Anundr → Risu Book of Specialisation (+2 passives).", ["campaign"]),
+    ],
+
+    // —— Interlude 3 ——
+    "interludes-06": [
+      S("gem", "Monument gem", "Optional Ancient Monument: Uncut Skill Gem ~Lv14.", ["campaign"]),
+    ],
+    "interludes-07": [
+      S("spirit", "+40 Spirit", "Lythara: Gemcrust Skull (+40 Spirit) + Uncut Spirit Gem ~Lv14 — big aura/Herald upgrade.", ["campaign"]),
+    ],
+    "interludes-08": [
+      S("tip", "Icy Tusks +2", "Abominable Yeti → Hilda Book of Specialisation (+2 passives).", ["campaign"]),
+    ],
+    "interludes-10": [
+      S("tip", "Free Unique", "Elder Madox: pick one Unique — favour a weapon or res/life chest if still on rares.", ["campaign"], { uncertain: true }),
+    ],
+
+    // —— Interlude 2 · part 2 ——
+    "interludes-13": [
+      S("tip", "Barya wishes", "Optional Elzarah: rare ring/amulet/jewel wishes — fill res holes.", ["campaign"], { uncertain: true }),
+    ],
+    "interludes-15": [
+      S("craft", "Qimah Boon", "Seven Pillars boon (swappable): Tabana +5% all ele res is the safe campaign pick.", ["campaign"]),
+    ],
+
+    // —— Interlude 1 ——
+    "interludes-17": [
+      S("vendor", "Refuge / Ogham", "Interlude 1 (~57): last campaign vendor pass before maps — weapon + flasks.", ["malura"], { uncertain: true }),
+    ],
+    "interludes-20": [
+      S("craft", "Greater Runes", "Optional Soul of the Ferryman: Greater Runes (~2000g) for endgame sockets.", ["campaign"]),
+    ],
+    "interludes-21": [
+      S("tip", "Warden +2", "Oswin: Warden's Ledger (+2 passive points).", ["campaign"]),
+    ],
+    "interludes-24": [
+      S("tip", "Siege Book +2", "Hooded One: Book of Specialisation (+2) before Oriath / maps.", ["campaign"]),
+    ],
+    "interludes-25": [
+      S("tip", "Maps next", "Ziggurat Map Device — campaign complete; roll first maps with your Act 4 / Interlude gear.", ["campaign"]),
     ],
   };
 

@@ -48,6 +48,21 @@ with sync_playwright() as p:
     check("Renly step has gem cue", meta["renlyHasGem"], meta)
     check("Monk Renly is class-specific", meta["monkHasCascade"], meta)
     check("Merc Act2 crossbow cue", meta["mercCrossbowLater"], meta)
+
+    a4 = page.evaluate( """() => {
+      const g = GEAR_CHECKPOINTS.shared;
+      const pieces = ['act4-03','act4-07','act4-08'].filter(id => (g[id]||[]).some(x => /piece/i.test(x.short+x.text)));
+      const spirit = (g['act4-11']||[]).some(x => x.kind==='spirit');
+      const intlSpirit = (g['interludes-07']||[]).some(x => x.kind==='spirit');
+      const boon = (g['interludes-15']||[]).some(x => /Boon|Qimah/i.test(x.short));
+      return { pieces: pieces.length, spirit, intlSpirit, boon, nAct4: Object.keys(g).filter(k=>k.startsWith('act4-')).length };
+    }""")
+    check("Act4 weapon piece cues (3 bosses)", a4["pieces"] >= 3, a4)
+    check("Act4 Hinekora spirit cue", a4["spirit"], a4)
+    check("Interlude Lythara spirit cue", a4["intlSpirit"], a4)
+    check("Interlude Qimah Boon cue", a4["boon"], a4)
+    check("Act4 shared cues expanded", a4["nAct4"] >= 12, a4)
+
     check("Lvl 16 craft checkpoint", meta["lvl16"], meta)
     check("zone aggregates cues", meta["zoneCues"] >= 1, meta)
 
