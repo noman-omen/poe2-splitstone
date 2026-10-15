@@ -93,6 +93,22 @@
   }
   window.addEventListener("resize", () => layoutSticky());
 
+  /** Big current-step block: objective, hints (unless hidden) and key route info (unless hidden). */
+  function nowStepHTML(c, s) {
+    if (!s) return "";
+    const hints = stepHints(c, s), info = [];
+    if (s.rewards.length) info.push(s.rewards.map(r => `<span class="reward${r.must ? " must" : ""}">${r.must ? "★ " : ""}${esc(r.label)}</span>`).join(""));
+    if (s.waypoint) info.push(`<span class="k">Waypoint</span> ${esc(s.waypoint === true ? "Yes" : s.waypoint)}`);
+    if (s.skip.length) info.push(`<span class="k">Skip</span> ${esc(s.skip.join("; "))}`);
+    if (s.warning) info.push(`<span class="warn">⚠ ${esc(s.warning)}</span>`);
+    return `<div class="now-step">
+      <label class="now-objective"><input type="checkbox" data-action="step" data-id="${esc(s.id)}"${c.done[s.id] ? " checked" : ""}>
+        <span>${esc(s.objective)}${s.level ? ` <span class="lvl">lvl ${esc(s.level)}</span>` : ""}${s.optional ? ' <span class="optional">optional</span>' : ""}</span></label>
+      ${hints.length ? `<ul class="now-hints">${hints.map(h => `<li>${esc(h)}</li>`).join("")}</ul>` : ""}
+      ${info.length ? `<div class="now-info">${info.map(x => `<div>${x}</div>`).join("")}</div>` : ""}
+    </div>`;
+  }
+
   /** The "now playing" bar: current zone, next steps, big timers, split controls. */
   function renderNow() {
     const c = char(), cur = Run.current(c), running = Run.runningZone(c), paused = Run.isPaused(c);
@@ -108,16 +124,19 @@
     const z = cur.zone, pbSeg = p && p.zones[z.id], best = Run.bestsFor(c)["zone:" + z.id];
     const vis = visibleSteps(c, z), todo = vis.filter(s => !c.done[s.id]);
     const next = Run.order(c)[cur.index + 1];
+    // Current step = first open step in the zone; the rest of the zone's open steps go below it.
+    const step = todo[0] || vis[vis.length - 1], others = todo.slice(1, 4);
+    const nextStep = todo[1] || (next && visibleSteps(c, next.zone)[0]);
     const label = running ? "Split" : paused ? "Resume" : Run.isStarted(c) ? "Resume" : "Start run";
     $("#now").innerHTML = `
       <div class="now-main">
         <div class="now-where"><span data-as-pill>${statusPill()}</span> ${esc(cur.section.name)} · zone ${cur.index >= 0 ? cur.index + 1 : "–"}/${Run.order(c).length}${paused ? ' · <span class="behind">PAUSED</span>' : ""}</div>
         <div class="now-zone">${esc(z.name)}</div>
-        <ul class="now-steps">${(todo.length ? todo : vis).slice(0, 3).map(s => `<li>
-          <label><input type="checkbox" data-action="step" data-id="${esc(s.id)}"${c.done[s.id] ? " checked" : ""}>
-          ${esc(s.objective)}${s.optional ? ' <span class="optional">optional</span>' : ""}</label>
-          ${stepHints(c, s).length ? `<div class="hints-inline">${esc(stepHints(c, s)[0])}</div>` : ""}</li>`).join("")}</ul>
-        ${next ? `<div class="now-next">Next: ${esc(next.zone.name)}${next.section !== cur.section ? ` (${esc(next.section.name)})` : ""}</div>` : ""}
+        ${nowStepHTML(c, step, true)}
+        ${others.length ? `<ul class="now-more">${others.map(x => `<li><label><input type="checkbox" data-action="step" data-id="${esc(x.id)}"${c.done[x.id] ? " checked" : ""}>
+          ${esc(x.objective)}${x.optional ? ' <span class="optional">optional</span>' : ""}</label></li>`).join("")}</ul>` : ""}
+        <div class="now-next">${nextStep ? `<span class="k">Next step</span> ${esc(nextStep.objective)}` : ""}
+          ${next ? `<span class="k">Next zone</span> ${esc(next.zone.name)}${next.section !== cur.section ? ` (${esc(next.section.name)})` : ""}` : ""}</div>
       </div>
       <div class="now-clock">
         <div class="big mono" data-timer="zone:${esc(z.id)}">${fmt(Run.zoneMs(c, z.id))}</div>
@@ -173,6 +192,7 @@
         <span class="muted">${(h.variant || "normal").startsWith("fast") ? "⚡" : ""}${h.complete ? (hp && h.id !== hp.id ? `<span class="behind">${fmtDelta(h.total - hp.total)}</span>` : "PB") : `reset ${h.splitsDone}/${h.zonesTotal}`}</span>
         <span class="muted small">${new Date(h.finished).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</span>
         <button class="icon danger" data-action="run-delete" data-id="${esc(h.id)}" title="Delete run" aria-label="Delete run">✕</button></li>`; }).join("")}</ol>` : ""}
+      <div class="row"><a href="#stats" class="small">📈 Run analytics &amp; CSV</a></div>
       ${c.history.length > runs.length ? `<div class="muted small">+${c.history.length - runs.length} older runs (in export)</div>` : ""}`;
   }
 
@@ -254,16 +274,8 @@
         <div class="zones">${zones.map(z => zoneHTML(z, c, cur)).join("")}</div></section>`;
     }).join("");
 
-    const maps = `<section class="section maps" data-section="maps">
-      <header><h2>Endgame maps<small>per-map timers (not part of the campaign run)</small></h2>
-        <span class="badge">${c.maps.length}</span></header>
-      <div class="zones">
-        <form class="maps-add" data-form="map-add"><input type="text" id="mapName" placeholder="Map name, e.g. Burial Bog (T1)" maxlength="80">
-          <button class="primary" type="submit">Add map</button></form>
-        ${c.maps.length ? c.maps.map(m => `<div class="map-row" data-map="${esc(m.id)}"><span class="name">${esc(m.name)}</span>
-          ${timerWidget("map:" + m.id, m.name)}<button data-action="map-delete" data-id="${esc(m.id)}" class="danger" title="Remove map">✕</button></div>`).join("")
-          : `<div class="empty">No maps yet.</div>`}
-      </div></section>`;
+    const maps = mapsHTML(c);
+
     const v = DATA.variants[r.mode] || {};
     const routeBar = `<section class="card route-bar" aria-label="Route">
       <label>Route <select id="routeMode">${Object.entries(DATA.variants).map(([k, x]) =>
@@ -283,8 +295,137 @@
       </details>
       ${v.tips && v.tips.length ? `<details class="tips" data-keep="tips"${openDetails.has("tips") ? " open" : ""}><summary>Speedrun tips (${v.tips.length})</summary><ul>${v.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul></details>` : ""}
     </section>`;
-    $("#campaign").innerHTML = routeBar + sections + maps;
+    $("#campaign").innerHTML = routeBar + sections + maps + statsHTML(c);
   }
+
+  /* ---------- Endgame maps: timers + history / PBs ---------- */
+  const mapKey = name => name.trim().toLowerCase();
+  /** Per-map stats from history, keyed by normalised map name. */
+  function mapStats(c) {
+    const out = {};
+    (c.mapHistory || []).forEach(m => {
+      const k = mapKey(m.name), s = out[k] || (out[k] = { runs: 0, sum: 0, pb: null, last: null });
+      s.runs++; s.sum += m.ms;
+      if (s.pb === null || m.ms < s.pb) s.pb = m.ms;
+      if (!s.last) s.last = m.ms;                  // history is newest first
+    });
+    Object.values(out).forEach(s => { s.avg = s.sum / s.runs; });
+    return out;
+  }
+
+  function mapsHTML(c) {
+    const stats = mapStats(c), hist = (c.mapHistory || []).slice(0, 12);
+    const statLine = st => st ? `<span class="muted small mono" title="${st.runs} runs">PB ${fmt(st.pb)} · avg ${fmt(st.avg)} · ${st.runs}×</span>` : `<span class="muted small">no runs yet</span>`;
+    return `<section class="section maps" data-section="maps">
+      <header><h2>Endgame maps<small>timed map runs, history and per-map PBs (separate from the campaign run)</small></h2>
+        <span class="badge">${(c.mapHistory || []).length} runs</span></header>
+      <div class="zones">
+        <form class="maps-add" data-form="map-add"><input type="text" id="mapName" list="mapNames" placeholder="Map name, e.g. Burial Bog (T1)" maxlength="80">
+          <datalist id="mapNames">${[...new Set((c.mapHistory || []).map(m => m.name))].map(n => `<option value="${esc(n)}">`).join("")}</datalist>
+          <button class="primary" type="submit">Add map</button></form>
+        ${c.maps.length ? c.maps.map(m => {
+          const st = stats[mapKey(m.name)], ms = Timers.value(c, "map:" + m.id);
+          return `<div class="map-row" data-map="${esc(m.id)}"><span class="name">${esc(m.name)} ${statLine(st)}</span>
+          ${st && ms ? `<span class="delta ${deltaClass(ms - st.pb)}" data-map-delta="${esc(m.id)}">${fmtDelta(ms - st.pb)}</span>` : ""}
+          ${timerWidget("map:" + m.id, m.name)}
+          <button data-action="map-finish" data-id="${esc(m.id)}" title="Save this run to map history and reset the timer"${ms ? "" : " disabled"}>✓ Finish</button>
+          <button data-action="map-delete" data-id="${esc(m.id)}" class="danger" title="Remove map from the list (history is kept)">✕</button></div>`;
+        }).join("") : `<div class="empty">No maps yet. Add one, press Start when you enter it and ✓ Finish when done.</div>`}
+        ${hist.length ? `<h3 class="chart-title" style="padding:0 16px">Recent map runs</h3><ol class="runs map-runs">${hist.map(m => {
+          const st = stats[mapKey(m.name)], isPb = st && st.pb === m.ms;
+          return `<li class="${isPb ? "is-pb" : ""}"><span class="mono">${fmt(m.ms)}</span><span>${esc(m.name)}${isPb ? " · PB" : ""}</span>
+            <span class="muted small">${new Date(m.finished).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</span>
+            <button class="icon danger" data-action="map-run-delete" data-id="${esc(m.id)}" aria-label="Delete map run">✕</button></li>`; }).join("")}</ol>` : ""}
+      </div></section>`;
+  }
+
+  /* ---------- Run analytics (history charts / trends) ---------- */
+  let statSeg = "total";                  // UI-only: segment shown in the trend chart
+  const segValue = (h, seg) => {
+    if (seg === "total") return h.total;
+    const [kind, id] = seg.split(":");
+    return (kind === "group" ? h.groups : kind === "section" ? h.sections : h.zones)[id];
+  };
+  const avg = xs => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+  const shortDate = iso => new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" });
+
+  function segmentOptions(c) {
+    const opts = [["total", "Campaign total"]];
+    DATA.groups.forEach(g => {
+      opts.push(["group:" + g.id, g.name]);
+      const secs = DATA.sections.filter(s => s.group === g.id);
+      if (secs.length > 1) secs.forEach(s => opts.push(["section:" + s.id, "  " + s.name]));
+    });
+    Run.order(c).forEach(o => opts.push(["zone:" + o.zone.id, `Zone · ${o.section.name} · ${o.zone.name}`]));
+    return opts;
+  }
+
+  function statsHTML(c) {
+    const variant = Run.variantKey(Run.route(c));
+    const runs = Run.runsOf(c, variant).slice().reverse();       // chronological
+    const complete = runs.filter(h => h.complete), p = Run.pb(c), sob = Run.sumOfBest(c);
+    const totals = complete.map(h => h.total), last5 = totals.slice(-5);
+    const card = (label, v) => `<div class="stat"><div class="muted small">${label}</div><div class="mono">${v}</div></div>`;
+    const opts = segmentOptions(c);
+    if (!opts.some(o => o[0] === statSeg)) statSeg = "total";
+    const segRuns = (statSeg === "total" ? complete : runs).filter(h => segValue(h, statSeg));
+    const segVals = segRuns.map(h => segValue(h, statSeg));
+    const bestKey = statSeg === "total" ? "total" : statSeg;
+    const segBest = Run.bestsFor(c)[bestKey];
+    const pts = segRuns.map(h => ({ y: segValue(h, statSeg), label: shortDate(h.finished), gold: h.total === (p && p.total) && statSeg === "total" }));
+    const refs = [];
+    if (segVals.length > 1) refs.push({ y: avg(segVals), label: "avg " + fmt(avg(segVals)), cls: "avg" });
+    if (segBest) refs.push({ y: segBest, label: "best " + fmt(segBest), cls: "best" });
+    // Per-act/interlude table: where is the most time to gain (avg − best)?
+    const rows = DATA.groups.map(g => {
+      const vals = runs.map(h => h.groups[g.id]).filter(Boolean), b = Run.bestsFor(c)["group:" + g.id];
+      return { name: g.name, avg: avg(vals), best: b, pb: p && p.groups[g.id], last: vals[vals.length - 1], gain: b && vals.length ? avg(vals) - b : null };
+    });
+    return `<section class="section stats" data-section="stats" id="stats">
+      <header><h2>Run analytics<small>${esc(Run.variantLabel(variant))}</small></h2>
+        <button data-action="csv-runs">Runs CSV</button><button data-action="csv-maps">Maps CSV</button></header>
+      <div class="zones"><div class="stat-cards">
+        ${card("Completed runs", complete.length)}${card("Resets", runs.length - complete.length)}
+        ${card("PB", p ? fmt(p.total) : "–")}${card("Average", totals.length ? fmt(avg(totals)) : "–")}
+        ${card("Avg last 5", last5.length ? fmt(avg(last5)) : "–")}${card("Sum of best", sob ? fmt(sob) : "–")}
+        ${card("PB − SoB", p && sob ? fmt(p.total - sob) : "–")}
+      </div>
+      <h3 class="chart-title">Campaign time per run</h3>
+      ${Charts.line(complete.map(h => ({ y: h.total, label: shortDate(h.finished), gold: p && h.id === p.id })),
+        { fmt, title: "Campaign time per run", refs: [
+          ...(totals.length > 1 ? [{ y: avg(totals), label: "avg", cls: "avg" }] : []),
+          ...(sob ? [{ y: sob, label: "sum of best", cls: "best" }] : [])] })}
+      <h3 class="chart-title">Segment trend <select id="statSeg">${opts.map(([v, l]) =>
+        `<option value="${esc(v)}"${v === statSeg ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></h3>
+      ${Charts.line(pts, { fmt, title: "Segment trend", refs })}
+      <div class="muted small">${segVals.length} runs · avg ${segVals.length ? fmt(avg(segVals)) : "–"} · best ${segBest ? fmt(segBest) : "–"} · last ${segVals.length ? fmt(segVals[segVals.length - 1]) : "–"}</div>
+      <table class="seg trend"><thead><tr><th>Segment</th><th>Avg</th><th>Best</th><th>PB run</th><th>Last</th><th>Avg − best</th></tr></thead><tbody>
+        ${rows.map(r => `<tr><th>${esc(r.name)}</th>${[r.avg, r.best, r.pb, r.last].map(v => `<td>${v ? fmt(v) : "–"}</td>`).join("")}
+          <td class="${r.gain > 0 ? "behind" : ""}">${r.gain ? fmt(r.gain) : "–"}</td></tr>`).join("")}
+      </tbody></table></div></section>`;
+  }
+
+  /** CSV helpers: one row per run, times in seconds (spreadsheet friendly). */
+  const csvCell = v => (/[",\n]/.test(String(v ?? "")) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? ""));
+  const sec = ms => (ms ? (ms / 1000).toFixed(1) : "");
+  function runsCSV(c) {
+    const cols = [...DATA.groups.map(g => ["groups", g.id, g.name]), ...DATA.sections.map(s => ["sections", s.id, s.name]),
+      ...Run.ALL.map(o => ["zones", o.zone.id, `${o.zone.id} ${o.zone.name}`])];
+    const head = ["run_id", "character", "variant", "complete", "started", "finished", "total_s", ...cols.map(c => c[2] + " (s)")];
+    const lines = c.history.slice().reverse().map(h => [h.id, c.name, h.variant || "normal", h.complete, h.started || "", h.finished,
+      sec(h.total), ...cols.map(([k, id]) => sec((h[k] || {})[id]))]);
+    return [head, ...lines].map(r => r.map(csvCell).join(",")).join("\n") + "\n";
+  }
+  function mapsCSV(c) {
+    const lines = (c.mapHistory || []).slice().reverse().map(m => [m.id, c.name, m.name, m.finished, sec(m.ms)]);
+    return [["run_id", "character", "map", "finished", "time_s"], ...lines].map(r => r.map(csvCell).join(",")).join("\n") + "\n";
+  }
+  function download(name, text, type) {
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([text], { type })), download: name });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  const fileSafe = s => s.replace(/[^a-z0-9_-]+/gi, "_");
 
   /** Called 4×/s: refresh only the numbers, not the DOM structure. */
   function tick() {
@@ -300,6 +441,11 @@
         ms = DATA.groups.filter(g => g.kind === (kind === "acts" ? "act" : "interlude")).reduce((a, g) => a + Run.groupMs(c, g.id, now), 0);
       else ms = sumValue(c, kind, id, now);
       el.textContent = fmt(ms);
+    });
+    const ms = mapStats(c);
+    document.querySelectorAll("[data-map-delta]").forEach(el => {
+      const m = c.maps.find(x => x.id === el.dataset.mapDelta), st = m && ms[mapKey(m.name)];
+      if (st) { const v = Timers.value(c, "map:" + m.id, now) - st.pb; el.textContent = fmtDelta(v); el.className = "delta " + deltaClass(v); }
     });
     const d = $("#liveDelta");
     if (d && Run.pb(c)) { const v = Run.deltaVsPb(c, now); d.textContent = fmtDelta(v); d.className = deltaClass(v); }
@@ -373,6 +519,23 @@
       Timers.reset(c, "map:" + el.dataset.id);
       commit();
     },
+    "map-finish"(el) {
+      const c = char(), m = c.maps.find(x => x.id === el.dataset.id), key = "map:" + el.dataset.id;
+      Timers.stop(c, key);
+      const ms = Timers.value(c, key);
+      if (!m || !ms) return;
+      const prev = mapStats(c)[mapKey(m.name)];
+      c.mapHistory = c.mapHistory || [];
+      c.mapHistory.unshift({ id: Storage2.uid(), name: m.name, ms, finished: new Date().toISOString() });
+      Timers.reset(c, key);
+      commit();
+      toast(!prev || ms < prev.pb ? `New map PB: ${m.name} ${fmt(ms)}` : `${m.name}: ${fmt(ms)} (${fmtDelta(ms - prev.pb)} vs PB)`);
+    },
+    "map-run-delete"(el) {
+      const c = char();
+      c.mapHistory = (c.mapHistory || []).filter(m => m.id !== el.dataset.id);
+      commit();
+    },
     "run-delete"(el) {
       if (!confirm("Delete this run from history? (Best segments are kept.)")) return;
       const c = char();
@@ -412,6 +575,8 @@
       try { await AutoSplit.watchFile(); toast("Watching Client.txt"); }
       catch (e) { if (e.name !== "AbortError") toast(e.message); }
     },
+    "csv-runs"() { download(`poe2-runs-${fileSafe(char().name)}.csv`, runsCSV(char()), "text/csv"); },
+    "csv-maps"() { download(`poe2-maps-${fileSafe(char().name)}.csv`, mapsCSV(char()), "text/csv"); },
     help() { $("#help").toggleAttribute("hidden"); },
     async "pob-import"() {
       const code = $("#pobCode").value;
@@ -447,6 +612,7 @@
       if (running && !Run.inOrder(c, running)) Run.stopAllZones(c);
       commit();
     }
+    else if (el.id === "statSeg") { statSeg = el.value; renderCampaign(); }
     else if (el.id === "autoSplit") {
       state.settings.autoSplit.enabled = el.checked;
       if (el.checked) AutoSplit.connect(state.settings.autoSplit.url); else AutoSplit.disconnect();

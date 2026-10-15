@@ -57,7 +57,7 @@ with sync_playwright() as p:
 
     # --- Structure: interludes split into their own sections/groups ---
     names = page.locator(".section h2").all_text_contents()
-    check("8 campaign sections + maps", len(names) == 9, names)
+    check("8 campaign sections + maps + analytics", len(names) == 10, names)
     check("interludes split (1, 2 part 1/2, 3)",
           all(any(n.startswith(x) for n in names) for x in ("Interlude 1", "Interlude 2 · part 1", "Interlude 2 · part 2", "Interlude 3")))
     seg = page.text_content("#totals")
@@ -115,7 +115,7 @@ with sync_playwright() as p:
     # Focus mode
     page.keyboard.press("f")
     vis = [s for s in page.locator(".section").all() if s.is_visible()]
-    check("focus mode shows only current act (+maps)", len(vis) == 2)
+    check("focus mode shows only current act (+maps, analytics)", len(vis) == 3)
     page.keyboard.press("f")
 
     # --- Complete run 1: every zone 10s ---
@@ -215,6 +215,35 @@ with sync_playwright() as p:
     c = char(page)
     check("manual zone start stops other zones", c["timers"]["zone:act2-z01"]["startedAt"] and not c["timers"]["zone:act1-z01"]["startedAt"])
 
+    # --- Run analytics + CSV ---
+    n_complete = len([h for h in char(page)["history"] if h.get("variant", "normal") == "normal" and h["complete"]])
+    check("trend chart: one point per completed run", page.locator("#stats svg.chart").first.locator("circle").count() == n_complete)
+    check("stat cards show average + sum of best", "Average" in page.text_content("#stats") and "Sum of best" in page.text_content("#stats"))
+    page.select_option("#statSeg", "group:interlude2")
+    check("segment trend selectable (Interlude 2)", page.locator("#stats svg.chart").nth(1).locator("circle").count() >= 2)
+    with page.expect_download() as dl:
+        page.click('[data-action="csv-runs"]')
+    csv = Path(dl.value.path()).read_text().splitlines()
+    check("runs CSV has header + one row per run", csv[0].startswith("run_id,character,variant") and len(csv) == 1 + len(char(page)["history"]), len(csv))
+    check("runs CSV has interlude + zone columns", "Interlude 2 (s)" in csv[0] and "act1-z01" in csv[0])
+
+    # --- Map history + PBs ---
+    for t in (30_000, 20_000):
+        page.click('.map-row button.tt'); tick(page, t)
+        page.click('[data-action="map-finish"]')
+    mh = char(page)["mapHistory"]
+    check("map runs saved to history", len(mh) == 2 and 20_000 <= mh[0]["ms"] < 21_000 and mh[1]["ms"] >= 30_000, [m["ms"] for m in mh])
+    row = page.text_content(".map-row")
+    check("per-map PB + average + count shown", "PB 0:00:20" in row and "2×" in row, row)
+    check("map timer reset after finish", not any(k.startswith("map:") for k in char(page)["timers"]))
+    page.click('.map-row button.tt'); tick(page, 25_000)
+    check("live map delta vs PB", "+0:05" in page.text_content(".map-row"))
+    page.click('.map-row button.tt')
+    with page.expect_download() as dl:
+        page.click('[data-action="csv-maps"]')
+    mcsv = Path(dl.value.path()).read_text().splitlines()
+    check("maps CSV exported", len(mcsv) == 3 and "Burial Bog" in mcsv[1])
+
     # --- PoB ---
     page.fill("#pobCode", "this is not a build!!")
     page.click('[data-action="pob-import"]')
@@ -235,7 +264,7 @@ with sync_playwright() as p:
     dl.value.save_as(export_path)
     exported = json.loads(export_path.read_text())
     ec = list(exported["characters"].values())[0]
-    check("export includes history + bests", len(ec["history"]) == 4 and ec["bests"])
+    check("export includes history + bests + map history", len(ec["history"]) == 4 and ec["bests"] and len(ec["mapHistory"]) == 2)
 
     answer["text"] = "Second char"
     page.click('[data-action="char-new"]')
