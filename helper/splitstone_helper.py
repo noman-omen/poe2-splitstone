@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""PoE2 Campaign Tracker helper: tail Client.txt and push zone changes to the app.
+"""Splitstone helper (PoE2 Client.txt): tail Client.txt and push zone changes to the app.
 
 Standard library only (Python 3.8+). Optional global hotkeys need `pynput`.
 
-    python poe2_splitter.py                      # auto-detect Client.txt
-    python poe2_splitter.py --log "D:\\Games\\Path of Exile 2\\logs\\Client.txt"
-    python poe2_splitter.py --hotkeys            # F1 split, F2 undo, F3 pause (needs pynput)
+    python splitstone_helper.py                      # auto-detect Client.txt
+    python splitstone_helper.py --log "D:\\Games\\Path of Exile 2\\logs\\Client.txt"
+    python splitstone_helper.py --hotkeys            # F1 split, F2 undo, F3 pause (needs pynput)
 
 The app connects to http://127.0.0.1:8766/events (Server-Sent Events).
 Only 127.0.0.1 is bound; nothing is sent anywhere else, and the log is only read.

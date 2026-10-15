@@ -2,7 +2,7 @@
 """Unit tests for the Client.txt parser (no network). Run: python3 helper/test_helper.py"""
 import unittest
 
-from poe2_splitter import Parser
+from splitstone_helper import Parser
 
 GEN = '2026/10/15 05:40:01 1234 abc [DEBUG Client 1234] Generating level {lvl} area "{area}" with seed 1'
 ENT = "2026/10/15 05:40:03 1234 abc [INFO Client 1234] : You have entered {name}."

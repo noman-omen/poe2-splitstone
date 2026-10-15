@@ -33,7 +33,7 @@ def js(page, expr):
 
 
 def char(page):
-    return js(page, "(() => { const s = JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1'));"
+    return js(page, "(() => { const s = JSON.parse(localStorage.getItem('splitstone:v1'));"
                     " return s.characters[s.activeId]; })()")
 
 
@@ -50,7 +50,7 @@ with sync_playwright() as p:
     page.on("pageerror", lambda e: errors.append(str(e)))
     answer = {"text": None}  # what the next prompt() should receive
     page.on("dialog", lambda d: d.accept(answer["text"]) if d.type == "prompt" else d.accept())
-    page.add_init_script("window.state_c = () => { const s = JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')); return s.characters[s.activeId]; }")
+    page.add_init_script("window.state_c = () => { const s = JSON.parse(localStorage.getItem('splitstone:v1')); return s.characters[s.activeId]; }")
     page.goto(URL)
     js(page, "localStorage.clear()")
     page.reload()
@@ -120,7 +120,7 @@ with sync_playwright() as p:
 
     # --- Complete run 1: every zone 10s ---
     for _ in range(200):
-        if js(page, "!Run.current(JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).characters[JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).activeId])"):
+        if js(page, "!Run.current(JSON.parse(localStorage.getItem('splitstone:v1')).characters[JSON.parse(localStorage.getItem('splitstone:v1')).activeId])"):
             break
         tick(page, 10_000)
         page.keyboard.press("Space")
@@ -151,14 +151,11 @@ with sync_playwright() as p:
         if page.locator("#now .now-zone", has_text="🏁").count():
             break
         tick(page, 5_000)
-        n0 = len(char(page)["split"])
         page.keyboard.press("Space")
-        if len(char(page)["split"]) == n0:
-            print("NOSPLIT", _, n0, js(page, "document.activeElement.outerHTML.slice(0,120)"), js(page, "Run.runningZone(JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).characters[JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).activeId])"))
     c = char(page)
     check("run 2 saved, history has 2", len(c["history"]) == 2)
     check("new PB is the faster run", c["history"][0]["total"] < c["history"][1]["total"]
-          and js(page, "Run.pb(JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).characters[JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).activeId]).id") == c["history"][0]["id"])
+          and js(page, "Run.pb(JSON.parse(localStorage.getItem('splitstone:v1')).characters[JSON.parse(localStorage.getItem('splitstone:v1')).activeId]).id") == c["history"][0]["id"])
     check("bests: best total = PB total", c["bests"]["normal"]["total"] == c["history"][0]["total"])
     check("older run shows +delta in history", "+" in page.text_content("#history"))
 
@@ -168,7 +165,7 @@ with sync_playwright() as p:
     page.keyboard.press("r")
     c = char(page)
     check("reset mid-run stores unfinished attempt", len(c["history"]) == 3 and not c["history"][0]["complete"])
-    check("unfinished attempt does not become PB", js(page, "Run.pb(JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).characters[JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).activeId]).complete"))
+    check("unfinished attempt does not become PB", js(page, "Run.pb(JSON.parse(localStorage.getItem('splitstone:v1')).characters[JSON.parse(localStorage.getItem('splitstone:v1')).activeId]).complete"))
 
     # --- Route variants (per character) ---
     page.keyboard.press("r")
@@ -280,7 +277,7 @@ with sync_playwright() as p:
 
     js(page, "localStorage.clear()")
     page.reload()
-    check("cleared state is fresh", not char(page)["history"] if js(page, "!!localStorage.getItem('poe2-campaign-tracker:v1')") else True)
+    check("cleared state is fresh", not char(page)["history"] if js(page, "!!localStorage.getItem('splitstone:v1')") else True)
     page.set_input_files("#importFile", str(export_path))
     page.wait_for_timeout(300)
     check("import restores history + build", len(char(page)["history"]) == 4 and "Infernalist" in page.text_content("#character"))
@@ -288,17 +285,49 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     check("bad import rejected gracefully", "Import failed" in page.text_content("#toast"))
 
+    # --- Colour themes (global) ---
+    check("default theme is ember", js(page, "document.documentElement.getAttribute('data-theme')") == "ember")
+    page.click('[data-action="settings"] >> nth=0')
+    page.click('[data-action="set-theme"][data-id="slate"]')
+    check("theme switches to slate", js(page, "document.documentElement.getAttribute('data-theme')") == "slate")
+    check("theme persisted in settings", js(page, "JSON.parse(localStorage.getItem('splitstone:v1')).settings.theme") == "slate")
+    page.click('[data-action="settings-close"]')
+    page.reload()
+    check("theme survives reload", js(page, "document.documentElement.getAttribute('data-theme')") == "slate"
+          and page.is_visible(".brand h1") and page.text_content(".brand h1") == "Splitstone")
+    page.click('[data-action="settings"] >> nth=0')
+    page.click('[data-action="set-theme"][data-id="crimson"]')
+    page.click('[data-action="set-theme"][data-id="parchment"]')
+    check("parchment theme applied", js(page, "document.documentElement.getAttribute('data-theme')") == "parchment")
+    page.click('[data-action="set-theme"][data-id="ember"]')
+    page.click('[data-action="settings-close"]')
+    with page.expect_download() as dl:
+        page.click('[data-action="export"]')
+    exp = json.loads(Path(dl.value.path()).read_text())
+    check("theme in JSON export", exp.get("settings", {}).get("theme") == "ember" and exp.get("app") == "splitstone")
+    check("branded title", "Splitstone" in page.title() and page.locator('.brand .logo svg').count() == 1)
+
+    # --- Legacy localStorage migration ---
+    page.evaluate("""() => {
+      const cur = localStorage.getItem('splitstone:v1');
+      localStorage.setItem('poe2-campaign-tracker:v1', cur);
+      localStorage.removeItem('splitstone:v1');
+    }""")
+    page.reload()
+    check("legacy key migrated", js(page, "!!localStorage.getItem('splitstone:v1') && !localStorage.getItem('poe2-campaign-tracker:v1')"))
+    check("migrated state still loads", page.text_content(".brand h1") == "Splitstone")
+
     # --- Rebindable hotkeys ---
     page.click('[data-action="settings"] >> nth=0')
     check("hotkey settings open", page.locator("#settings").is_visible())
     page.click('tr[data-hk="split"] button')
     page.keyboard.press("s")
-    check("split rebound to S", js(page, "JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).settings.hotkeys.split") == "s")
+    check("split rebound to S", js(page, "JSON.parse(localStorage.getItem('splitstone:v1')).settings.hotkeys.split") == "s")
     page.click('tr[data-hk="undo"] button')
     page.keyboard.press("s")
     check("conflict detected", "already used" in page.text_content("#keyError"))
     page.keyboard.press("Escape")
-    check("conflicting bind not saved", js(page, "JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).settings.hotkeys.undo") is None)
+    check("conflicting bind not saved", js(page, "JSON.parse(localStorage.getItem('splitstone:v1')).settings.hotkeys.undo") is None)
     page.click('[data-action="settings-close"]')
     check("help overlay reflects bindings", "S" in page.locator("#helpKeys kbd").first.text_content())
     check("split button shows new key", "S" in page.text_content('#now [data-action="split"]'))
@@ -313,7 +342,7 @@ with sync_playwright() as p:
     page.click('[data-action="settings"] >> nth=0')
     page.click('[data-action="keys-reset"]')
     page.click('[data-action="settings-close"]')
-    check("reset defaults", js(page, "JSON.stringify(JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).settings.hotkeys)") == "{}")
+    check("reset defaults", js(page, "JSON.stringify(JSON.parse(localStorage.getItem('splitstone:v1')).settings.hotkeys)") == "{}")
 
     # --- Screenshot (desktop): mid-run with a PB to compare against ---
     page.keyboard.press("r")

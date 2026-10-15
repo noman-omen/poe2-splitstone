@@ -1,10 +1,10 @@
-# PoE2 Campaign Tracker
+# Splitstone
 
-A static, offline-friendly web app for tracking a **Path of Exile 2** campaign run
+**Splitstone** is a static, offline-friendly web app for tracking a **Path of Exile 2** campaign run
 (Acts 1–4 + Interludes, patch 0.5.5 / Forbidden Rites route data), with timers,
 per-character saves and optional Path of Building 2 import.
 
-![Screenshot](screenshots/milestone3.png)
+![Splitstone](screenshots/splitstone.png)
 
 <img src="screenshots/milestone3-phone.png" alt="Phone layout" width="240"> <img src="screenshots/milestone3-stats.png" alt="Run analytics" width="480">
 
@@ -27,7 +27,7 @@ per-character saves and optional Path of Building 2 import.
 - **Focus mode** (`F`): show only the current act/interlude and hide completed zones,
   handy on a second monitor. The phone layout keeps a compact sticky bar with the split button.
 - **Characters**: one saved campaign per character; create, switch, rename, delete.
-- **Persistence**: everything is saved in `localStorage` (`poe2-campaign-tracker:v1`).
+- **Persistence**: everything is saved in `localStorage` (`splitstone:v1`; older `poe2-campaign-tracker:v1` saves are migrated automatically).
 - **Export / import** JSON. Import merges characters (same id overwrites) and rejects invalid files.
 - **PoB2 import** (optional): paste an export code; it is decoded in the browser
   (base64url → zlib inflate via `DecompressionStream` → XML) and shows class, ascendancy,
@@ -52,6 +52,23 @@ per-character saves and optional Path of Building 2 import.
 - **Map history**: each map row has *✓ Finish*, which saves the run and resets the timer. Per-map PB,
   average and run count (grouped by map name), a live delta vs that map's PB, recent runs, and a maps CSV.
 
+## Colour themes
+
+Global preference (this browser), saved in `settings.theme` and included in JSON export/import.
+Default is **Ember**. Change it in ⌨ **Settings**.
+
+| Id | Look |
+| --- | --- |
+| `ember` | Dark charcoal & warm gold (default) |
+| `slate` | Blues, grays and whites |
+| `crimson` | Reds, blacks and golds |
+| `parchment` | White, gold and gray |
+
+![Ember](screenshots/theme-ember.png)
+![Slate](screenshots/theme-slate.png)
+![Crimson](screenshots/theme-crimson.png)
+![Parchment](screenshots/theme-parchment.png)
+
 ## Keyboard shortcuts
 
 Defaults (all can be changed in ⌨ settings):
@@ -74,7 +91,7 @@ game, use the helper's global hotkeys (below).
 
 Enable **Auto-split** on the route bar. The app then gets zone changes from the game's `Client.txt`:
 
-- **Local helper (recommended)**: `helper/poe2_splitter.py` (Python standard library only) tails
+- **Local helper (recommended)**: `helper/splitstone_helper.py` (Python standard library only) tails
   the log and serves Server-Sent Events on `http://127.0.0.1:8766/events` (localhost only, read-only).
   The pill shows *Helper: connected / not connected* and the app reconnects by itself.
 - **No helper (Chrome/Edge)**: *Watch Client.txt…* uses the File System Access API to read the log
@@ -91,8 +108,8 @@ From the last zone, entering a map finishes it. Pause blocks auto-splits.
 2. Copy the `helper` folder to the gaming PC.
 3. Double-click `run_helper.bat`, or in a terminal:
    ```bat
-   py helper\poe2_splitter.py
-   py helper\poe2_splitter.py --log "D:\SteamLibrary\steamapps\common\Path of Exile 2\logs\Client.txt"
+   py helper\splitstone_helper.py
+   py helper\splitstone_helper.py --log "D:\SteamLibrary\steamapps\common\Path of Exile 2\logs\Client.txt"
    ```
    Default paths it looks for:
    - Steam: `C:\Program Files (x86)\Steam\steamapps\common\Path of Exile 2\logs\Client.txt`
@@ -100,7 +117,7 @@ From the last zone, entering a map finishes it. Pause blocks auto-splits.
    - Other Steam library: pass `--log` or set `POE2_CLIENT_TXT`. In Steam, *Manage → Browse local files* opens the game folder.
 4. Open the tracker in a browser on the same PC and tick **Auto-split**. If the helper runs elsewhere, change the URL in *Auto-split settings*.
 5. Optional global hotkeys (they work while the game has focus): `py -m pip install pynput`, then
-   `py helper\poe2_splitter.py --hotkeys` (F1 split, F2 undo, F3 pause), or for example `--hotkeys split=f5,undo=f6,pause=f7`.
+   `py helper\splitstone_helper.py --hotkeys` (F1 split, F2 undo, F3 pause), or for example `--hotkeys split=f5,undo=f6,pause=f7`.
 
 Other options: `--port 8766` and `--from-start` (replay the whole log, for testing).
 
@@ -122,7 +139,7 @@ js/storage.js         state shape, localStorage, JSON export/import
 js/timers.js          stopwatch helpers
 js/charts.js          tiny SVG line chart
 js/autosplit.js       Client.txt zone matching, helper (SSE) + File System Access sources
-helper/               poe2_splitter.py (Client.txt → SSE), run_helper.bat, parser unit tests
+helper/               splitstone_helper.py (Client.txt → SSE), run_helper.bat, parser unit tests
 js/run.js             speedrun logic: current zone, split/undo/pause, history, PB, bests
 js/pob.js             PoB2 code decoder + summariser
 js/app.js             rendering and event handling

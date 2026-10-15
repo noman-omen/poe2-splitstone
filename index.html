@@ -1,16 +1,39 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="ember">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PoE2 Campaign Tracker</title>
+  <title>Splitstone — PoE2 campaign timer</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <h1>PoE2 Campaign Tracker</h1>
-      <span class="sub" id="meta"></span>
+      <span class="logo" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Waystone-like hexagon with a vertical split / timer motif.
+       Fills use currentColor so it inherits the theme accent. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="currentColor" stop-opacity=".95"/>
+      <stop offset="100%" stop-color="currentColor" stop-opacity=".55"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#g)" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"
+        d="M32 4 L54 17 V47 L32 60 L10 47 V17 Z"/>
+  <path fill="none" stroke="currentColor" stroke-width="1.4" stroke-opacity=".45"
+        d="M32 12 L46 20 V44 L32 52 L18 44 V20 Z"/>
+  <line x1="32" y1="16" x2="32" y2="48" stroke="currentColor" stroke-width="2.4"
+        stroke-linecap="round" stroke-opacity=".9"/>
+  <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+        d="M24 30 A10 10 0 0 1 40 30" stroke-opacity=".95"/>
+  <circle cx="32" cy="30" r="1.8" fill="currentColor"/>
+  <line x1="32" y1="30" x2="36" y2="24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+</svg></span>
+      <div>
+        <h1>Splitstone</h1>
+        <span class="sub" id="meta"></span>
+      </div>
     </div>
     <div class="char-controls">
       <label for="charSelect" class="sr-only">Character</label>
@@ -28,7 +51,7 @@
       <button data-action="export">Export JSON</button>
       <button data-action="import">Import JSON</button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
-      <button data-action="settings" title="Change hotkeys" aria-label="Hotkey settings">⌨</button>
+      <button data-action="settings" title="Change hotkeys" aria-label="Settings (theme & hotkeys)">⌨</button>
       <button data-action="help" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
     </div>
   </header>
@@ -40,10 +63,13 @@
     <dl class="kv" id="helpKeys"></dl>
     <p class="muted small">Ticking the last required step of the zone you are timing also splits automatically.
       Hotkeys only work while this window has focus (use the helper's global hotkeys while in game).</p>
-    <div class="row"><button data-action="settings">Change hotkeys…</button></div>
+    <div class="row"><button data-action="settings">Theme &amp; hotkeys…</button></div>
   </div>
 
-  <div id="settings" class="help card" hidden role="dialog" aria-label="Hotkey settings">
+  <div id="settings" class="help card" hidden role="dialog" aria-label="Settings">
+    <h2>Colour theme</h2>
+    <p class="muted small">Global preference (saved for this browser; included in JSON export).</p>
+    <div class="theme-grid" id="themeGrid" role="listbox" aria-label="Colour theme"></div>
     <h2>Hotkeys</h2>
     <p class="muted small">Click "Change", then press the new key. Esc cancels.</p>
     <table class="keys" id="keyTable"></table>

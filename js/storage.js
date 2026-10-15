@@ -4,7 +4,8 @@
 (function (global) {
   "use strict";
 
-  const KEY = "poe2-campaign-tracker:v1";
+  const KEY = "splitstone:v1";
+  const LEGACY_KEYS = ["poe2-campaign-tracker:v1"];  // migrate one-time on first load
   const SCHEMA = 1;
 
   const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -33,6 +34,7 @@
 
   function defaultSettings() {
     return { hideHints: false, hideExtra: false, focusMode: false,
+             theme: "ember",  // global UI theme (see css/styles.css data-theme)
              autoSplit: { enabled: false, url: "http://127.0.0.1:8766" },
              hotkeys: {} };  // action -> key overrides; defaults live in app.js (HOTKEY_DEFS)
   }
@@ -62,7 +64,18 @@
 
   function load() {
     try {
-      const raw = localStorage.getItem(KEY);
+      let raw = localStorage.getItem(KEY);
+      // One-time migration from the pre-rebrand key.
+      if (!raw) {
+        for (const old of LEGACY_KEYS) {
+          raw = localStorage.getItem(old);
+          if (raw) {
+            localStorage.setItem(KEY, raw);
+            localStorage.removeItem(old);
+            break;
+          }
+        }
+      }
       return raw ? normalise(JSON.parse(raw)) : defaultState();
     } catch (e) {
       console.warn("Saved state unreadable, starting fresh", e);
@@ -75,7 +88,7 @@
   /** Export: whole state, or a single character when `onlyId` is given. */
   function exportJSON(state, onlyId) {
     const chars = onlyId ? { [onlyId]: state.characters[onlyId] } : state.characters;
-    return JSON.stringify({ app: "poe2-campaign-tracker", schema: SCHEMA,
+    return JSON.stringify({ app: "splitstone", schema: SCHEMA,
       exported: new Date().toISOString(), activeId: onlyId || state.activeId,
       settings: state.settings, characters: chars }, null, 2);
   }

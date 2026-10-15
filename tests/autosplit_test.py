@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """End-to-end auto-split test: real helper + fake Client.txt appends + headless app.
 
-Starts helper/poe2_splitter.py on a temp Client.txt (port 8767), enables
+Starts helper/splitstone_helper.py on a temp Client.txt (port 8767), enables
 auto-split in the app, appends PoE2-style log lines and checks the splits.
 """
 import os
@@ -37,10 +37,10 @@ def enter(area, name, level=1):
 
 
 def C(page):
-    return page.evaluate("(() => { const s = JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')); return s.characters[s.activeId]; })()")
+    return page.evaluate("(() => { const s = JSON.parse(localStorage.getItem('splitstone:v1')); return s.characters[s.activeId]; })()")
 
 
-helper = subprocess.Popen([sys.executable, str(ROOT / "helper" / "poe2_splitter.py"), "--log", str(tmp), "--port", str(PORT)],
+helper = subprocess.Popen([sys.executable, str(ROOT / "helper" / "splitstone_helper.py"), "--log", str(tmp), "--port", str(PORT)],
                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 try:
     time.sleep(1.0)
@@ -61,7 +61,7 @@ try:
         check("status shows connected", page.locator(".pill.as-connected").count() >= 1)
 
         enter("G1_1", "The Riverbank")
-        page.wait_for_function("() => document.querySelector('#now .now-zone').textContent.includes('Riverbank') && !!Run.runningZone(JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).characters[JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).activeId])", timeout=5000)
+        page.wait_for_function("() => document.querySelector('#now .now-zone').textContent.includes('Riverbank') && !!Run.runningZone(JSON.parse(localStorage.getItem('splitstone:v1')).characters[JSON.parse(localStorage.getItem('splitstone:v1')).activeId])", timeout=5000)
         check("entering first zone starts the run", C(page)["timers"]["zone:act1-z01"]["startedAt"])
         enter("G1_1", "The Riverbank")  # re-entry (death / checkpoint)
         time.sleep(0.8)

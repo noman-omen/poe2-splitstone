@@ -1,7 +1,7 @@
 /* autosplit.js: zone-change auto-splitting from PoE2's Client.txt.
  *
  * Two sources feed the same matcher:
- *  1. the local helper (helper/poe2_splitter.py) over Server-Sent Events;
+ *  1. the local helper (helper/splitstone_helper.py) over Server-Sent Events;
  *  2. no-helper mode: the File System Access API (Chromium browsers) polls a
  *     Client.txt the user picked and parses new lines in the browser.
  *

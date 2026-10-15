@@ -22,6 +22,27 @@
 
   let state = Storage2.load();
   Object.values(state.characters).forEach(Run.prune);
+
+  /* ---------- Colour themes (global, persisted in settings.theme) ---------- */
+  const THEMES = [
+    { id: "ember", name: "Ember", desc: "Dark charcoal & warm gold (default)",
+      chips: ["#0f0e0c", "#1a1815", "#c8a45a", "#e8e0d0"] },
+    { id: "slate", name: "Slate", desc: "Blues, grays and whites",
+      chips: ["#0e141b", "#1e2a36", "#5b9fd4", "#e6eef5"] },
+    { id: "crimson", name: "Crimson", desc: "Reds, blacks and golds",
+      chips: ["#0c0808", "#1a1010", "#c9a227", "#e04040"] },
+    { id: "parchment", name: "Parchment", desc: "White, gold and gray",
+      chips: ["#f4f1ea", "#ffffff", "#b8943a", "#2a261c"] },
+  ];
+  const VALID_THEMES = new Set(THEMES.map(t => t.id));
+
+  function applyTheme(id) {
+    const theme = VALID_THEMES.has(id) ? id : "ember";
+    document.documentElement.setAttribute("data-theme", theme);
+    state.settings.theme = theme;
+  }
+
+
   const collapsed = new Set();           // UI-only: collapsed section ids
   let pobError = "";
   let asStatus = AutoSplit.status(), lastAuto = "";
@@ -69,6 +90,7 @@
   function render() {
     const c = char();
     const s = state.settings;
+    applyTheme(s.theme || "ember");
     document.body.classList.toggle("hide-hints", !!s.hideHints);
     document.body.classList.toggle("hide-extra", !!s.hideExtra);
     document.body.classList.toggle("focus-mode", !!s.focusMode);
@@ -291,7 +313,7 @@
       </span>
       <details class="as-settings" data-keep="as-settings"${openDetails.has("as-settings") ? " open" : ""}><summary>Auto-split settings</summary>
         <label>Helper URL <input type="text" id="autoSplitUrl" value="${esc(state.settings.autoSplit.url)}" size="28"></label>
-        <span class="muted small">Run <code>helper/poe2_splitter.py</code> on the PC that runs the game (see README).</span>
+        <span class="muted small">Run <code>helper/splitstone_helper.py</code> on the PC that runs the game (see README).</span>
       </details>
       ${v.tips && v.tips.length ? `<details class="tips" data-keep="tips"${openDetails.has("tips") ? " open" : ""}><summary>Speedrun tips (${v.tips.length})</summary><ul>${v.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul></details>` : ""}
     </section>`;
@@ -564,7 +586,7 @@
       const blob = new Blob([Storage2.exportJSON(state)], { type: "application/json" });
       const a = Object.assign(document.createElement("a"), {
         href: URL.createObjectURL(blob),
-        download: `poe2-campaign-${new Date().toISOString().slice(0, 10)}.json`,
+        download: `splitstone-${new Date().toISOString().slice(0, 10)}.json`,
       });
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -575,8 +597,8 @@
       try { await AutoSplit.watchFile(); toast("Watching Client.txt"); }
       catch (e) { if (e.name !== "AbortError") toast(e.message); }
     },
-    "csv-runs"() { download(`poe2-runs-${fileSafe(char().name)}.csv`, runsCSV(char()), "text/csv"); },
-    "csv-maps"() { download(`poe2-maps-${fileSafe(char().name)}.csv`, mapsCSV(char()), "text/csv"); },
+    "csv-runs"() { download(`splitstone-runs-${fileSafe(char().name)}.csv`, runsCSV(char()), "text/csv"); },
+    "csv-maps"() { download(`splitstone-maps-${fileSafe(char().name)}.csv`, mapsCSV(char()), "text/csv"); },
     help() { $("#help").toggleAttribute("hidden"); },
     async "pob-import"() {
       const code = $("#pobCode").value;
@@ -667,7 +689,7 @@
   let capturing = null;                   // action id waiting for a new key
 
   function renderHelp() {
-    const b = bindings();
+    const b = bindings(), cur = state.settings.theme || "ember";
     $("#helpKeys").innerHTML = HOTKEY_DEFS.map(([id, , label]) =>
       `<dt><kbd>${esc(keyName(b[id]))}</kbd></dt><dd>${esc(label)}</dd>`).join("") +
       `<dt><kbd>Esc</kbd></dt><dd>Close dialogs / leave a text field</dd>`;
@@ -675,6 +697,11 @@
       <td>${esc(label)}</td><td><kbd>${capturing === id ? "press a key…" : esc(keyName(b[id]))}</kbd></td>
       <td><button data-action="key-change" data-id="${id}">${capturing === id ? "Cancel" : "Change"}</button></td>
       <td class="muted small">${b[id] !== def ? "default " + esc(keyName(def)) : ""}</td></tr>`).join("");
+    const grid = $("#themeGrid");
+    if (grid) grid.innerHTML = THEMES.map(t => `<button type="button" class="theme-swatch" role="option"
+      data-action="set-theme" data-id="${esc(t.id)}" aria-pressed="${t.id === cur}" title="${esc(t.desc)}">
+      <span class="chips">${t.chips.map(c => `<span style="background:${c}"></span>`).join("")}</span>
+      <span class="name">${esc(t.name)}</span><span class="desc">${esc(t.desc)}</span></button>`).join("");
   }
 
   /** Assign `key` to action `id` unless another action already uses it. */
@@ -692,6 +719,12 @@
     "settings-close"() { capturing = null; $("#settings").setAttribute("hidden", ""); },
     "key-change"(el) { capturing = capturing === el.dataset.id ? null : el.dataset.id; $("#keyError").textContent = ""; renderHelp(); },
     "keys-reset"() { state.settings.hotkeys = {}; capturing = null; $("#keyError").textContent = ""; commit(); toast("Hotkeys reset"); },
+    "set-theme"(el) {
+      applyTheme(el.dataset.id);
+      Storage2.save(state);
+      renderHelp();
+      toast("Theme: " + (THEMES.find(t => t.id === state.settings.theme) || {}).name);
+    },
   });
 
   document.addEventListener("keydown", ev => {
@@ -751,6 +784,7 @@
     },
   });
   if (state.settings.autoSplit.enabled) AutoSplit.connect(state.settings.autoSplit.url);
+  applyTheme(state.settings.theme || "ember");
 
   render();
   scrollToCurrent(false);
