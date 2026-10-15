@@ -110,6 +110,7 @@
     document.body.classList.toggle("hide-hints", !!s.hideHints);
     document.body.classList.toggle("hide-extra", !!s.hideExtra);
     document.body.classList.toggle("focus-mode", !!s.focusMode);
+    document.body.classList.toggle("practice-mode", !!Run.route(char()).practice);
     $("#hideHints").checked = !!s.hideHints;
     $("#hideExtra").checked = !!s.hideExtra;
     $("#focusMode").checked = !!s.focusMode;
@@ -211,7 +212,8 @@
       $("#now").innerHTML = `<div class="now-main"><div class="now-zone">🏁 Campaign complete</div>
         <div class="now-sub">${last ? `Final time <b class="mono">${fmt(last.total)}</b>${p && p.id === last.id ? " · <span class='ahead'>New PB!</span>" : ""}` : ""}</div></div>
         <div class="now-actions"><button data-action="undo">Undo split <kbd>${esc(keyName(bindings().undo))}</kbd></button>
-        <button class="primary" data-action="new-run">New run <kbd>${esc(keyName(bindings().newRun))}</kbd></button></div>`;
+        <button class="primary" data-action="new-run">New run <kbd>${esc(keyName(bindings().newRun))}</kbd></button>
+        ${Run.route(c).practice ? `<button data-action="practice-exit">Exit practice</button>` : ""}</div>`;
       return;
     }
     const z = cur.zone, pbSeg = p && p.zones[z.id], best = Run.bestsFor(c)["zone:" + z.id];
@@ -223,7 +225,10 @@
     const label = running ? "Split" : paused ? "Resume" : Run.isStarted(c) ? "Resume" : "Start run";
     $("#now").innerHTML = `
       <div class="now-main">
-        <div class="now-where"><span data-as-pill>${statusPill()}</span> ${esc(cur.section.name)} · zone ${cur.index >= 0 ? cur.index + 1 : "–"}/${Run.order(c).length}${paused ? ' · <span class="behind">PAUSED</span>' : ""}</div>
+        <div class="now-where"><span data-as-pill>${statusPill()}</span> ${(() => {
+          const pr = Run.route(c).practice;
+          return pr ? `<span class="practice-pill" title="Practice PB is separate from full-campaign PB">Practice · ${esc(Run.practiceLabel(pr.kind, pr.id))}</span> · ` : "";
+        })()}${esc(cur.section.name)} · zone ${cur.index >= 0 ? cur.index + 1 : "–"}/${Run.order(c).length}${paused ? ' · <span class="behind">PAUSED</span>' : ""}</div>
         <div class="now-zone">${esc(z.name)}</div>
         ${(() => {
           const info = Levels.zoneLevelInfo(z), st = Levels.status(Levels.charLevel(c), info);
@@ -266,29 +271,33 @@
         <td class="muted">${pbMs ? fmt(pbMs) : "–"}</td>
         <td class="muted">${bestMs ? fmt(bestMs) : "–"}</td></tr>`;
     };
+    const prac = Run.route(c).practice;
+    const scopeGroups = new Set(Run.order(c).map(o => o.group));
+    const scopeSecs = new Set(Run.order(c).map(o => o.section.id));
     const rows = [];
-    DATA.groups.forEach(g => {
-      const secs = DATA.sections.filter(s => s.group === g.id);
+    DATA.groups.filter(g => !prac || scopeGroups.has(g.id)).forEach(g => {
+      const secs = DATA.sections.filter(s => s.group === g.id && (!prac || scopeSecs.has(s.id)));
       rows.push(row(g.name, "group", g.id, Run.groupMs(c, g.id), p && p.groups[g.id], bests["group:" + g.id], "grp"));
       if (secs.length > 1) secs.forEach(s =>
         rows.push(row("└ " + s.name.replace(/^.*· /, ""), "section", s.id, Run.sectionMs(c, s.id), p && p.sections[s.id], bests["section:" + s.id], "sub")));
     });
-    const actsMs = DATA.groups.filter(g => g.kind === "act").reduce((a, g) => a + Run.groupMs(c, g.id), 0);
-    const intMs = DATA.groups.filter(g => g.kind === "interlude").reduce((a, g) => a + Run.groupMs(c, g.id), 0);
+    const actsMs = DATA.groups.filter(g => g.kind === "act" && (!prac || scopeGroups.has(g.id))).reduce((a, g) => a + Run.groupMs(c, g.id), 0);
+    const intMs = DATA.groups.filter(g => g.kind === "interlude" && (!prac || scopeGroups.has(g.id))).reduce((a, g) => a + Run.groupMs(c, g.id), 0);
     const sob = Run.sumOfBest(c);
     const campD = p ? Run.deltaVsPb(c) : null;
-    $("#totals").innerHTML = `<h2>Run &amp; segments</h2>
-      <div>${done} / ${steps.length} steps · ${Run.order(c).filter(o => c.split[o.zone.id]).length}/${Run.order(c).length} zones split</div>
-      <div class="progress"><div style="width:${(100 * done / steps.length).toFixed(1)}%"></div></div>
+    const grandLabel = prac ? ("Practice · " + Run.practiceLabel(prac.kind, prac.id)) : "Campaign";
+    $("#totals").innerHTML = `<h2>Run &amp; segments${prac ? " <span class=\"practice-pill\">practice</span>" : ""}</h2>
+      <div>${done} / ${steps.length} steps · ${Run.order(c).filter(o => c.split[o.zone.id]).length}/${Run.order(c).length} zones split${prac ? " · <span class=\"muted\">full-campaign PB untouched</span>" : ""}</div>
+      <div class="progress"><div style="width:${(100 * done / Math.max(1, steps.length)).toFixed(1)}%"></div></div>
       <table class="seg"><thead><tr><th></th><th>Now</th><th>Δ</th><th>PB</th><th>Best</th></tr></thead><tbody>
       ${rows.join("")}
-      <tr class="sum"><th>Acts</th><td><span class="timer" data-sum="acts:">${fmt(actsMs)}</span></td><td></td><td></td><td></td></tr>
-      <tr class="sum"><th>Interludes</th><td><span class="timer" data-sum="interludes:">${fmt(intMs)}</span></td><td></td><td></td><td></td></tr>
-      <tr class="grand"><th>Campaign</th><td>${sumTimer("total", "", Run.totalMs(c))}</td>
+      ${prac ? "" : `<tr class="sum"><th>Acts</th><td><span class="timer" data-sum="acts:">${fmt(actsMs)}</span></td><td></td><td></td><td></td></tr>
+      <tr class="sum"><th>Interludes</th><td><span class="timer" data-sum="interludes:">${fmt(intMs)}</span></td><td></td><td></td><td></td></tr>`}
+      <tr class="grand"><th>${esc(grandLabel)}</th><td>${sumTimer("total", "", Run.totalMs(c))}</td>
         <td class="mono ${campD === null ? "muted" : deltaClass(campD)}" data-seg-delta="total:">${campD !== null ? fmtDelta(campD) : "–"}</td>
         <td>${p ? fmt(p.total) : "–"}</td><td>${sob ? fmt(sob) : "–"}</td></tr>
       </tbody></table>
-      <div class="muted small">Best = best segment ever (gold). Campaign best = sum of best zones.</div>
+      <div class="muted small">Best = best segment ever (gold) for this route/practice variant.${prac ? " Practice PBs do not replace the full-campaign PB." : " Campaign best = sum of best zones."}</div>
       <div class="totals-row"><span>Maps total</span><span class="mono" data-sum="maps:">${fmt(Timers.sum(c, "map:"))}</span></div>`;
   }
 
@@ -417,6 +426,7 @@
     return `<div class="zone${isSplit ? " complete" : ""}${isCur ? " current" : ""}${zStat && zStat.kind === "bad" ? " underlevel" : ""}" data-zone="${esc(z.id)}" id="zone-${esc(z.id)}">
       <div class="zone-head"><h3>${isSplit ? "✓ " : isCur ? "▶ " : ""}${esc(z.name)}</h3>
         ${lvlCue}${gearCue}
+        ${!Run.route(c).practice ? `<button type="button" class="practice-btn tiny" data-action="practice-zone" data-id="${esc(z.id)}" title="Practice this zone only">Practice</button>` : ""}
         ${c.golds[z.id] ? '<span class="gold" title="Best segment ever">★ gold</span>' : ""}
         ${delta !== null ? `<span class="delta ${deltaClass(delta)}" title="vs PB segment ${fmt(pbSeg)}">${fmtDelta(delta)}</span>`
           : pbSeg ? `<span class="muted small" title="PB segment">PB ${fmt(pbSeg)}</span>` : ""}
@@ -427,17 +437,26 @@
   function renderCampaign() {
     const c = char(), cur = Run.current(c);
     const r = Run.route(c);
-    const sections = DATA.sections.map(sec => {
-      const zones = sec.zones.filter(z => Run.zoneActive(z, r));
+    const inScopeSec = sec => {
+      if (!r.practice) return true;
+      if (r.practice.kind === "group") return sec.group === r.practice.id;
+      if (r.practice.kind === "section") return sec.id === r.practice.id;
+      if (r.practice.kind === "zone") return sec.zones.some(z => z.id === r.practice.id);
+      return true;
+    };
+    const sections = DATA.sections.filter(inScopeSec).map(sec => {
+      const zones = sec.zones.filter(z => Run.zoneActive(z, r) && Run.matchesPractice({ zone: z, section: sec, group: sec.group }, r.practice));
       const steps = zones.flatMap(z => visibleSteps(c, z)), done = steps.filter(s => c.done[s.id]).length;
       const isCur = cur && cur.section.id === sec.id;
       const isCollapsed = collapsed.has(sec.id);
-      return `<section class="section${isCollapsed ? " collapsed" : ""}${isCur ? " current" : ""}" data-section="${esc(sec.id)}">
+      const canPracticeAct = !r.practice;
+      return `<section class="section practice-scope${isCollapsed ? " collapsed" : ""}${isCur ? " current" : ""}" data-section="${esc(sec.id)}">
         <header>
           <button class="collapse" data-action="collapse" data-id="${esc(sec.id)}" aria-expanded="${!isCollapsed}"
             aria-label="Toggle ${esc(sec.name)}">${isCollapsed ? "▸" : "▾"}</button>
           <h2>${esc(sec.name)}<small>${esc(sec.region || "")}${sec.levels ? " · lvl " + esc(sec.levels) : ""}</small></h2>
           <span class="badge">${done}/${steps.length}</span>
+          ${canPracticeAct ? `<button type="button" class="practice-btn" data-action="practice-group" data-id="${esc(sec.group)}" title="Practice this act / interlude">Practice</button>` : ""}
           <span class="tw">${sumTimer("section", sec.id, Run.sectionMs(c, sec.id))}</span>
         </header>
         <div class="zones">${zones.map(z => zoneHTML(z, c, cur)).join("")}</div></section>`;
@@ -455,7 +474,9 @@
       <label>Route <select id="routeMode">${Object.entries(DATA.variants).map(([k, x]) =>
         `<option value="${esc(k)}"${k === r.mode ? " selected" : ""}>${esc(x.label)}</option>`).join("")}</select></label>
       <label class="switch"><input type="checkbox" id="requiredOnly"${r.requiredOnly ? " checked" : ""}> Required steps only</label>
-      <span class="muted small">${esc(v.desc || "")} · ${Run.order(c).length} zones, ${allSteps(c).length} steps</span>
+      ${practiceSelectHTML(c)}
+      <span class="muted small">${r.practice ? `Practice · ${esc(Run.practiceLabel(r.practice.kind, r.practice.id))} ·` : ""} ${esc(v.desc || "")} · ${Run.order(c).length} zones, ${allSteps(c).length} steps</span>
+      ${r.practice ? `<button type="button" data-action="practice-exit" class="practice-exit">Exit practice</button>` : ""}
       <span class="as-controls">
         <label class="switch" title="Split automatically when you enter the next zone (reads Client.txt via the helper)">
           <input type="checkbox" id="autoSplit"${state.settings.autoSplit.enabled ? " checked" : ""}> Auto-split</label>
@@ -688,6 +709,56 @@
     scrollToCurrent();
   }
 
+
+  function practiceSelectHTML(c) {
+    const r = Run.route(c), cur = r.practice;
+    const val = cur ? cur.kind + ":" + cur.id : "";
+    const opts = ['<option value="">Full campaign</option>'];
+    opts.push('<optgroup label="Acts">');
+    DATA.groups.filter(g => g.kind === "act").forEach(g => {
+      opts.push(`<option value="group:${esc(g.id)}"${val === "group:"+g.id ? " selected" : ""}>${esc(g.name)}</option>`);
+    });
+    opts.push('</optgroup><optgroup label="Interludes">');
+    DATA.groups.filter(g => g.kind === "interlude").forEach(g => {
+      opts.push(`<option value="group:${esc(g.id)}"${val === "group:"+g.id ? " selected" : ""}>${esc(g.name)}</option>`);
+    });
+    opts.push('</optgroup><optgroup label="Act parts (multi-section)">');
+    DATA.sections.filter(s => DATA.sections.filter(x => x.group === s.group).length > 1).forEach(s => {
+      opts.push(`<option value="section:${esc(s.id)}"${val === "section:"+s.id ? " selected" : ""}>${esc(s.name)}</option>`);
+    });
+    opts.push('</optgroup>');
+    // Single-zone: list zones in current order of full route (ignore practice for the menu)
+    const fullOrder = Run.ALL.filter(o => Run.zoneActive(o.zone, { mode: r.mode, requiredOnly: r.requiredOnly, practice: null }));
+    opts.push('<optgroup label="Single zone">');
+    fullOrder.forEach(o => {
+      const v = "zone:" + o.zone.id;
+      opts.push(`<option value="${esc(v)}"${val === v ? " selected" : ""}>${esc(o.section.name)} · ${esc(o.zone.name)}</option>`);
+    });
+    opts.push('</optgroup>');
+    return `<label class="practice-label">Practice <select id="practiceScope" title="Practice one act, interlude, or zone — PB is kept separate from the full campaign">${opts.join("")}</select></label>`;
+  }
+
+  function applyPractice(practice, { reset = true } = {}) {
+    const c = char();
+    const next = Object.assign({}, Run.route(c), { practice: Run.normalisePractice(practice) });
+    if (Run.isStarted(c) && !Run.isFinished(c)) {
+      if (!confirm("Switch practice scope? The current run will be saved as unfinished (full-campaign PB is untouched).")) {
+        render(); return false;
+      }
+      Run.finish(c, false);
+    }
+    c.route = next;
+    if (reset) Run.newRun(c);
+    commit();
+    const label = next.practice
+      ? Run.practiceLabel(next.practice.kind, next.practice.id)
+      : "Full campaign";
+    toast(next.practice ? `Practice: ${label}` : "Left practice — full campaign");
+    window.scrollTo({ top: 0 });
+    scrollToCurrent(false);
+    return true;
+  }
+
   function doNewRun() {
     const c = char();
     if (Run.isStarted(c) && !Run.isFinished(c)) {
@@ -703,6 +774,9 @@
     pause() { const r = Run.togglePause(char()); if (r) { commit(); toast(r === "paused" ? "Paused" : "Resumed"); } },
     undo() { if (Run.undoSplit(char())) { commit(); toast("Split undone"); scrollToCurrent(); } },
     "new-run": doNewRun,
+    "practice-exit"() { applyPractice(null); },
+    "practice-group"(el) { applyPractice({ kind: "group", id: el.dataset.id }); },
+    "practice-zone"(el) { applyPractice({ kind: "zone", id: el.dataset.id }); },
     "timer-toggle"(el) {
       const c = char(), key = el.dataset.key;
       if (key.startsWith("zone:")) {
@@ -821,11 +895,17 @@
         el.id === "routeMode" ? { mode: el.value } : { requiredOnly: el.checked });
       if (Run.isStarted(c) && !Run.isFinished(c) &&
           !confirm("Change the route during a run? Times will be compared with that route's PB from now on.")) return render();
-      // A zone that disappears from the route must not keep running.
       const running = Run.runningZone(c);
       c.route = next;
       if (running && !Run.inOrder(c, running)) Run.stopAllZones(c);
       commit();
+    }
+    else if (el.id === "practiceScope") {
+      const raw = el.value.trim();
+      if (!raw) { applyPractice(null); return; }
+      const i = raw.indexOf(":");
+      const kind = raw.slice(0, i), id = raw.slice(i + 1);
+      applyPractice({ kind, id });
     }
     else if (el.id === "statSeg") { statSeg = el.value; renderCampaign(); }
     else if (el.id === "charLevel") {

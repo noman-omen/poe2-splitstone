@@ -385,3 +385,14 @@ body.hide-extra .zone-lvl { display: none; }
 .gear-cue.uncertain { opacity: .85; border-style: dashed; }
 .now-gear { margin: 2px 0 6px; }
 body.hide-hints .gear-cues, body.hide-extra .gear-cues { display: none; }
+
+/* Practice mode */
+.practice-pill { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 10px;
+  border: 1px solid var(--gold); color: var(--gold-2); background: color-mix(in srgb, var(--gold) 12%, transparent);
+  text-transform: none; letter-spacing: 0; font-weight: 650; }
+.practice-label select { max-width: min(280px, 70vw); }
+.practice-btn { font-size: 11px; padding: 2px 8px; border-color: var(--gold); color: var(--gold-2); }
+.practice-btn.tiny { padding: 1px 6px; font-size: 10px; }
+.practice-exit { border-color: var(--gold); color: var(--gold-2); }
+body.practice-mode .now { border-bottom-color: var(--gold); }
+h2 .practice-pill { font-size: 11px; font-weight: 650; vertical-align: middle; }

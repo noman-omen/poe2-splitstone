@@ -108,9 +108,16 @@
       else if (k === "paused") out[k] = Array.isArray(v) || v === null ? v : null;
       else if (k === "route") {
         const r = asObject(v);
+        let practice = null;
+        const pr = r.practice;
+        if (pr && typeof pr === "object" && typeof pr.kind === "string" && typeof pr.id === "string") {
+          if (pr.kind === "group" || pr.kind === "section" || pr.kind === "zone")
+            practice = { kind: pr.kind, id: pr.id.slice(0, 64) };
+        }
         out[k] = {
           mode: r.mode === "fast" ? "fast" : "normal",
           requiredOnly: asBool(r.requiredOnly),
+          practice,
         };
       }
       else if (k === "done" || k === "timers" || k === "split" || k === "golds" || k === "bests") out[k] = asObject(v);

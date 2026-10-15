@@ -23,25 +23,76 @@
   const BY_ZONE = Object.fromEntries(ALL.map(o => [o.zone.id, o]));
   const zoneKey = id => "zone:" + id;
 
-  /* ---------- Route variants ---------- */
-  const DEFAULT_ROUTE = { mode: "normal", requiredOnly: false };
-  const route = c => Object.assign({}, DEFAULT_ROUTE, c.route);
-  const variantKey = r => r.mode + (r.requiredOnly ? "+req" : "");
+  /* ---------- Route variants (+ optional practice scope) ---------- */
+  const DEFAULT_ROUTE = { mode: "normal", requiredOnly: false, practice: null };
+  /** practice: null | { kind: "group"|"section"|"zone", id } — one act / interlude / zone. */
+  function normalisePractice(p) {
+    if (!p || typeof p !== "object") return null;
+    const kind = p.kind, id = p.id;
+    if (kind === "group" && DATA.groups.some(g => g.id === id)) return { kind, id };
+    if (kind === "section" && DATA.sections.some(s => s.id === id)) return { kind, id };
+    if (kind === "zone" && BY_ZONE[id]) return { kind, id };
+    return null;
+  }
+  const route = c => {
+    const r = Object.assign({}, DEFAULT_ROUTE, c.route || {});
+    r.practice = normalisePractice(r.practice);
+    return r;
+  };
+  const variantKey = r => {
+    let k = r.mode + (r.requiredOnly ? "+req" : "");
+    const p = normalisePractice(r.practice);
+    if (p) k += "+p:" + p.kind + ":" + p.id;
+    return k;
+  };
+  function practiceLabel(kind, id) {
+    if (kind === "group") {
+      const g = DATA.groups.find(x => x.id === id);
+      return g ? g.name : id;
+    }
+    if (kind === "section") {
+      const s = DATA.sections.find(x => x.id === id);
+      return s ? s.name : id;
+    }
+    if (kind === "zone") {
+      const o = BY_ZONE[id];
+      return o ? o.zone.name : id;
+    }
+    return id || "";
+  }
   const variantLabel = key => {
-    const [mode, req] = key.split("+");
-    return ((DATA.variants[mode] && DATA.variants[mode].label) || mode) + (req ? " · required only" : "");
+    const parts = String(key || "normal").split("+");
+    const mode = parts[0];
+    let label = (DATA.variants[mode] && DATA.variants[mode].label) || mode;
+    if (parts.includes("req")) label += " · required only";
+    const pp = parts.find(x => x.startsWith("p:"));
+    if (pp) {
+      const bits = pp.split(":");
+      const kind = bits[1], id = bits.slice(2).join(":");
+      label += " · practice " + practiceLabel(kind, id);
+    }
+    return label;
   };
   const stepVisible = (s, r) => s.modes.includes(r.mode) && !(r.requiredOnly && s.optional);
   const zoneActive = (z, r) => z.steps.some(s => stepVisible(s, r));
   const requiredSteps = (zone, r = DEFAULT_ROUTE) => zone.steps.filter(s => stepVisible(s, r) && !s.optional);
+  const matchesPractice = (o, practice) => {
+    const p = normalisePractice(practice);
+    if (!p) return true;
+    if (p.kind === "group") return o.group === p.id;
+    if (p.kind === "section") return o.section.id === p.id;
+    if (p.kind === "zone") return o.zone.id === p.id;
+    return true;
+  };
 
   const orderCache = new Map();
-  /** Active zones for the character's variant, each with its index in the run. */
+  /** Active zones for the character's variant (+ practice scope), each with run index. */
   function order(c) {
     const key = variantKey(route(c));
     if (!orderCache.has(key)) {
       const r = route(c);
-      orderCache.set(key, ALL.filter(o => zoneActive(o.zone, r)).map((o, index) => Object.assign({ index }, o)));
+      orderCache.set(key, ALL.filter(o => zoneActive(o.zone, r) && matchesPractice(o, r.practice))
+        .map((o, index) => Object.assign({ index }, o)));
     }
     return orderCache.get(key);
   }
@@ -54,7 +105,7 @@
     .reduce((a, z) => a + zoneMs(c, z.id, now), 0);
   const groupMs = (c, gid, now) => DATA.sections.filter(s => s.group === gid)
     .reduce((a, s) => a + sectionMs(c, s.id, now), 0);
-  const totalMs = (c, now) => ALL.reduce((a, o) => a + zoneMs(c, o.zone.id, now), 0);
+  const totalMs = (c, now) => order(c).reduce((a, o) => a + zoneMs(c, o.zone.id, now), 0);
 
   function runningZone(c) {
     const o = ALL.find(o => T.isRunning(c, zoneKey(o.zone.id)));
@@ -164,9 +215,18 @@
   /** Snapshot every segment of the current run. */
   function snapshot(c) {
     const zones = {}, sections = {}, groups = {};
-    ALL.forEach(o => { const ms = zoneMs(c, o.zone.id); if (ms) zones[o.zone.id] = ms; });
-    DATA.sections.forEach(s => { const ms = sectionMs(c, s.id); if (ms) sections[s.id] = ms; });
-    DATA.groups.forEach(g => { const ms = groupMs(c, g.id); if (ms) groups[g.id] = ms; });
+    const act = order(c);
+    act.forEach(o => { const ms = zoneMs(c, o.zone.id); if (ms) zones[o.zone.id] = ms; });
+    const secIds = new Set(act.map(o => o.section.id));
+    const grpIds = new Set(act.map(o => o.group));
+    DATA.sections.forEach(s => {
+      if (!secIds.has(s.id)) return;
+      const ms = sectionMs(c, s.id); if (ms) sections[s.id] = ms;
+    });
+    DATA.groups.forEach(g => {
+      if (!grpIds.has(g.id)) return;
+      const ms = groupMs(c, g.id); if (ms) groups[g.id] = ms;
+    });
     return { zones, sections, groups, total: totalMs(c) };
   }
 
@@ -176,8 +236,9 @@
     const snap = snapshot(c);
     if (!snap.total) return null;
     const variant = variantKey(route(c));
+    const prac = normalisePractice(route(c).practice);
     const rec = Object.assign({ id: Math.random().toString(36).slice(2, 10), complete: !!complete, variant,
-      started: c.runStarted, finished: new Date().toISOString(),
+      practice: prac, started: c.runStarted, finished: new Date().toISOString(),
       splitsDone: order(c).filter(o => c.split[o.zone.id]).length, zonesTotal: order(c).length }, snap);
     const bests = bestsFor(c, variant);
     if (rec.complete && (bests.total === undefined || rec.total < bests.total)) bests.total = rec.total;
@@ -245,5 +306,5 @@
   global.Run = { ALL, BY_ZONE, order, inOrder, route, variantKey, variantLabel, stepVisible, zoneActive,
     bestsFor, current, runningZone, isStarted, isPaused, isFinished, startZone, stopAllZones, split,
     undoSplit, togglePause, finish, newRun, runsOf, pb, sumOfBest, deltaVsPb, deltaVsPbIn, zoneMs, sectionMs, groupMs,
-    totalMs, requiredSteps, prune };
+    totalMs, requiredSteps, prune, normalisePractice, matchesPractice, practiceLabel };
 })(window);
