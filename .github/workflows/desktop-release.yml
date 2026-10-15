@@ -35,6 +35,9 @@ jobs:
           files: |
             desktop/dist/Splitstone-Setup-*.exe
             desktop/dist/Splitstone-Portable-*.exe
+            desktop/dist/*.blockmap
+            desktop/dist/latest.yml
+          prerelease: ${{ contains(github.ref_name, '-') || startsWith(github.ref_name, 'v0.') }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
