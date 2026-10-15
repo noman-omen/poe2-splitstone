@@ -31,6 +31,7 @@
       history: [],  // finished / abandoned runs, newest first (see Run.finish)
       bests: {},    // "zone:<id>" | "section:<id>" | "group:<id>" | "total" -> best ms ever
       level: null,  // manual character level (number) or null — PoB may also set build.level
+      customRoutes: {}, // id -> custom route definition (see custom_route.js)
     };
   }
 
@@ -114,13 +115,27 @@
           if (pr.kind === "group" || pr.kind === "section" || pr.kind === "zone")
             practice = { kind: pr.kind, id: pr.id.slice(0, 64) };
         }
+        let customId = null;
+        if (typeof r.customId === "string" && /^[a-zA-Z0-9_-]{2,32}$/.test(r.customId))
+          customId = r.customId;
         out[k] = {
           mode: r.mode === "fast" ? "fast" : "normal",
           requiredOnly: asBool(r.requiredOnly),
           practice,
+          customId,
         };
       }
       else if (k === "done" || k === "timers" || k === "split" || k === "golds" || k === "bests") out[k] = asObject(v);
+      else if (k === "customRoutes") {
+        out[k] = {};
+        const srcR = asObject(v);
+        Object.keys(srcR).slice(0, 30).forEach(id => {
+          try {
+            if (global.CustomRoute) out[k][id] = CustomRoute.normalise(Object.assign({}, srcR[id], { id }));
+            else out[k][id] = srcR[id];
+          } catch (_) { /* drop bad route */ }
+        });
+      }
       else if (k === "maps" || k === "mapHistory" || k === "undo" || k === "history") out[k] = asArray(v);
       else out[k] = base[k];
     }

@@ -24,7 +24,7 @@
   const zoneKey = id => "zone:" + id;
 
   /* ---------- Route variants (+ optional practice scope) ---------- */
-  const DEFAULT_ROUTE = { mode: "normal", requiredOnly: false, practice: null };
+  const DEFAULT_ROUTE = { mode: "normal", requiredOnly: false, practice: null, customId: null };
   /** practice: null | { kind: "group"|"section"|"zone", id } — one act / interlude / zone. */
   function normalisePractice(p) {
     if (!p || typeof p !== "object") return null;
@@ -34,15 +34,24 @@
     if (kind === "zone" && BY_ZONE[id]) return { kind, id };
     return null;
   }
+  const getCustom = (c, id) => {
+    if (!id || !c || !c.customRoutes) return null;
+    const raw = c.customRoutes[id];
+    if (!raw) return null;
+    try { return global.CustomRoute ? CustomRoute.normalise(raw) : raw; } catch (_) { return null; }
+  };
   const route = c => {
     const r = Object.assign({}, DEFAULT_ROUTE, c.route || {});
     r.practice = normalisePractice(r.practice);
+    const cid = typeof r.customId === "string" ? r.customId : null;
+    r.customId = (cid && c && c.customRoutes && c.customRoutes[cid]) ? cid : null;
     return r;
   };
   const variantKey = r => {
     let k = r.mode + (r.requiredOnly ? "+req" : "");
     const p = normalisePractice(r.practice);
     if (p) k += "+p:" + p.kind + ":" + p.id;
+    if (r.customId) k += "+c:" + r.customId;
     return k;
   };
   function practiceLabel(kind, id) {
@@ -71,11 +80,17 @@
       const kind = bits[1], id = bits.slice(2).join(":");
       label += " · practice " + practiceLabel(kind, id);
     }
+    const cc = parts.find(x => x.startsWith("c:"));
+    if (cc) label += " · custom " + cc.slice(2);
     return label;
   };
-  const stepVisible = (s, r) => s.modes.includes(r.mode) && !(r.requiredOnly && s.optional);
-  const zoneActive = (z, r) => z.steps.some(s => stepVisible(s, r));
-  const requiredSteps = (zone, r = DEFAULT_ROUTE) => zone.steps.filter(s => stepVisible(s, r) && !s.optional);
+  const stepVisible = (s, r, custom) => {
+    if (!s.modes.includes(r.mode) || (r.requiredOnly && s.optional)) return false;
+    if (custom && global.CustomRoute && CustomRoute.stepHidden(custom, s.id)) return false;
+    return true;
+  };
+  const zoneActive = (z, r, custom) => z.steps.some(s => stepVisible(s, r, custom));
+  const requiredSteps = (zone, r = DEFAULT_ROUTE, custom) => zone.steps.filter(s => stepVisible(s, r, custom) && !s.optional);
   const matchesPractice = (o, practice) => {
     const p = normalisePractice(practice);
     if (!p) return true;
@@ -86,13 +101,22 @@
   };
 
   const orderCache = new Map();
+  const invalidateOrderCache = () => orderCache.clear();
   /** Active zones for the character's variant (+ practice scope), each with run index. */
   function order(c) {
     const key = variantKey(route(c));
     if (!orderCache.has(key)) {
       const r = route(c);
-      orderCache.set(key, ALL.filter(o => zoneActive(o.zone, r) && matchesPractice(o, r.practice))
-        .map((o, index) => Object.assign({ index }, o)));
+      const custom = getCustom(c, r.customId);
+      // When a custom route sets baseMode, prefer that over r.mode for visibility.
+      const rVis = custom && custom.baseMode ? Object.assign({}, r, { mode: custom.baseMode }) : r;
+      let list = ALL.filter(o => zoneActive(o.zone, rVis, custom) && matchesPractice(o, r.practice));
+      if (custom && global.CustomRoute) {
+        list = CustomRoute.filterOrder(list, custom, stepVisible, rVis);
+      } else {
+        list = list.map((o, index) => Object.assign({ index }, o));
+      }
+      orderCache.set(key, list);
     }
     return orderCache.get(key);
   }
@@ -156,10 +180,10 @@
   function split(c, opts = {}) {
     const o = current(c);
     if (!o) return null;
-    const zid = o.zone.id, r = route(c);
+    const zid = o.zone.id, r = route(c), custom = getCustom(c, r.customId);
     const wasRunning = T.isRunning(c, zoneKey(zid));
     const entry = { zone: zid, autoMarked: [], prevBests: {}, golds: [], wasRunning, extra: [] };
-    requiredSteps(o.zone, r).forEach(s => { if (!c.done[s.id]) { c.done[s.id] = true; entry.autoMarked.push(s.id); } });
+    requiredSteps(o.zone, r, custom).forEach(s => { if (!c.done[s.id]) { c.done[s.id] = true; entry.autoMarked.push(s.id); } });
     T.stop(c, zoneKey(zid));
     c.split[zid] = Date.now();
     updateBests(c, o, entry);
@@ -235,10 +259,14 @@
     stopAllZones(c);
     const snap = snapshot(c);
     if (!snap.total) return null;
-    const variant = variantKey(route(c));
-    const prac = normalisePractice(route(c).practice);
+    const r = route(c);
+    const variant = variantKey(r);
+    const prac = normalisePractice(r.practice);
+    const custom = getCustom(c, r.customId);
     const rec = Object.assign({ id: Math.random().toString(36).slice(2, 10), complete: !!complete, variant,
-      practice: prac, started: c.runStarted, finished: new Date().toISOString(),
+      practice: prac, customId: r.customId || null,
+      customName: custom ? custom.name : null,
+      started: c.runStarted, finished: new Date().toISOString(),
       splitsDone: order(c).filter(o => c.split[o.zone.id]).length, zonesTotal: order(c).length }, snap);
     const bests = bestsFor(c, variant);
     if (rec.complete && (bests.total === undefined || rec.total < bests.total)) bests.total = rec.total;
@@ -306,5 +334,5 @@
   global.Run = { ALL, BY_ZONE, order, inOrder, route, variantKey, variantLabel, stepVisible, zoneActive,
     bestsFor, current, runningZone, isStarted, isPaused, isFinished, startZone, stopAllZones, split,
     undoSplit, togglePause, finish, newRun, runsOf, pb, sumOfBest, deltaVsPb, deltaVsPbIn, zoneMs, sectionMs, groupMs,
-    totalMs, requiredSteps, prune, normalisePractice, matchesPractice, practiceLabel };
+    totalMs, requiredSteps, prune, normalisePractice, matchesPractice, practiceLabel, getCustom, invalidateOrderCache };
 })(window);
