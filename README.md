@@ -21,6 +21,7 @@ My goal is to make Splitstone the one-stop-shop tool for the PoE2 campaign, and 
 | **Auto-split** | Optional helper that tails PoE2 `Client.txt` and splits on zone changes |
 | **PoB2 import** | Paste a Path of Building 2 code into the character panel |
 | **Themes** | Ember (default), Slate, Crimson, Parchment |
+| **In-game overlay** | Small top-right always-on-top panel from the Windows helper |
 
 ### Now bar (in-game glance)
 
@@ -40,6 +41,12 @@ My goal is to make Splitstone the one-stop-shop tool for the PoE2 campaign, and 
 | **Crimson** | **Parchment** |
 | ![Crimson](screenshots/theme-crimson.png) | ![Parchment](screenshots/theme-parchment.png) |
 
+### In-game overlay (top-right corner)
+
+A browser tab cannot sit on top of fullscreen PoE2. I ship a small always-on-top panel in the helper instead — current zone, step + tip, next, and timer — with opacity and click-through.
+
+![Overlay](screenshots/overlay-corner.png)
+
 ---
 
 ## Features
@@ -56,6 +63,7 @@ My goal is to make Splitstone the one-stop-shop tool for the PoE2 campaign, and 
 - **Rebindable hotkeys** — Settings panel with conflict detection; bindings export with the save.
 - **PoB2 import** — Decode a build code in-browser (base64url + zlib → XML); bad codes fail gracefully.
 - **Themes** — Ember, Slate, Crimson, Parchment (global preference, in settings and export).
+- **In-game overlay** — Optional helper `--overlay` opens a compact top-right corner panel (zone, step + tip, next, timer) with opacity and click-through. The browser alone cannot draw over fullscreen games.
 - **Focus mode & phone layout** — Second-monitor focus; compact sticky bar on small screens.
 
 ---
@@ -72,10 +80,37 @@ I want Splitstone to be the tool I actually leave open for the whole league laun
 
 | Phase | Focus |
 | --- | --- |
-| **Current (0.5.x)** | Campaign tracker as it stands: acts, interludes, splits, auto-split helper, themes |
+| **Current (0.5.x)** | Campaign tracker as it stands: acts, interludes, splits, auto-split helper, themes, in-game overlay |
 | **Pre-1.0 hardening** | Polish, test coverage, helper robustness, docs, and anything that would break under a full data refresh |
 | **1.0 launch week** | Refresh route data for 1.0 acts and zones, area IDs, and verification against the live game |
-| **Post-1.0 endgame** | Map / atlas tracking and other endgame features built on the same timer and history model |
+| **Post-1.0 endgame** | Atlas / map tracking and the endgame items below |
+
+### Priority #1 — Always-on-top in-game overlay
+
+A browser tab cannot draw over a fullscreen game. I am shipping a **small top-right corner panel** in the Windows helper: always-on-top, low distraction, current zone + current step + tip + next + timer, with opacity and click-through toggles. The browser stays the source of truth and pushes state to the helper over localhost.
+
+### Campaign intelligence
+
+- **Class-aware notes** for the basic classes first (Warrior, Sorceress, Ranger, Monk, Mercenary, Witch) — not subclass-specific yet: class-flavoured campaign steps and recommended campaign reward choices by class
+- Level / XP warnings per zone
+- Gear and gem checkpoints along the route
+- Build-specific route notes later (Monk / Oracle ascendancy layers)
+- Custom shareable routes
+- Ghost / race mode (run against a ghost PB)
+- Single-act practice mode
+
+### Endgame (post-1.0)
+
+- Atlas progress tracking
+- Profit-per-hour style session stats
+- Pinnacle boss logs
+- League / atlas checklists
+- Season / league history
+- Leaderboards / shared PBs
+
+### Ecosystem
+
+Buttons or tabs that deep-link or embed popular PoE2 tools (currency / market sites, crafting helpers, and similar). I will research and pick concrete URLs before wiring them — listed here as a goal, not as invented links.
 
 ---
 
@@ -88,15 +123,17 @@ python3 -m http.server 8765 --bind 127.0.0.1
 # → http://127.0.0.1:8765/
 ```
 
-### Auto-split helper on Windows
+### Auto-split + in-game overlay on Windows
 
-1. Install Python 3 (tick *Add to PATH*), or `winget install Python.Python.3.12`.
+A normal browser window **cannot** draw over fullscreen PoE2. Use the helper for auto-split and the overlay.
+
+1. Install Python 3 from python.org (tick *Add to PATH*), or `winget install Python.Python.3.12`.
 2. Copy the `helper` folder to the gaming PC.
-3. Double-click `run_helper.bat`, or:
+3. Double-click `run_helper.bat` (starts with `--overlay`), or:
 
    ```bat
-   py helper\splitstone_helper.py
-   py helper\splitstone_helper.py --log "D:\SteamLibrary\steamapps\common\Path of Exile 2\logs\Client.txt"
+   py helper\splitstone_helper.py --overlay
+   py helper\splitstone_helper.py --overlay --log "D:\SteamLibrary\steamapps\common\Path of Exile 2\logs\Client.txt"
    ```
 
    Defaults it looks for:
@@ -104,9 +141,12 @@ python3 -m http.server 8765 --bind 127.0.0.1
    - Steam: `C:\Program Files (x86)\Steam\steamapps\common\Path of Exile 2\logs\Client.txt`
    - Standalone: `C:\Program Files (x86)\Grinding Gear Games\Path of Exile 2\logs\Client.txt`
 
-4. Open Splitstone on the same PC and enable **Auto-split**.
-5. Optional global hotkeys (work while the game has focus): `py -m pip install pynput`, then  
-   `py helper\splitstone_helper.py --hotkeys` (F1 split, F2 undo, F3 pause).
+4. Open Splitstone on the same PC and enable **Auto-split** (that connection also pushes the current step to the overlay).
+5. The panel sits in the **top-right**. Drag the SPLITSTONE title to move it. Use the opacity slider and **Click-through** (Windows) so mouse clicks pass through to the game.
+6. Optional global hotkeys (work while the game has focus): `py -m pip install pynput`, then  
+   `py helper\splitstone_helper.py --overlay --hotkeys` (F1 split, F2 undo, F3 pause).
+
+Overlay buttons publish the same hotkey actions over the helper’s event stream, so Split / Pause / Undo work without focusing the browser.
 
 ---
 
@@ -140,6 +180,8 @@ python3 -m http.server 8765 --bind 127.0.0.1 &
 python3 tests/smoke_test.py
 python3 tests/autosplit_test.py
 python3 helper/test_helper.py
+python3 helper/test_overlay_state.py
+python3 tests/overlay_shot.py      # regenerate screenshots/overlay-corner.png
 ```
 
 ---

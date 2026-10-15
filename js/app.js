@@ -104,6 +104,7 @@
     renderNow(); renderTotals(); renderHistory(); renderCharacter(); renderCampaign();
     renderHelp();
     layoutSticky();
+    pushOverlay();
   }
 
   /** The top bar wraps on narrow screens, so sticky offsets are measured, not hard-coded. */
@@ -129,6 +130,46 @@
       ${hints.length ? `<ul class="now-hints">${hints.map(h => `<li>${esc(h)}</li>`).join("")}</ul>` : ""}
       ${info.length ? `<div class="now-info">${info.map(x => `<div>${x}</div>`).join("")}</div>` : ""}
     </div>`;
+  }
+
+
+  /** Snapshot for the helper overlay (POST /state). Keep it tiny and stable. */
+  function buildOverlayState() {
+    const c = char(), cur = Run.current(c), p = Run.pb(c);
+    if (!cur) {
+      const last = c.history[0];
+      return { v: 1, zone: "Campaign complete", section: "", step: last ? `Final ${Timers.format(last.total)}` : "Finished",
+        tip: "", nextStep: "", nextZone: "", zoneMs: 0, runMs: Run.totalMs(c), deltaMs: null,
+        running: false, paused: false, finished: true, progress: `${Run.order(c).length}/${Run.order(c).length}` };
+    }
+    const z = cur.zone, r = Run.route(c);
+    const vis = visibleSteps(c, z), todo = vis.filter(st => !c.done[st.id]);
+    const step = todo[0] || vis[vis.length - 1];
+    const next = Run.order(c)[cur.index + 1];
+    const nextVis = next ? visibleSteps(c, next.zone) : [];
+    const nextStep = todo[1] || nextVis[0];
+    const tips = step ? stepHints(c, step) : [];
+    return {
+      v: 1,
+      zone: z.name,
+      section: cur.section.name,
+      step: step ? step.objective : "",
+      tip: tips[0] || "",
+      nextStep: nextStep ? nextStep.objective : "",
+      nextZone: next ? next.zone.name : "",
+      zoneMs: Run.zoneMs(c, z.id),
+      runMs: Run.totalMs(c),
+      deltaMs: Run.deltaVsPb(c),
+      running: !!Run.runningZone(c),
+      paused: Run.isPaused(c),
+      finished: false,
+      progress: `${cur.index + 1}/${Run.order(c).length}`,
+    };
+  }
+
+  function pushOverlay() {
+    if (AutoSplit.status().state === "off") return;
+    AutoSplit.pushState(buildOverlayState(), state.settings.autoSplit.url);
   }
 
   /** The "now playing" bar: current zone, next steps, big timers, split controls. */
@@ -313,7 +354,7 @@
       </span>
       <details class="as-settings" data-keep="as-settings"${openDetails.has("as-settings") ? " open" : ""}><summary>Auto-split settings</summary>
         <label>Helper URL <input type="text" id="autoSplitUrl" value="${esc(state.settings.autoSplit.url)}" size="28"></label>
-        <span class="muted small">Run <code>helper/splitstone_helper.py</code> on the PC that runs the game (see README).</span>
+        <span class="muted small">Run <code>helper/splitstone_helper.py --overlay</code> on the gaming PC for auto-split + the top-right in-game panel (see README).</span>
       </details>
       ${v.tips && v.tips.length ? `<details class="tips" data-keep="tips"${openDetails.has("tips") ? " open" : ""}><summary>Speedrun tips (${v.tips.length})</summary><ul>${v.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul></details>` : ""}
     </section>`;
@@ -471,6 +512,8 @@
     });
     const d = $("#liveDelta");
     if (d && Run.pb(c)) { const v = Run.deltaVsPb(c, now); d.textContent = fmtDelta(v); d.className = deltaClass(v); }
+    // Keep the overlay clock in sync (~4 Hz cap inside pushState).
+    if (Run.runningZone(c) || Run.isPaused(c)) pushOverlay();
   }
 
   function scrollToCurrent(smooth = true) {

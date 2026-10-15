@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
-"""Splitstone helper (PoE2 Client.txt): tail Client.txt and push zone changes to the app.
+"""Splitstone helper: Client.txt auto-split + optional always-on-top overlay.
 
-Standard library only (Python 3.8+). Optional global hotkeys need `pynput`.
+Standard library only (Python 3.8+). Optional:
+  - global hotkeys: pip install pynput
+  - overlay UI: tkinter (included with python.org Windows builds; python3-tk on Linux)
 
-    python splitstone_helper.py                      # auto-detect Client.txt
-    python splitstone_helper.py --log "D:\\Games\\Path of Exile 2\\logs\\Client.txt"
-    python splitstone_helper.py --hotkeys            # F1 split, F2 undo, F3 pause (needs pynput)
+    python splitstone_helper.py
+    python splitstone_helper.py --log "D:\\...\\logs\\Client.txt"
+    python splitstone_helper.py --overlay              # top-right corner panel
+    python splitstone_helper.py --overlay --hotkeys
 
-The app connects to http://127.0.0.1:8766/events (Server-Sent Events).
-Only 127.0.0.1 is bound; nothing is sent anywhere else, and the log is only read.
+The browser cannot draw over a fullscreen game. Enable Auto-split in Splitstone
+so the tab connects here; with --overlay the helper also shows a compact panel.
 
-Events (JSON in the SSE `data:` field):
-    {"type": "zone", "area": "g1_2", "name": "Clearfell", "level": 2, "ts": "..."}
-    {"type": "hotkey", "action": "split"}
-    {"type": "hello", "log": "...", "version": 1}
+Localhost only (127.0.0.1):
+  GET  /events   Server-Sent Events → browser (zone changes, hotkeys)
+  GET  /status   health + last zone event
+  GET  /state    latest overlay snapshot (JSON)
+  POST /state    browser pushes current step/timer (JSON) → overlay
 """
 import argparse
 import json
@@ -27,9 +31,8 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = 1
+VERSION = 2
 
-# Default install locations (first existing one wins).
 DEFAULT_LOGS = [
     r"C:\Program Files (x86)\Steam\steamapps\common\Path of Exile 2\logs\Client.txt",
     r"C:\Program Files\Steam\steamapps\common\Path of Exile 2\logs\Client.txt",
@@ -39,22 +42,16 @@ DEFAULT_LOGS = [
     os.path.expanduser("~/.local/share/Steam/steamapps/common/Path of Exile 2/logs/Client.txt"),
 ]
 
-# Client.txt lines we care about, e.g.
-#   2026/10/15 05:40:01 1234 abc [DEBUG Client 1234] Generating level 2 area "G1_2" with seed 1
-#   2026/10/15 05:40:03 1234 abc [INFO Client 1234] : You have entered Clearfell.
 RE_GENERATING = re.compile(r'Generating level (\d+) area "([^"]+)"')
 RE_ENTERED = re.compile(r"\] : You have entered (.+?)\.?\s*$")
 
 
 class Parser:
-    """Pair a "Generating level" line with the following "You have entered" line.
-    A lone line still produces an event (other languages translate "entered")."""
-
-    PAIR_WINDOW = 5.0  # seconds
+    PAIR_WINDOW = 5.0
 
     def __init__(self, emit):
         self.emit = emit
-        self.pending = None  # (area, level, t)
+        self.pending = None
 
     def feed(self, line, now=None):
         now = time.monotonic() if now is None else now
@@ -70,7 +67,6 @@ class Parser:
             self.emit({"type": "zone", "area": area, "name": m.group(1).strip(), "level": level})
 
     def flush(self, now=None, force=False):
-        """Emit a "Generating" line that was never followed by "You have entered"."""
         now = time.monotonic() if now is None else now
         if self.pending and (force or now - self.pending[2] > self.PAIR_WINDOW):
             area, level, _ = self.pending
@@ -79,10 +75,10 @@ class Parser:
 
 
 class Hub:
-    """Fan events out to every connected SSE client."""
-
     def __init__(self):
         self.clients, self.lock, self.last = [], threading.Lock(), None
+        self.state = None  # latest overlay snapshot (dict)
+        self.on_state = None  # optional callback(state)
 
     def subscribe(self):
         q = queue.Queue(maxsize=200)
@@ -107,22 +103,27 @@ class Hub:
                 except queue.Full:
                     pass
 
+    def set_state(self, state):
+        self.state = state
+        if self.on_state:
+            try:
+                self.on_state(state)
+            except Exception as e:
+                print(f"! overlay state callback: {e}", flush=True)
+
 
 def tail(path, parser, stop, from_start=False, poll=0.25):
-    """Follow `path` like `tail -F`: survives the file not existing yet, truncation and rotation."""
     pos, ident = None, None
     while not stop.is_set():
         try:
             st = os.stat(path)
             if ident != (st.st_dev, st.st_ino) or (pos is not None and st.st_size < pos):
-                # New/rotated/truncated file: start at the end unless asked to replay.
                 pos = 0 if (from_start or ident is not None) else st.st_size
                 ident = (st.st_dev, st.st_ino)
             if st.st_size > pos:
                 with open(path, "rb") as f:
                     f.seek(pos)
                     chunk = f.read()
-                # Only consume complete lines; keep a partial last line for next time.
                 end = chunk.rfind(b"\n") + 1
                 for raw in chunk[:end].splitlines():
                     parser.feed(raw.decode("utf-8", "replace"))
@@ -134,23 +135,57 @@ def tail(path, parser, stop, from_start=False, poll=0.25):
 
 
 def make_handler(hub, log_path):
+    # Import here so unit tests that only need Parser don't need overlay_state on path quirks
+    from overlay_state import normalise
+
     class Handler(BaseHTTPRequestHandler):
-        def log_message(self, *a):  # keep the console for events
+        def log_message(self, *a):
             pass
 
         def cors(self):
             self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
             self.send_header("Cache-Control", "no-store")
+
+        def do_OPTIONS(self):
+            self.send_response(204)
+            self.cors()
+            self.end_headers()
+
+        def _json(self, code, obj):
+            body = json.dumps(obj).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.cors()
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_POST(self):
+            if not self.path.startswith("/state"):
+                self.send_error(404)
+                return
+            length = int(self.headers.get("Content-Length") or 0)
+            if length > 64_000:
+                self._json(413, {"ok": False, "error": "payload too large"})
+                return
+            try:
+                raw = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+                state = normalise(raw)
+            except (ValueError, json.JSONDecodeError) as e:
+                self._json(400, {"ok": False, "error": str(e)})
+                return
+            hub.set_state(state)
+            self._json(200, {"ok": True})
 
         def do_GET(self):
             if self.path.startswith("/status"):
-                body = json.dumps({"ok": True, "version": VERSION, "log": str(log_path),
-                                   "log_exists": Path(log_path).exists(), "last": hub.last}).encode()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.cors()
-                self.end_headers()
-                self.wfile.write(body)
+                self._json(200, {"ok": True, "version": VERSION, "log": str(log_path),
+                                 "log_exists": Path(log_path).exists(), "last": hub.last,
+                                 "overlay": hub.state is not None})
+                return
+            if self.path.startswith("/state"):
+                self._json(200, hub.state or {})
                 return
             if not self.path.startswith("/events"):
                 self.send_error(404)
@@ -162,7 +197,7 @@ def make_handler(hub, log_path):
             q = hub.subscribe()
             try:
                 hello = {"type": "hello", "version": VERSION, "log": str(log_path),
-                         "log_exists": Path(log_path).exists()}
+                         "log_exists": Path(log_path).exists(), "overlay": True}
                 self.wfile.write(f"data: {json.dumps(hello)}\n\n".encode())
                 self.wfile.flush()
                 while True:
@@ -181,7 +216,6 @@ def make_handler(hub, log_path):
 
 
 def start_hotkeys(hub, spec):
-    """Global hotkeys (work while the game has focus). Requires `pip install pynput`."""
     try:
         from pynput import keyboard
     except ImportError:
@@ -212,12 +246,22 @@ def find_log(explicit):
 
 
 def main(argv=None):
+    # Allow `python helper/splitstone_helper.py` and imports from helper/
+    here = Path(__file__).resolve().parent
+    if str(here) not in sys.path:
+        sys.path.insert(0, str(here))
+
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--log", help="path to Client.txt (default: auto-detect, or $POE2_CLIENT_TXT)")
     ap.add_argument("--port", type=int, default=8766)
     ap.add_argument("--from-start", action="store_true", help="replay the whole log (testing)")
     ap.add_argument("--hotkeys", nargs="?", const="split=f1,undo=f2,pause=f3",
-                    help="enable global hotkeys, e.g. split=f1,undo=f2,pause=f3 (needs pynput)")
+                    help="global hotkeys, e.g. split=f1,undo=f2,pause=f3 (needs pynput)")
+    ap.add_argument("--overlay", action="store_true",
+                    help="show always-on-top top-right corner panel (needs tkinter)")
+    ap.add_argument("--opacity", type=float, default=0.88, help="overlay opacity 0.4–1.0 (default 0.88)")
+    ap.add_argument("--click-through", action="store_true",
+                    help="start overlay click-through (Windows; toggleable in the panel)")
     args = ap.parse_args(argv)
 
     log_path = find_log(args.log)
@@ -230,16 +274,46 @@ def main(argv=None):
 
     server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(hub, log_path))
     server.daemon_threads = True
+    threading.Thread(target=server.serve_forever, daemon=True).start()
     print(f"Watching {log_path}{'' if log_path.exists() else '  (not found yet, waiting)'}", flush=True)
-    print(f"Serving events on http://127.0.0.1:{args.port}/events  (Ctrl+C to stop)", flush=True)
+    print(f"Serving http://127.0.0.1:{args.port}/  (events, state, status)  Ctrl+C to stop", flush=True)
+
+    overlay = None
+    if args.overlay:
+        try:
+            from overlay import Overlay
+        except ImportError as e:
+            print(f"! --overlay needs tkinter ({e}). On Windows use python.org builds; "
+                  f"on Linux: sudo apt install python3-tk", flush=True)
+        else:
+            def on_action(action):
+                hub.publish({"type": "hotkey", "action": action})
+
+            overlay = Overlay(on_action=on_action, opacity=args.opacity,
+                              click_through=args.click_through)
+            hub.on_state = overlay.set_state
+            print("Overlay: top-right corner panel (drag the SPLITSTONE title to move)", flush=True)
+            try:
+                overlay.run()  # Tk main loop on this thread
+            except KeyboardInterrupt:
+                pass
+            finally:
+                overlay.close()
+            stop.set()
+            server.shutdown()
+            return 0
+
     try:
-        server.serve_forever()
+        while not stop.is_set():
+            time.sleep(0.5)
     except KeyboardInterrupt:
         pass
     finally:
         stop.set()
+        server.shutdown()
         server.server_close()
+    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main() or 0)

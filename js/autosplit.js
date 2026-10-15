@@ -103,8 +103,26 @@
     setStatus({ source: null, state: "off", detail: "" });
   }
 
+  /** Push the current-step snapshot to the helper overlay (POST /state). Fire-and-forget. */
+  let lastPush = 0, pushUrl = null;
+  function pushState(snapshot, url) {
+    if (!snapshot) return;
+    pushUrl = (url || pushUrl || "").replace(/\/$/, "");
+    if (!pushUrl || status.state === "off") return;
+    const now = Date.now();
+    // Cap at ~4 Hz so a 250ms tick does not flood the helper.
+    if (now - lastPush < 200 && snapshot._force !== true) return;
+    lastPush = now;
+    const body = JSON.stringify(snapshot);
+    try {
+      // keepalive so a closing tab still delivers the last frame when possible
+      fetch(pushUrl + "/state", { method: "POST", headers: { "Content-Type": "application/json" },
+        body, mode: "cors", keepalive: true }).catch(() => {});
+    } catch (_) { /* ignore */ }
+  }
+
   global.AutoSplit = {
     init: h => { handlers = h; }, connect, watchFile, disconnect, match, zoneMatches,
-    status: () => status, canWatchFile: () => !!global.showOpenFilePicker,
+    pushState, status: () => status, canWatchFile: () => !!global.showOpenFilePicker,
   };
 })(window);
