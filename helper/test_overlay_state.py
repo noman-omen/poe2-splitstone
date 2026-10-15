@@ -46,10 +46,17 @@ class StateProtocolTest(unittest.TestCase):
             "zoneMs": 30000, "runMs": 390000, "deltaMs": 5000, "running": True,
         }))
         roles = [r for r, _ in rows]
-        self.assertEqual(roles, ["zone", "step", "tip", "next", "timer"])
+        self.assertEqual(roles[:4], ["zone", "step", "tip", "next"])
+        self.assertIn("seg", roles)
+        self.assertIn("run", roles)
+        self.assertIn("delta", roles)
         self.assertIn("Cemetery", rows[0][1])
         self.assertTrue(rows[2][1].startswith("➤ "))
-        self.assertIn("+0:05", rows[4][1])
+        self.assertTrue(any("+0:05" in t for r, t in rows if r == "delta"))
+        # Tip hard-cap
+        long = normalise({"tip": "x" * 200})
+        self.assertLessEqual(len(long["tip"]), 100)
+        self.assertTrue(long["tip"].endswith("…"))
 
 
 class HelperStateEndpointTest(unittest.TestCase):

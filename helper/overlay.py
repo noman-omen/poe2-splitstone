@@ -1,10 +1,7 @@
-"""Compact always-on-top Splitstone overlay — small top-right corner panel.
+"""Compact always-on-top Splitstone overlay — top-right race panel.
 
-Requires tkinter (stdlib on Windows Python installs; `python3-tk` on Linux).
-Designed to sit over PoE2: Ember colours, minimal text, opacity + click-through.
-
-Click-through uses Win32 layered-window flags on Windows; on other platforms
-the toggle is shown but is a no-op with a status note.
+Race-mode default: minimal wordmark drag handle; settings behind ⚙ / double-click;
+action buttons only when click-through is off (hidden when display-only).
 """
 from __future__ import annotations
 
@@ -14,9 +11,8 @@ import tkinter as tk
 from tkinter import font as tkfont
 from typing import Any, Callable, Optional
 
-from overlay_state import EMPTY, format_delta, format_ms, lines_for_panel
+from overlay_state import EMPTY, key_label, lines_for_panel
 
-# Ember theme (matches css/styles.css [data-theme=ember])
 BG = "#100e0a"
 PANEL = "#1a1815"
 LINE = "#3a342a"
@@ -24,31 +20,33 @@ TEXT = "#e8e0d0"
 MUTED = "#a39a88"
 GOLD = "#e6c47a"
 GOLD_DIM = "#c8a45a"
-RUN = "#ffb055"
-TIP = "#f1e6c8"
+SEG = "#e6c47a"       # segment time: gold / neutral
+RUN_C = "#a39a88"     # run: secondary muted
 OK = "#6fbf73"
 BAD = "#d0574e"
+TIP = "#f1e6c8"
 
-WIDTH = 360
+WIDTH = 340
 PAD = 10
 
 
 class Overlay:
-    """Top-right floating panel. Call `set_state` from any thread."""
-
     def __init__(self, on_action: Optional[Callable[[str], None]] = None,
                  opacity: float = 0.88, click_through: bool = False):
         self.on_action = on_action or (lambda _a: None)
         self._state: dict[str, Any] = dict(EMPTY)
         self._opacity = max(0.35, min(1.0, opacity))
         self._click_through = click_through
+        self._settings_open = False
         self._root: Optional[tk.Tk] = None
         self._labels: dict[str, tk.Label] = {}
+        self._btn_frame: Optional[tk.Frame] = None
+        self._opts_frame: Optional[tk.Frame] = None
+        self._buttons: dict[str, tk.Button] = {}
         self._lock = threading.Lock()
         self._pending: Optional[dict[str, Any]] = None
         self._alive = False
 
-    # ---- public API (thread-safe) ----
     def set_state(self, state: dict[str, Any]) -> None:
         with self._lock:
             self._pending = state
@@ -67,13 +65,11 @@ class Overlay:
                 pass
 
     def run(self) -> None:
-        """Blocking: create the window and enter the Tk main loop (call from main thread)."""
         self._build()
         self._alive = True
         self._root.mainloop()
         self._alive = False
 
-    # ---- UI ----
     def _build(self) -> None:
         root = tk.Tk()
         self._root = root
@@ -85,89 +81,136 @@ class Overlay:
         except tk.TclError:
             pass
         root.resizable(False, False)
-        root.overrideredirect(True)  # borderless
+        root.overrideredirect(True)
 
         frame = tk.Frame(root, bg=PANEL, highlightbackground=GOLD_DIM, highlightthickness=1)
         frame.pack(fill="both", expand=True)
 
-        # Drag handle / title
-        title = tk.Label(frame, text="SPLITSTONE", bg=PANEL, fg=GOLD_DIM,
-                         font=("Segoe UI", 8, "bold"), anchor="w")
-        title.pack(fill="x", padx=PAD, pady=(6, 0))
+        # Minimal drag-handle wordmark + gear
+        bar = tk.Frame(frame, bg=PANEL)
+        bar.pack(fill="x", padx=PAD, pady=(4, 0))
+        title = tk.Label(bar, text="◆", bg=PANEL, fg=GOLD_DIM, font=("Segoe UI", 9, "bold"),
+                         cursor="fleur")
+        title.pack(side="left")
         title.bind("<ButtonPress-1>", self._start_drag)
         title.bind("<B1-Motion>", self._drag)
+        title.bind("<Double-Button-1>", lambda _e: self._toggle_settings())
+        # Tiny wordmark (not the full SPLITSTONE shout)
+        mark = tk.Label(bar, text="splitstone", bg=PANEL, fg=GOLD_DIM,
+                        font=("Segoe UI", 8), cursor="fleur")
+        mark.pack(side="left", padx=(4, 0))
+        mark.bind("<ButtonPress-1>", self._start_drag)
+        mark.bind("<B1-Motion>", self._drag)
+        mark.bind("<Double-Button-1>", lambda _e: self._toggle_settings())
+        gear = tk.Button(bar, text="⚙", command=self._toggle_settings,
+                         bg=PANEL, fg=MUTED, activebackground=LINE, activeforeground=GOLD,
+                         relief="flat", bd=0, padx=4, font=("Segoe UI", 9), cursor="hand2")
+        gear.pack(side="right")
 
         body = tk.Frame(frame, bg=PANEL)
-        body.pack(fill="both", expand=True, padx=PAD, pady=(2, 4))
+        body.pack(fill="both", expand=True, padx=PAD, pady=(2, 2))
 
-        f_zone = tkfont.Font(family="Segoe UI", size=11, weight="bold")
-        f_step = tkfont.Font(family="Segoe UI", size=10, weight="bold")
-        f_tip = tkfont.Font(family="Segoe UI", size=9)
-        f_next = tkfont.Font(family="Segoe UI", size=8)
-        f_timer = tkfont.Font(family="Consolas", size=14, weight="bold")
+        fonts = {
+            "zone": tkfont.Font(family="Segoe UI", size=11, weight="bold"),
+            "step": tkfont.Font(family="Segoe UI", size=10, weight="bold"),
+            "tip": tkfont.Font(family="Segoe UI", size=9),
+            "next": tkfont.Font(family="Segoe UI", size=8),
+            "seg": tkfont.Font(family="Consolas", size=13, weight="bold"),
+            "run": tkfont.Font(family="Consolas", size=10),
+            "delta": tkfont.Font(family="Consolas", size=12, weight="bold"),
+            "status": tkfont.Font(family="Segoe UI", size=8, weight="bold"),
+        }
+        colours = {
+            "zone": GOLD, "step": TEXT, "tip": TIP, "next": MUTED,
+            "seg": SEG, "run": RUN_C, "delta": OK, "status": BAD,
+        }
+        for role in ("zone", "step", "tip", "next", "seg", "run", "delta", "status"):
+            self._labels[role] = tk.Label(body, text="", bg=PANEL, fg=colours[role],
+                                          font=fonts[role], anchor="w", justify="left",
+                                          wraplength=WIDTH - 2 * PAD)
+            self._labels[role].pack(fill="x", pady=0)
 
-        self._labels["zone"] = tk.Label(body, text="", bg=PANEL, fg=GOLD, font=f_zone,
-                                        anchor="w", justify="left", wraplength=WIDTH - 2 * PAD)
-        self._labels["step"] = tk.Label(body, text="", bg=PANEL, fg=TEXT, font=f_step,
-                                        anchor="w", justify="left", wraplength=WIDTH - 2 * PAD)
-        self._labels["tip"] = tk.Label(body, text="", bg=PANEL, fg=TIP, font=f_tip,
-                                       anchor="w", justify="left", wraplength=WIDTH - 2 * PAD)
-        self._labels["next"] = tk.Label(body, text="", bg=PANEL, fg=MUTED, font=f_next,
-                                        anchor="w", justify="left", wraplength=WIDTH - 2 * PAD)
-        self._labels["timer"] = tk.Label(body, text="0:00", bg=PANEL, fg=RUN, font=f_timer,
-                                         anchor="w")
-        for key in ("zone", "step", "tip", "next", "timer"):
-            self._labels[key].pack(fill="x", pady=1)
-
-        btns = tk.Frame(frame, bg=PANEL)
-        btns.pack(fill="x", padx=PAD, pady=(0, 8))
-        for text, action in (("Split", "split"), ("Pause", "pause"), ("Undo", "undo")):
-            b = tk.Button(btns, text=text, command=lambda a=action: self.on_action(a),
+        # Action buttons (hidden when click-through)
+        self._btn_frame = tk.Frame(frame, bg=PANEL)
+        for action, default_key in (("split", " "), ("pause", "p"), ("undo", "u")):
+            label = f"{action.title()} ({key_label(default_key)})"
+            b = tk.Button(self._btn_frame, text=label,
+                          command=lambda a=action: self.on_action(a),
                           bg=PANEL, fg=GOLD, activebackground=LINE, activeforeground=GOLD,
                           relief="solid", bd=1, padx=8, pady=2, font=("Segoe UI", 8))
             b.pack(side="left", padx=(0, 4))
+            self._buttons[action] = b
 
-        # Opacity / click-through controls
-        opts = tk.Frame(frame, bg=PANEL)
-        opts.pack(fill="x", padx=PAD, pady=(0, 8))
-        tk.Label(opts, text="Opacity", bg=PANEL, fg=MUTED, font=("Segoe UI", 7)).pack(side="left")
+        # Settings (collapsed by default)
+        self._opts_frame = tk.Frame(frame, bg=PANEL)
         self._opacity_var = tk.DoubleVar(value=self._opacity)
-        scale = tk.Scale(opts, from_=0.4, to=1.0, resolution=0.05, orient="horizontal",
-                         variable=self._opacity_var, command=self._on_opacity,
-                         bg=PANEL, fg=MUTED, highlightthickness=0, troughcolor=LINE,
-                         length=100, showvalue=0)
-        scale.pack(side="left", padx=4)
+        tk.Label(self._opts_frame, text="Opacity", bg=PANEL, fg=MUTED,
+                 font=("Segoe UI", 7)).pack(side="left")
+        tk.Scale(self._opts_frame, from_=0.4, to=1.0, resolution=0.05, orient="horizontal",
+                 variable=self._opacity_var, command=self._on_opacity,
+                 bg=PANEL, fg=MUTED, highlightthickness=0, troughcolor=LINE,
+                 length=100, showvalue=0).pack(side="left", padx=4)
         self._ct_var = tk.BooleanVar(value=self._click_through)
-        tk.Checkbutton(opts, text="Click-through", variable=self._ct_var,
-                       command=self._apply_click_through,
+        tk.Checkbutton(self._opts_frame, text="Click-through", variable=self._ct_var,
+                       command=self._on_click_through_toggle,
                        bg=PANEL, fg=MUTED, selectcolor=PANEL, activebackground=PANEL,
                        activeforeground=MUTED, font=("Segoe UI", 7)).pack(side="left", padx=4)
 
         root.update_idletasks()
         self._place_top_right()
         self._apply_click_through()
+        self._sync_chrome()
         self._flush()
         root.after(200, self._tick)
 
+    def _toggle_settings(self) -> None:
+        self._settings_open = not self._settings_open
+        self._sync_chrome()
+
+    def _on_click_through_toggle(self) -> None:
+        self._click_through = bool(self._ct_var.get())
+        self._apply_click_through()
+        self._sync_chrome()
+
+    def _sync_chrome(self) -> None:
+        """Race mode: buttons only when interactive; settings only when opened."""
+        if not self._btn_frame or not self._opts_frame:
+            return
+        show_btns = not self._click_through
+        if show_btns:
+            if not self._btn_frame.winfo_ismapped():
+                self._btn_frame.pack(fill="x", padx=PAD, pady=(2, 6))
+        elif self._btn_frame.winfo_ismapped():
+            self._btn_frame.pack_forget()
+        if self._settings_open:
+            if not self._opts_frame.winfo_ismapped():
+                self._opts_frame.pack(fill="x", padx=PAD, pady=(0, 6))
+        elif self._opts_frame.winfo_ismapped():
+            self._opts_frame.pack_forget()
+        self._root.update_idletasks()
+        self._resize()
+
     def _place_top_right(self) -> None:
-        root = self._root
-        root.update_idletasks()
-        w = WIDTH
-        h = root.winfo_reqheight()
-        sw = root.winfo_screenwidth()
-        x = max(0, sw - w - 16)
-        y = 48
-        root.geometry(f"{w}x{h}+{x}+{y}")
+        self._root.update_idletasks()
+        h = self._root.winfo_reqheight()
+        sw = self._root.winfo_screenwidth()
+        self._root.geometry(f"{WIDTH}x{h}+{max(0, sw - WIDTH - 16)}+48")
+
+    def _resize(self) -> None:
+        self._root.update_idletasks()
+        h = max(self._root.winfo_reqheight(), 70)
+        parts = self._root.geometry().split("+")
+        xy = f"+{parts[1]}+{parts[2]}" if len(parts) >= 3 else ""
+        self._root.geometry(f"{WIDTH}x{h}{xy}")
 
     def _start_drag(self, event) -> None:
         self._drag_x, self._drag_y = event.x_root, event.y_root
 
     def _drag(self, event) -> None:
-        root = self._root
         dx = event.x_root - self._drag_x
         dy = event.y_root - self._drag_y
         self._drag_x, self._drag_y = event.x_root, event.y_root
-        root.geometry(f"+{root.winfo_x() + dx}+{root.winfo_y() + dy}")
+        self._root.geometry(f"+{self._root.winfo_x() + dx}+{self._root.winfo_y() + dy}")
 
     def _on_opacity(self, _v=None) -> None:
         self._opacity = float(self._opacity_var.get())
@@ -177,18 +220,13 @@ class Overlay:
             pass
 
     def _apply_click_through(self) -> None:
-        self._click_through = bool(self._ct_var.get()) if hasattr(self, "_ct_var") else self._click_through
         if sys.platform != "win32":
             return
-        # WS_EX_LAYERED | WS_EX_TRANSPARENT for click-through; keep LAYERED for alpha.
         try:
             import ctypes
             hwnd = ctypes.windll.user32.GetParent(self._root.winfo_id())
-            GWL_EXSTYLE = -20
-            WS_EX_LAYERED = 0x80000
-            WS_EX_TRANSPARENT = 0x20
-            style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-            style |= WS_EX_LAYERED
+            GWL_EXSTYLE, WS_EX_LAYERED, WS_EX_TRANSPARENT = -20, 0x80000, 0x20
+            style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED
             if self._click_through:
                 style |= WS_EX_TRANSPARENT
             else:
@@ -211,26 +249,25 @@ class Overlay:
         for role, label in self._labels.items():
             text = shown.get(role, "")
             label.configure(text=text)
-            # Collapse empty tip/next rows so the panel stays compact.
-            if role in ("tip", "next"):
-                if text:
-                    if not label.winfo_ismapped():
-                        label.pack(fill="x", pady=1, before=self._labels["timer"])
-                elif label.winfo_ismapped():
+            if role in ("tip", "next", "delta", "status"):
+                if text and not label.winfo_ismapped():
+                    # pack before buttons area — keep after run for delta
+                    label.pack(fill="x", pady=0)
+                elif not text and label.winfo_ismapped():
                     label.pack_forget()
+        # Δ colour: behind PB = BAD (red), ahead = OK (green)
         d = state.get("deltaMs")
-        colour = RUN if d is None else (BAD if d > 0 else OK)
-        self._labels["timer"].configure(fg=colour)
-        self._root.update_idletasks()
-        h = max(self._root.winfo_reqheight(), 80)
-        parts = self._root.geometry().split("+")
-        xy = f"+{parts[1]}+{parts[2]}" if len(parts) >= 3 else ""
-        self._root.geometry(f"{WIDTH}x{h}{xy}")
+        if d is not None and "delta" in self._labels:
+            self._labels["delta"].configure(fg=BAD if d > 0 else OK)
+        # Hotkey captions from app bindings
+        hk = state.get("hotkeys") or {}
+        for action, btn in self._buttons.items():
+            btn.configure(text=f"{action.title()} ({key_label(hk.get(action))})")
+        self._resize()
 
     def _tick(self) -> None:
         if not self._alive:
             return
-        # Live clock: if running, advance zoneMs/runMs locally between POSTs
         st = self._state
         if st.get("running") and not st.get("paused"):
             st = dict(st)

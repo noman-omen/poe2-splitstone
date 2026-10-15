@@ -146,9 +146,11 @@
     const c = char(), cur = Run.current(c), p = Run.pb(c);
     if (!cur) {
       const last = c.history[0];
+      const hk = bindings();
       return { v: 1, zone: "Campaign complete", section: "", step: last ? `Final ${Timers.format(last.total)}` : "Finished",
         tip: "", nextStep: "", nextZone: "", zoneMs: 0, runMs: Run.totalMs(c), deltaMs: null,
-        running: false, paused: false, finished: true, progress: `${Run.order(c).length}/${Run.order(c).length}` };
+        running: false, paused: false, finished: true, progress: `${Run.order(c).length}/${Run.order(c).length}`,
+        hotkeys: { split: hk.split, pause: hk.pause, undo: hk.undo } };
     }
     const z = cur.zone, r = Run.route(c);
     const vis = visibleSteps(c, z), todo = vis.filter(st => !c.done[st.id]);
@@ -157,12 +159,13 @@
     const nextVis = next ? visibleSteps(c, next.zone) : [];
     const nextStep = todo[1] || nextVis[0];
     const tips = step ? stepHints(c, step) : [];
+    const hk = bindings();
     return {
       v: 1,
       zone: z.name,
       section: cur.section.name,
       step: step ? step.objective : "",
-      tip: tips[0] || "",
+      tip: (tips[0] || "").slice(0, 100),
       nextStep: nextStep ? nextStep.objective : "",
       nextZone: next ? next.zone.name : "",
       zoneMs: Run.zoneMs(c, z.id),
@@ -172,6 +175,7 @@
       paused: Run.isPaused(c),
       finished: false,
       progress: `${cur.index + 1}/${Run.order(c).length}`,
+      hotkeys: { split: hk.split, pause: hk.pause, undo: hk.undo },
     };
   }
 
