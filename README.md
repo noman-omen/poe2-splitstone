@@ -1,174 +1,161 @@
 # Splitstone
 
-**Splitstone** is a static, offline-friendly web app for tracking a **Path of Exile 2** campaign run
-(Acts 1–4 + Interludes, patch 0.5.5 / Forbidden Rites route data), with timers,
-per-character saves and optional Path of Building 2 import.
+I built **Splitstone** because I wanted one place to run the Path of Exile 2 campaign: a clear route, a real speedrun timer, and enough history to know where I am losing time — without juggling a wiki tab, a stopwatch, and a spreadsheet.
+
+**Splitstone** is a static, offline-friendly web app: a PoE2 campaign **speedrun tracker and leveling guide** for Acts 1–4 plus the Interludes (currently patch **0.5.5 / Forbidden Rites**). Open it in a browser, pick a character, hit Space, and play.
+
+My goal is to make Splitstone the one-stop-shop tool for the PoE2 campaign, and to grow it into endgame tracking after 1.0.
 
 ![Splitstone](screenshots/splitstone.png)
 
-<img src="screenshots/milestone3-phone.png" alt="Phone layout" width="240"> <img src="screenshots/milestone3-stats.png" alt="Run analytics" width="480">
+---
+
+## What it does
+
+| | |
+| --- | --- |
+| **Current step bar** | Big zone name, current objective, tips, next step/zone — readable from a second monitor |
+| **Splits & timers** | Per-zone segments; act and interlude totals; pause, undo, auto-advance |
+| **Route guide** | Normal clear or fast/speedrun route, optional “required steps only” |
+| **History & PBs** | Per-character runs, personal bests, gold segments, live delta vs PB |
+| **Auto-split** | Optional helper that tails PoE2 `Client.txt` and splits on zone changes |
+| **PoB2 import** | Paste a Path of Building 2 code into the character panel |
+| **Themes** | Ember (default), Slate, Crimson, Parchment |
+
+### Now bar (in-game glance)
+
+![Now bar](screenshots/milestone3-nowbar.png)
+
+### Run analytics, maps, hotkeys
+
+| Run analytics | Endgame maps | Hotkeys |
+| --- | --- | --- |
+| ![Stats](screenshots/milestone3-stats.png) | ![Maps](screenshots/milestone3-maps.png) | ![Hotkeys](screenshots/milestone3-hotkeys.png) |
+
+### Colour themes
+
+| Ember (default) | Slate |
+| --- | --- |
+| ![Ember](screenshots/theme-ember.png) | ![Slate](screenshots/theme-slate.png) |
+| **Crimson** | **Parchment** |
+| ![Crimson](screenshots/theme-crimson.png) | ![Parchment](screenshots/theme-parchment.png) |
+
+---
 
 ## Features
 
-- **Route checklist**: 111 steps grouped by act/interlude → zone, with objective, level,
-  hints (layout / speed tips) and extra info (details, waypoints, skips, rewards, warnings).
-- **Toggles**: *Hide hints* and *Hide extra info* (persisted).
-- **Speedrun splits**: every zone is a timed segment. A sticky "now" bar shows the current
-  zone, its open steps, the zone timer, run time and live delta vs PB. `Space` starts the run
-  and splits (completes the zone, starts the next one); ticking the last required step of the
-  zone you are timing splits automatically. Undo, pause/resume and new run are one key each.
-- **Separate interludes**: the route plays Interlude 2 (part 1) → Interlude 3 → Interlude 2
-  (part 2) → Interlude 1. Each part is its own section; Interlude 1/2/3 each get a total
-  (Interlude 2 = both parts). Act, interlude-part and interlude totals are sums of their zones.
-- **History and PBs per character**: finished runs and reset attempts are saved with every zone,
-  section and group time. PB = fastest complete run. Best segments (golds) are kept per zone,
-  section and interlude; sum of best is shown. Each zone shows its delta vs the PB segment.
-- **Manual timers**: start/stop/reset per zone (only one zone runs at a time) and per endgame map.
-- **Focus mode** (`F`): show only the current act/interlude and hide completed zones,
-  handy on a second monitor. The phone layout keeps a compact sticky bar with the split button.
-- **Characters**: one saved campaign per character; create, switch, rename, delete.
-- **Persistence**: everything is saved in `localStorage` (`splitstone:v1`; older `poe2-campaign-tracker:v1` saves are migrated automatically).
-- **Export / import** JSON. Import merges characters (same id overwrites) and rejects invalid files.
-- **PoB2 import** (optional): paste an export code; it is decoded in the browser
-  (base64url → zlib inflate via `DecompressionStream` → XML) and shows class, ascendancy,
-  level, passives, item count, key stats and main skills with supports. Invalid codes show
-  a clear error and do not change the saved state. Links (pobb.in etc.) are not fetched;
-  paste the raw code.
+- **Campaign checklist** — 111 steps grouped by act / interlude → zone (patch 0.5.5 route data), with objectives, levels, hints, rewards, waypoints, and skips.
+- **Speedrun splits** — Space starts and splits; ticking the last required step of a timed zone also advances. Undo, pause/resume, and new run are one key each.
+- **Separate interludes** — Interlude 2 (parts 1 & 2), 3, and 1 each have their own timers; Interlude 2’s total is both parts combined.
+- **Route variants** — *Normal clear* or *Fastest (speedrun)* from the original guide data; *Required steps only* hides optionals. PBs and bests are tracked per variant.
+- **History & analytics** — Completed and abandoned runs, PB, gold segments, sum of best, SVG trend charts, per-act “avg − best,” CSV export.
+- **Map history** — Timed map runs with per-map PB / average and CSV export (separate from the campaign run).
+- **Characters** — Create, switch, rename, delete; one saved campaign per character.
+- **Persistence** — `localStorage` (`splitstone:v1`; older `poe2-campaign-tracker:v1` saves migrate automatically). JSON export / import.
+- **Auto-split from Client.txt** — Optional local helper (SSE) or Chrome/Edge File System Access. Hideouts, re-entries, and backtracking are ignored.
+- **Rebindable hotkeys** — Settings panel with conflict detection; bindings export with the save.
+- **PoB2 import** — Decode a build code in-browser (base64url + zlib → XML); bad codes fail gracefully.
+- **Themes** — Ember, Slate, Crimson, Parchment (global preference, in settings and export).
+- **Focus mode & phone layout** — Second-monitor focus; compact sticky bar on small screens.
 
-- **Big current-step bar**: zone name, current step (large), its hints and route info
-  (rewards, waypoint, skips, warnings; following the hide toggles), the next step and the next zone,
-  readable from a second monitor. The phone version only keeps zone, step, clock and buttons.
-- **Route variants** (per character): *Normal clear* or *Fastest (speedrun)*. Both come from the
-  original guide data: the fast route drops `skip_in_fast` steps and shows ⚡ speed tips. A *Required
-  steps only* filter hides optional steps. Zones with no visible step drop out of the run. PB,
-  best segments and history comparisons are kept per variant.
-- **Auto-split from Client.txt** (off by default): see [Auto-split](#auto-split).
-- **Rebindable hotkeys** (⌨ button): press a new key, conflicts are rejected, *Reset defaults*.
-  Bindings are saved, included in JSON export/import and shown in the help overlay and on the buttons.
-- **Run analytics**: campaign time per run (SVG chart with average and sum-of-best lines), a trend
-  chart for any act, interlude, interlude part or zone, stat cards (runs, resets, PB, average,
-  average of the last 5, sum of best, PB − SoB), a per-act table with avg − best (where you can
-  gain the most), and **CSV export** (one row per run, every segment in seconds).
-- **Map history**: each map row has *✓ Finish*, which saves the run and resets the timer. Per-map PB,
-  average and run count (grouped by map name), a live delta vs that map's PB, recent runs, and a maps CSV.
+---
 
-## Colour themes
+## Vision
 
-Global preference (this browser), saved in `settings.theme` and included in JSON export/import.
-Default is **Ember**. Change it in ⌨ **Settings**.
+I want Splitstone to be the tool I actually leave open for the whole league launch: campaign route, timer, and feedback in one window. Campaign is the foundation. After that I want endgame — maps, atlas-style progress, and the same split discipline applied outside the story.
 
-| Id | Look |
+---
+
+## Roadmap
+
+**Stated goal:** have Splitstone available and updated for **PoE2 1.0 by the end of the first week after the 1.0 release** (“1.0 release week” — I am not inventing a calendar date).
+
+| Phase | Focus |
 | --- | --- |
-| `ember` | Dark charcoal & warm gold (default) |
-| `slate` | Blues, grays and whites |
-| `crimson` | Reds, blacks and golds |
-| `parchment` | White, gold and gray |
+| **Current (0.5.x)** | Campaign tracker as it stands: acts, interludes, splits, auto-split helper, themes |
+| **Pre-1.0 hardening** | Polish, test coverage, helper robustness, docs, and anything that would break under a full data refresh |
+| **1.0 launch week** | Refresh route data for 1.0 acts and zones, area IDs, and verification against the live game |
+| **Post-1.0 endgame** | Map / atlas tracking and other endgame features built on the same timer and history model |
 
-![Ember](screenshots/theme-ember.png)
-![Slate](screenshots/theme-slate.png)
-![Crimson](screenshots/theme-crimson.png)
-![Parchment](screenshots/theme-parchment.png)
+---
 
-## Keyboard shortcuts
+## Quick start
 
-Defaults (all can be changed in ⌨ settings):
-
-| Key | Action |
-| --- | --- |
-| `Space` | Start run / split current zone |
-| `U` | Undo last split |
-| `P` | Pause / resume |
-| `R` | New run (unfinished run saved as an attempt) |
-| `C` | Scroll to current zone |
-| `F` | Focus mode |
-| `H` / `E` | Hide hints / hide extra info |
-| `?` / `Esc` | Help; `Esc` also leaves a text field |
-
-Browser hotkeys only work while the tracker window has focus. For keys that work while you are in the
-game, use the helper's global hotkeys (below).
-
-## Auto-split
-
-Enable **Auto-split** on the route bar. The app then gets zone changes from the game's `Client.txt`:
-
-- **Local helper (recommended)**: `helper/splitstone_helper.py` (Python standard library only) tails
-  the log and serves Server-Sent Events on `http://127.0.0.1:8766/events` (localhost only, read-only).
-  The pill shows *Helper: connected / not connected* and the app reconnects by itself.
-- **No helper (Chrome/Edge)**: *Watch Client.txt…* uses the File System Access API to read the log
-  from the tab. You must pick the file again after every reload, and the tab has to stay open.
-
-Rules: entering the next route zone splits. If you missed some zones, entering one up to 4 zones
-ahead closes the skipped ones with 0 time. Re-entering the current zone (death, portal, checkpoint),
-hideouts, backtracking and off-route towns are ignored. Entering the first zone starts the run.
-From the last zone, entering a map finishes it. Pause blocks auto-splits.
-
-### Running the helper on Windows
-
-1. Install Python 3 from python.org (tick *Add to PATH*), or `winget install Python.Python.3.12`.
-2. Copy the `helper` folder to the gaming PC.
-3. Double-click `run_helper.bat`, or in a terminal:
-   ```bat
-   py helper\splitstone_helper.py
-   py helper\splitstone_helper.py --log "D:\SteamLibrary\steamapps\common\Path of Exile 2\logs\Client.txt"
-   ```
-   Default paths it looks for:
-   - Steam: `C:\Program Files (x86)\Steam\steamapps\common\Path of Exile 2\logs\Client.txt`
-   - Standalone: `C:\Program Files (x86)\Grinding Gear Games\Path of Exile 2\logs\Client.txt`
-   - Other Steam library: pass `--log` or set `POE2_CLIENT_TXT`. In Steam, *Manage → Browse local files* opens the game folder.
-4. Open the tracker in a browser on the same PC and tick **Auto-split**. If the helper runs elsewhere, change the URL in *Auto-split settings*.
-5. Optional global hotkeys (they work while the game has focus): `py -m pip install pynput`, then
-   `py helper\splitstone_helper.py --hotkeys` (F1 split, F2 undo, F3 pause), or for example `--hotkeys split=f5,undo=f6,pause=f7`.
-
-Other options: `--port 8766` and `--from-start` (replay the whole log, for testing).
-
-## Run
-
-No build step is needed. Open `index.html` directly, or serve it:
+No build step. Either open `index.html` in a browser, or serve the folder:
 
 ```sh
 python3 -m http.server 8765 --bind 127.0.0.1
 # → http://127.0.0.1:8765/
 ```
 
+### Auto-split helper on Windows
+
+1. Install Python 3 (tick *Add to PATH*), or `winget install Python.Python.3.12`.
+2. Copy the `helper` folder to the gaming PC.
+3. Double-click `run_helper.bat`, or:
+
+   ```bat
+   py helper\splitstone_helper.py
+   py helper\splitstone_helper.py --log "D:\SteamLibrary\steamapps\common\Path of Exile 2\logs\Client.txt"
+   ```
+
+   Defaults it looks for:
+
+   - Steam: `C:\Program Files (x86)\Steam\steamapps\common\Path of Exile 2\logs\Client.txt`
+   - Standalone: `C:\Program Files (x86)\Grinding Gear Games\Path of Exile 2\logs\Client.txt`
+
+4. Open Splitstone on the same PC and enable **Auto-split**.
+5. Optional global hotkeys (work while the game has focus): `py -m pip install pynput`, then  
+   `py helper\splitstone_helper.py --hotkeys` (F1 split, F2 undo, F3 pause).
+
+---
+
 ## Project layout
 
 ```
-index.html            markup + script includes (plain scripts, works from file://)
-css/styles.css        theme and layout
-js/storage.js         state shape, localStorage, JSON export/import
-js/timers.js          stopwatch helpers
-js/charts.js          tiny SVG line chart
-js/autosplit.js       Client.txt zone matching, helper (SSE) + File System Access sources
-helper/               splitstone_helper.py (Client.txt → SSE), run_helper.bat, parser unit tests
-js/run.js             speedrun logic: current zone, split/undo/pause, history, PB, bests
-js/pob.js             PoB2 code decoder + summariser
-js/app.js             rendering and event handling
-data/campaign.js      generated route data (do not edit)
-scripts/build_data.py regenerates data/campaign.js from route.json
-tests/smoke_test.py   Playwright end-to-end test (fake clock; writes screenshots/milestone2.png)
+index.html            app shell
+css/styles.css        themes + layout
+js/                   storage, timers, run logic, charts, auto-split, PoB, UI
+data/campaign.js      generated route data
+scripts/build_data.py regenerate data from route.json
+helper/               splitstone_helper.py (Client.txt → SSE)
+assets/               logo.svg, favicon.svg
+tests/                Playwright + helper unit tests
+screenshots/          README images
 ```
 
-## Updating route data
-
-The route is taken from the earlier single-file guide (`/workspace/poe2/campaign/route.json`):
+Update route data from the upstream guide JSON:
 
 ```sh
 python3 scripts/build_data.py /path/to/route.json
 ```
+
+---
 
 ## Tests
 
 ```sh
 pip install playwright && python3 -m playwright install chromium
 python3 -m http.server 8765 --bind 127.0.0.1 &
-python3 tests/smoke_test.py       # main end-to-end test (fake clock)
-python3 tests/autosplit_test.py   # real helper + fake Client.txt appends
-python3 helper/test_helper.py     # parser unit tests
-python3 tests/screenshots.py      # regenerate screenshots/milestone3*.png
+python3 tests/smoke_test.py
+python3 tests/autosplit_test.py
+python3 helper/test_helper.py
 ```
+
+---
+
+## Contributing
+
+Issues and pull requests are welcome. For route or area-ID fixes, say which patch you checked against. Keep the app static (no required build step) unless there is a strong reason not to.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE). Copyright © 2026 Splitstone contributors.
+
+---
 
 ## Disclaimer
 
-Fan-made project, not affiliated with or endorsed by Grinding Gear Games. Route data is
-compiled from community sources (malura's speedrun route, Domistae, Exile-UI, Maxroll,
-poe2db) and may be outdated.
+This is a fan-made project. It is **not affiliated with or endorsed by Grinding Gear Games**. Path of Exile is a trademark of Grinding Gear Games. Route information is compiled from community sources, may be outdated, and is provided as-is. Use at your own risk.
