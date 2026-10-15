@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PoE2 Campaign Tracker</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>PoE2 Campaign Tracker</h1>
+      <span class="sub" id="meta"></span>
+    </div>
+    <div class="char-controls">
+      <label for="charSelect" class="sr-only">Character</label>
+      <select id="charSelect" title="Switch character"></select>
+      <button data-action="char-new" title="Create a new character">New</button>
+      <button data-action="char-rename">Rename</button>
+      <button data-action="char-delete" class="danger">Delete</button>
+    </div>
+    <div class="toggles">
+      <label class="switch"><input type="checkbox" id="hideHints"> Hide hints</label>
+      <label class="switch"><input type="checkbox" id="hideExtra"> Hide extra info</label>
+    </div>
+    <div class="io">
+      <button data-action="export">Export JSON</button>
+      <button data-action="import">Import JSON</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <section class="card" id="totals" aria-label="Totals"></section>
+      <section class="card" id="character" aria-label="Character"></section>
+    </aside>
+    <main id="campaign" aria-live="polite"></main>
+  </div>
+
+  <div id="toast" role="status"></div>
+
+  <!-- Plain scripts (no modules) so the app also works from file:// -->
+  <script src="data/campaign.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/timers.js"></script>
+  <script src="js/pob.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
