@@ -285,6 +285,25 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     check("bad import rejected gracefully", "Import failed" in page.text_content("#toast"))
 
+    # --- Class-aware campaign notes ---
+    page.select_option("#routeClass", "monk")
+    check("class persisted on character", char(page).get("classId") == "monk")
+    check("monk gem tip on Renly step", page.locator(".step .class-note", has_text="Glacial Cascade").count() >= 1)
+    check("recommended reward callout for Finn charm", page.locator(".class-rec", has_text="Sapphire").count() >= 1)
+    page.check("#hideHints")
+    check("hide-hints hides class notes", not page.locator(".class-note").first.is_visible())
+    page.uncheck("#hideHints")
+    page.select_option("#routeClass", "mercenary")
+    check("mercenary Renly tip is Explosive Grenade", page.locator(".class-note", has_text="Explosive Grenade").count() >= 1)
+    page.select_option("#routeClass", "warrior")
+    check("warrior Rolling Slam tip shown", page.locator(".class-note", has_text="Rolling Slam").count() >= 1)
+    with page.expect_download() as dl:
+        page.click('[data-action="export"]')
+    exp = json.loads(Path(dl.value.path()).read_text())
+    check("classId in JSON export", any(c.get("classId") == "warrior" for c in exp["characters"].values()))
+    page.select_option("#routeClass", "")
+    check("class can be cleared to None", char(page).get("classId") in (None, ""))
+
     # --- Colour themes (global) ---
     check("default theme is ember", js(page, "document.documentElement.getAttribute('data-theme')") == "ember")
     page.click('[data-action="settings"] >> nth=0')

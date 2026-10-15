@@ -1,0 +1,161 @@
+// Class-aware campaign notes for the six basic classes (not ascendancies).
+// Skills are NOT class-locked in PoE2; Uncut gems show class-recommended options.
+// Each note: { kind, text, reward?, alt?, sources[], uncertain? }
+// kind: gem | support | choice | tip | gear | spirit
+window.CLASS_NOTES = {
+  meta: {
+    patch: "0.5.5",
+    disclaimer: "Generic class leveling defaults for the campaign. Ascendancy / endgame build notes come later. Skills are not class-locked.",
+    sources: {
+      monk_route: "Local route data: Monk Hollow Form Martial Artist recommendations (Maxroll Manni, GuyThatDies, Havoc)",
+      merc_gtd: "https://mobalytics.gg/poe-2/builds/mercenary-grenades-leaguestarter (GuyThatDies, 0.5.5)",
+      warrior_lund: "https://mobalytics.gg/poe-2/builds/warrior-league-start-lundburgerr (Lundburgerr, 0.5)",
+      warrior_game8: "https://game8.co/games/Path-of-Exile-2/archives/572625 (Shield Wall Warcry leveling)",
+      spark_vault: "https://www.poe-vault.com/poe2/sorceress/stormweaver/spark-leveling-build",
+      spark_ignatius: "https://mobalytics.gg/poe-2/builds/ignatius-spark-stormweaver",
+      cold_sorc_game8: "https://game8.co/games/Path-of-Exile-2/archives/513058",
+      game8_list: "https://game8.co/games/Path-of-Exile-2/archives/512964 (0.5 leveling builds list)",
+      thegamer_gems: "https://www.thegamer.com/path-of-exile-2-skill-gems-explained/",
+      maxroll_league: "https://maxroll.gg/poe2/getting-started/comprehensive-league-start-leveling-guide",
+    },
+  },
+  classes: [
+    { id: "warrior", name: "Warrior", short: "War", weapon: "Mace / shield", summary: "Act 1: Rolling Slam + Boneshatter; Perfect Strike for bosses at 14. Shield Wall later (~22)." },
+    { id: "sorceress", name: "Sorceress", short: "Sorc", weapon: "Staff / wand", summary: "Spark + Frost Bomb (Cold Infusion) is the common league-start caster path." },
+    { id: "ranger", name: "Ranger", short: "Rng", weapon: "Bow", summary: "Projectile attack leveling (Ice Shot / Poison variants). Prioritise bow DPS and freeze/poison tools." },
+    { id: "monk", name: "Monk", short: "Mnk", weapon: "Quarterstaff → Hollow Palm", summary: "Cold quarterstaff into Ice Strike / Hollow Palm (~13). Squishy — freeze before packs reach you." },
+    { id: "mercenary", name: "Mercenary", short: "Merc", weapon: "Crossbow", summary: "Grenades (Explosive → Flash → Gas at 14). Save currency for a strong Act 2 crossbow." },
+    { id: "witch", name: "Witch", short: "Wch", weapon: "Staff / minions", summary: "Contagion / drain or Spark (same caster path as Sorc). Cut Contagion early for clear." },
+  ],
+};
+
+(function () {
+  const N = (kind, text, extra = {}) => Object.assign({ kind, text, sources: [] }, extra);
+
+  // Shared permanent-buff choices (class-flavoured defaults where it matters).
+  const charmFinn = (primary, alt, sources) => N("choice",
+    `Finn's charm: prefer ${primary} for the next big elemental check.`,
+    { reward: primary + " Charm", alt: alt ? `Alt: ${alt}.` : null, sources });
+  const serviStun = (sources) => N("choice",
+    "Servi's venom: 25% Stun Threshold is the safest campaign default.",
+    { reward: "25% Stun Threshold", alt: "Alt: 25% Mana Regeneration if you are mana-starved (casters).", sources });
+  const goddessLife = (sources) => N("choice",
+    "Goddess of Justice: 30% Life Recovery from Flasks for the rest of the campaign.",
+    { reward: "Life flask recovery", sources });
+  const tattoosRes = (sources) => N("choice",
+    "Halls of the Dead tattoos: take the resistances you are short of.",
+    { reward: "+5% elemental resistance tattoo", sources });
+  const qimahTabana = (sources) => N("choice",
+    "Qimah boon: Tabana +5% all elemental res until capped from gear, then a defence/MS boon.",
+    { reward: "Tabana's Pillar (+5% all ele res)", sources, uncertain: true });
+
+  const byClass = {
+    warrior: {
+      "act1-01": [N("tip", "Start with Mace Strike. Act 1 damage is Rolling Slam → cancel into Boneshatter (do not finish the second slam).", { sources: ["warrior_lund", "warrior_game8"] })],
+      "act1-02": [N("gem", "Renly Lv1 Uncut Skill Gem → Rolling Slam (keep it at gem level 1 if your guide says so — stun setup, not DPS).", { sources: ["warrior_lund", "warrior_game8"] })],
+      "act1-03": [N("gem", "Mysterious Campsite Lv1 gem → Boneshatter.", { sources: ["warrior_game8"] }),
+                  N("tip", "Do Mud Burrow: Devourer Lv2 gem upgrades Rolling Slam; Renly's support → Impact Shockwave on Boneshatter.", { sources: ["warrior_game8"] })],
+      "act1-04": [N("support", "Areagne support → Rapid Attacks I on Rolling Slam (or Concentrated Area on Mace Strike).", { sources: ["warrior_game8", "warrior_lund"] })],
+      "act1-05": [N("gem", "Rust King Lv3 gem → level Boneshatter (or Rolling Slam if you need the upgrade).", { sources: ["warrior_game8"] })],
+      "act1-14": [N("spirit", "Gembloom Spirit Gem → Herald of Ash for clear.", { sources: ["warrior_lund", "warrior_game8"] })],
+      "act1-15": [charmFinn("Ruby", "Sapphire for Geonor if cold-res short", ["warrior_lund", "maxroll_league"])],
+      "act1-18": [N("gem", "Leitis Lv5 gem → Perfect Strike for Geonor / bosses (Window of Opportunity support when you can).", { sources: ["warrior_lund", "warrior_game8"] })],
+      "act1-20": [N("tip", "Geonor: Perfect Strike windows; Rolling Slam + Boneshatter for adds. Aim for level 14 before the fight.", { sources: ["warrior_lund"] })],
+      "act2-01": [N("tip", "Shield Wall unlocks around level 22 — that becomes your main clear once available.", { sources: ["warrior_lund", "warrior_game8"] })],
+      "act3-04": [serviStun(["merc_gtd", "monk_route"])],
+      "act4-06": [goddessLife(["merc_gtd"])],
+      "act4-12": [tattoosRes(["monk_route"])],
+      "interludes-15": [qimahTabana(["monk_route"])],
+    },
+    sorceress: {
+      "act1-01": [N("tip", "Sorceress starts with Spark from the Riverbank chest — keep it as your main projectile.", { sources: ["spark_vault", "spark_ignatius"] })],
+      "act1-02": [N("gem", "Renly Lv1 gem → Frost Bomb (Exposure + Cold Infusions that empower Spark).", { sources: ["spark_vault", "spark_ignatius"] })],
+      "act1-03": [N("gem", "Campsite Lv1: Ice Nova for clear, or Contagion — Frost Bomb comes from Renly if you followed the Spark plan.", { sources: ["cold_sorc_game8", "spark_vault"], uncertain: true })],
+      "act1-04": [N("support", "Areagne support → Zenith I / Unleash on Spark or Ice Nova.", { sources: ["cold_sorc_game8", "spark_ignatius"] })],
+      "act1-05": [N("gem", "Rust King Lv3 → Orb of Storms (support with Overabundance / Unleash when available).", { sources: ["spark_vault"] })],
+      "act1-14": [N("spirit", "Spirit Gem → often Blasphemy later; early Herald options vary. Keep Spirit free for auras you can afford.", { sources: ["spark_ignatius"], uncertain: true })],
+      "act1-15": [charmFinn("Sapphire", "Ruby before fire bosses (Rudja)", ["maxroll_league"])],
+      "act1-18": [N("gem", "Leitis Lv5 → level Spark (or Flame Wall / Frost Darts per cold-Infusion guides).", { sources: ["spark_vault", "cold_sorc_game8"], uncertain: true })],
+      "act1-20": [N("tip", "Boss pattern: precast Frost Bomb + Orb of Storms, Flame Wall, then Spark through the wall. Refresh Exposure often.", { sources: ["spark_ignatius"] })],
+      "act3-04": [N("choice", "Servi's venom: 25% Mana Regeneration if mana is tight; otherwise Stun Threshold.",
+        { reward: "25% Mana Regeneration Rate", alt: "Alt: 25% Stun Threshold for safer campaign.", sources: ["monk_route"] })],
+      "act4-06": [goddessLife(["merc_gtd"])],
+      "act4-12": [tattoosRes(["monk_route"])],
+      "interludes-15": [qimahTabana(["monk_route"])],
+    },
+    ranger: {
+      "act1-01": [N("tip", "Ranger levels on bow skills. Prefer Ice Shot (freeze) or Poison projectile plans from Game8's 0.5 list.", { sources: ["game8_list"] })],
+      "act1-02": [N("gem", "Renly Lv1 → your clear skill (Ice Shot is a common cold bow start; Poison Bomb / Contagion-style if going poison).", { sources: ["game8_list"], uncertain: true })],
+      "act1-03": [N("gem", "Campsite Lv1 → Frost Bomb (Exposure) or a second bow skill for single target.", { sources: ["game8_list", "maxroll_league"], uncertain: true })],
+      "act1-04": [N("support", "Areagne support → Multishot I / Pierce / elemental supports on your main bow skill.", { sources: ["merc_gtd"], uncertain: true })],
+      "act1-05": [N("gem", "Rust King Lv3 → level your main bow skill.", { sources: ["game8_list"] })],
+      "act1-14": [N("spirit", "Herald of Ice is a strong clear aura once you freeze reliably.", { sources: ["monk_route"], uncertain: true })],
+      "act1-15": [charmFinn("Sapphire", "Ruby for fire checks", ["maxroll_league"])],
+      "act1-18": [N("gem", "Leitis Lv5 → upgrade main bow skill before Geonor.", { sources: ["game8_list"] })],
+      "act1-09": [N("gear", "Ancient Ruin ring: Iron Ring (attack damage) if you are on attacks.", { sources: ["monk_route"] })],
+      "act3-04": [serviStun(["merc_gtd"])],
+      "act4-06": [goddessLife(["merc_gtd"])],
+      "act4-12": [tattoosRes(["monk_route"])],
+      "interludes-15": [qimahTabana(["monk_route"])],
+    },
+    monk: {
+      "act1-01": [N("gear", "Starter Quarterstaff + Quarterstaff Strike until Hollow Palm (~13). Monk is weak until ~6 and squishy all campaign — freeze packs first.", { sources: ["monk_route"] })],
+      "act1-02": [N("gem", "Renly Lv1 → Glacial Cascade (large final spike does most of the damage).", { sources: ["monk_route"] })],
+      "act1-03": [N("gem", "Campsite Lv1 → Frost Bomb. Do Mud Burrow for Frozen Locus + Concentrated Area on Cascade.", { sources: ["monk_route"] })],
+      "act1-04": [N("support", "Areagne → Rage I on Glacial Cascade (alt: Cold Attunement).", { sources: ["monk_route"] })],
+      "act1-05": [N("gem", "Rust King Lv3 → Tempest Bell (combo setup) or level Glacial Cascade.", { sources: ["monk_route"] })],
+      "act1-09": [N("gear", "Ancient Ruin: Iron Ring (attack damage). Flat attack damage on rings/gloves is the best early upgrade.", { sources: ["monk_route"] })],
+      "act1-14": [N("spirit", "Gembloom Spirit Gem → Herald of Ice (+ Magnified Area later).", { sources: ["monk_route"] })],
+      "act1-15": [charmFinn("Sapphire", "Ruby", ["monk_route"])],
+      "act1-18": [N("gem", "Leitis Lv5: SAVE for Ice Strike at level 14 (common Manni plan).", { sources: ["monk_route"], alt: "Alt: cut into Glacial Cascade and use Tempest Flurry as a boss skill (GuyThatDies / Havoc)." })],
+      "act1-19": [N("tip", "Level 13: allocate Hollow Palm Technique; unequip the staff unless it is clearly stronger. Prioritise Evasion + ES.", { sources: ["monk_route"] })],
+      "act1-20": [N("gem", "Level 14 swap: Ice Strike as combo generator. Sapphire Charm for Geonor.", { sources: ["monk_route"] })],
+      "act2-04": [N("gear", "Ruby Charm before Rudja (fire).", { sources: ["monk_route"] })],
+      "act3-04": [N("choice", "Servi's venom: 25% Stun Threshold (Maxroll / GuyThatDies default for Monk).",
+        { reward: "25% Stun Threshold", alt: "Alt: Mana Regen if Hollow Form / mana issues later.", sources: ["monk_route"] })],
+      "act3-11": [N("spirit", "Gemrot Spirit: Herald of Thunder (Havoc) or keep Spirit for Hollow Focus.", { sources: ["monk_route"] })],
+      "act4-06": [goddessLife(["monk_route"])],
+      "act4-12": [N("choice", "Tattoos: resistances unless short Str/Dex/Int for Whirling Assault / Wind Dancer.",
+        { reward: "+5% res tattoo", sources: ["monk_route"] })],
+      "act4-20": [N("choice", "Kaimana: Rakiata's Lesson (Evasion+ES) or Kaom's Lesson (simpler flat defences).",
+        { reward: "Rakiata's Lesson", uncertain: true, sources: ["monk_route"] })],
+      "interludes-15": [N("choice", "Qimah: Orbala MS or Ahkeli defences; Tabana while capping res.",
+        { reward: "Orbala / Ahkeli / Tabana (swappable)", sources: ["monk_route"] })],
+    },
+    mercenary: {
+      "act1-01": [N("tip", "Crossbow + Fragmentation Rounds early; drop Fragmentation around level 6. Save Regals/Alcs/Runes/Exalts for a Varnished Crossbow in Act 2.", { sources: ["merc_gtd"] })],
+      "act1-02": [N("gem", "Renly Lv1 → Explosive Grenade.", { sources: ["merc_gtd"] })],
+      "act1-03": [N("gem", "Clearfell / Campsite Lv1 → Frost Bomb.", { sources: ["merc_gtd"] })],
+      "act1-04": [N("support", "Areagne → Multishot I on Explosive Grenade.", { sources: ["merc_gtd"] })],
+      "act1-05": [N("gem", "Rust King Lv3 → upgrade Explosive Grenade.", { sources: ["merc_gtd"] })],
+      "act1-12": [N("gem", "Lachlann Lv3 → Flash Grenade.", { sources: ["merc_gtd"] })],
+      "act1-13": [N("gem", "Crowbell Lv3 → Pounce (mobility).", { sources: ["merc_gtd"] })],
+      "act1-14": [N("tip", "Level 14 goal (Geonor): Gas Grenade online. Clear: Gas then Explosive to detonate; Flash for stun/packs.", { sources: ["merc_gtd"] })],
+      "act1-15": [charmFinn("Sapphire", "Ruby", ["merc_gtd", "maxroll_league"])],
+      "act1-17": [N("support", "Support priority: Multishot + Elemental Armament on Explosive; later Multishot on Flash/Gas.", { sources: ["merc_gtd"] })],
+      "act1-18": [N("gem", "Leitis Lv5 → upgrade Explosive Grenade (upgrade priority: Explosive > Flash).", { sources: ["merc_gtd"] })],
+      "act2-01": [N("gear", "Craft / buy a strong crossbow once you can spend the currency you saved.", { sources: ["merc_gtd"] })],
+      "act3-04": [serviStun(["merc_gtd"])],
+      "act4-06": [goddessLife(["merc_gtd"])],
+      "act4-12": [tattoosRes(["merc_gtd"])],
+      "interludes-15": [qimahTabana(["merc_gtd"])],
+    },
+    witch: {
+      "act1-01": [N("tip", "Witch can level Contagion/drain (Game8) or the same Spark path as Sorceress — cut Spark from Renly if you did not start with it.", { sources: ["game8_list", "spark_vault"] })],
+      "act1-02": [N("gem", "Renly Lv1 → Contagion (chaos clear) or Spark (if following the caster Spark plan).", { sources: ["game8_list", "spark_vault"], uncertain: true })],
+      "act1-03": [N("gem", "Campsite → Frost Bomb (Exposure) or Contagion if Renly was Spark.", { sources: ["spark_vault", "cold_sorc_game8"] })],
+      "act1-04": [N("support", "Areagne → supports for Contagion (Magnified Area / Chaos) or Spark (Unleash / Zenith).", { sources: ["spark_ignatius"], uncertain: true })],
+      "act1-05": [N("gem", "Rust King Lv3 → level Contagion / Essence Drain, or Orb of Storms for Spark.", { sources: ["game8_list", "spark_vault"], uncertain: true })],
+      "act1-14": [N("spirit", "Spirit Gem → often Blasphemy + a curse later; early minion/Herald choices depend on the build.", { sources: ["game8_list"], uncertain: true })],
+      "act1-15": [charmFinn("Sapphire", "Ruby", ["maxroll_league"])],
+      "act1-18": [N("gem", "Leitis Lv5 → upgrade your main clear skill before Geonor.", { sources: ["game8_list"] })],
+      "act3-04": [N("choice", "Servi's venom: Mana Regen if casting; Stun Threshold if sticking to Contagion/minions.",
+        { reward: "25% Mana Regeneration Rate", alt: "Alt: 25% Stun Threshold.", sources: ["monk_route"] })],
+      "act4-06": [goddessLife(["merc_gtd"])],
+      "act4-12": [tattoosRes(["monk_route"])],
+      "interludes-15": [qimahTabana(["monk_route"])],
+    },
+  };
+
+  window.CLASS_NOTES.byClass = byClass;
+})();

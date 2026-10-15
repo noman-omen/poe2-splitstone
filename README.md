@@ -22,6 +22,7 @@ My goal is to make Splitstone the one-stop-shop tool for the PoE2 campaign, and 
 | **PoB2 import** | Paste a Path of Building 2 code into the character panel |
 | **Themes** | Ember (default), Slate, Crimson, Parchment |
 | **In-game overlay** | Small top-right always-on-top panel from the Windows helper |
+| **Class notes** | Basic-class gem & reward tips (Warrior … Witch) |
 
 ### Now bar (in-game glance)
 
@@ -63,10 +64,17 @@ A browser tab cannot sit on top of fullscreen PoE2. I ship a small always-on-top
 - **Rebindable hotkeys** — Settings panel with conflict detection; bindings export with the save.
 - **PoB2 import** — Decode a build code in-browser (base64url + zlib → XML); bad codes fail gracefully.
 - **Themes** — Ember, Slate, Crimson, Parchment (global preference, in settings and export).
+- **Class-aware notes** — Pick a basic class per character for campaign gem cuts and reward callouts (not ascendancy-specific yet). Tips hide with *Hide hints*.
 - **In-game overlay** — Optional helper `--overlay` opens a compact top-right corner panel (zone, step + tip, next, timer) with opacity and click-through. The browser alone cannot draw over fullscreen games.
 - **Focus mode & phone layout** — Second-monitor focus; compact sticky bar on small screens.
 
 ---
+
+### Class notes (basic classes)
+
+Skills are **not** class-locked in PoE2 — Uncut gems just highlight class-recommended options. The class picker (Warrior, Sorceress, Ranger, Monk, Mercenary, Witch, or None) adds inline tips on relevant steps and a **Recommended for [Class]** chip when a campaign reward choice matters. Ascendancy layers come later.
+
+![Class notes](screenshots/class-notes.png)
 
 ## Vision
 

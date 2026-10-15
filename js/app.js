@@ -6,6 +6,14 @@
   "use strict";
 
   const DATA = window.CAMPAIGN_DATA;
+  const CLASS_NOTES = window.CLASS_NOTES || { classes: [], byClass: {}, meta: {} };
+  const classMeta = id => (CLASS_NOTES.classes || []).find(c => c.id === id);
+  const classNotesFor = (classId, stepId) => {
+    if (!classId) return [];
+    return ((CLASS_NOTES.byClass[classId] || {})[stepId]) || [];
+  };
+  const classRecsFor = (classId, stepId) =>
+    classNotesFor(classId, stepId).filter(n => n.kind === "choice" && n.reward);
   const $ = sel => document.querySelector(sel);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -196,6 +204,7 @@
         <div class="now-where"><span data-as-pill>${statusPill()}</span> ${esc(cur.section.name)} · zone ${cur.index >= 0 ? cur.index + 1 : "–"}/${Run.order(c).length}${paused ? ' · <span class="behind">PAUSED</span>' : ""}</div>
         <div class="now-zone">${esc(z.name)}</div>
         ${nowStepHTML(c, step, true)}
+        ${step ? `<div class="now-class">${classNoteHTML(c, step.id)}</div>` : ""}
         ${others.length ? `<ul class="now-more">${others.map(x => `<li><label><input type="checkbox" data-action="step" data-id="${esc(x.id)}"${c.done[x.id] ? " checked" : ""}>
           ${esc(x.objective)}${x.optional ? ' <span class="optional">optional</span>' : ""}</label></li>`).join("")}</ul>` : ""}
         <div class="now-next">${nextStep ? `<span class="k">Next step</span> ${esc(nextStep.objective)}` : ""}
@@ -261,7 +270,16 @@
 
   function renderCharacter() {
     const c = char(), b = c.build;
-    let html = `<h2>Character</h2><div class="char-name">${esc(c.name)}</div>`;
+    const cls = classMeta(c.classId);
+    let html = `<h2>Character</h2><div class="char-name">${esc(c.name)}</div>
+      <div class="class-picker"><label for="classSelect">Class</label>
+        <select id="classSelect" title="Basic class (not ascendancy)">
+          <option value="">None</option>
+          ${(CLASS_NOTES.classes || []).map(x =>
+            `<option value="${esc(x.id)}"${c.classId === x.id ? " selected" : ""}>${esc(x.name)}</option>`).join("")}
+        </select>
+        ${cls ? `<span class="muted small">${esc(cls.weapon)} — ${esc(cls.summary)}</span>` : `<span class="muted small">Optional: unlocks campaign gem &amp; reward tips for that class.</span>`}
+      </div>`;
     if (b) {
       html += `<dl class="kv">
         <dt>Class</dt><dd>${esc(b.className)}</dd>
@@ -284,6 +302,22 @@
     $("#character").innerHTML = html;
   }
 
+  function classNoteHTML(c, stepId) {
+    const notes = classNotesFor(c.classId, stepId);
+    if (!notes.length) return "";
+    const name = (classMeta(c.classId) || {}).name || c.classId;
+    return notes.map(n => `<div class="class-note${n.uncertain ? " uncertain" : ""}">
+      <span class="tag">${esc(n.kind)} · ${esc(name)}</span>${esc(n.text)}
+      ${n.uncertain ? ` <span class="muted small">(uncertain)</span>` : ""}
+      ${n.alt ? `<div class="alt">${esc(n.alt)}</div>` : ""}</div>`).join("");
+  }
+  function classRecHTML(c, stepId) {
+    const recs = classRecsFor(c.classId, stepId);
+    if (!recs.length) return "";
+    const name = (classMeta(c.classId) || {}).name || c.classId;
+    return recs.map(n => `<span class="class-rec"><span class="for">Recommended for ${esc(name)}</span>${esc(n.reward)}</span>`).join("");
+  }
+
   /** Layout hints, plus the speedrun tips (⚡) when the fast route is selected. */
   const stepHints = (c, s) => s.hints.concat(Run.route(c).mode === "fast" ? s.fastTips.map(t => "⚡ " + t) : []);
 
@@ -294,13 +328,15 @@
     if (s.waypoint) extra.push(`<li><span class="k">Waypoint</span>${esc(s.waypoint === true ? "Yes" : s.waypoint)}</li>`);
     if (s.skip.length) extra.push(`<li><span class="k">Skip</span>${esc(s.skip.join("; "))}</li>`);
     if (s.rewards.length) extra.push(`<li>${s.rewards.map(r =>
-      `<span class="reward${r.must ? " must" : ""}">${r.must ? "★ " : ""}${esc(r.label)}</span>`).join("")}</li>`);
+      `<span class="reward${r.must ? " must" : ""}">${r.must ? "★ " : ""}${esc(r.label)}</span>`).join("")}${classRecHTML(c, s.id)}</li>`);
+    else if (classRecsFor(c.classId, s.id).length) extra.push(`<li>${classRecHTML(c, s.id)}</li>`);
     if (s.warning) extra.push(`<li class="warn">⚠ ${esc(s.warning)}</li>`);
     return `<div class="step${done ? " done" : ""}">
       <input type="checkbox" id="st-${esc(s.id)}" data-action="step" data-id="${esc(s.id)}"${done ? " checked" : ""}>
       <label for="st-${esc(s.id)}"><span class="objective">${esc(s.objective)}</span>
         ${s.level ? `<span class="lvl">· lvl ${esc(s.level)}</span>` : ""}${s.optional ? `<span class="optional">optional</span>` : ""}</label>
       ${stepHints(c, s).length ? `<ul class="hints">${stepHints(c, s).map(h => `<li>${esc(h)}</li>`).join("")}</ul>` : ""}
+      ${classNoteHTML(c, s.id)}
       ${extra.length ? `<ul class="extra">${extra.join("")}</ul>` : ""}
     </div>`;
   }
@@ -341,6 +377,11 @@
 
     const v = DATA.variants[r.mode] || {};
     const routeBar = `<section class="card route-bar" aria-label="Route">
+      <label>Class <select id="routeClass" title="Basic class notes">
+        <option value="">None</option>
+        ${(CLASS_NOTES.classes || []).map(x =>
+          `<option value="${esc(x.id)}"${c.classId === x.id ? " selected" : ""}>${esc(x.name)}</option>`).join("")}
+      </select></label>
       <label>Route <select id="routeMode">${Object.entries(DATA.variants).map(([k, x]) =>
         `<option value="${esc(k)}"${k === r.mode ? " selected" : ""}>${esc(x.label)}</option>`).join("")}</select></label>
       <label class="switch"><input type="checkbox" id="requiredOnly"${r.requiredOnly ? " checked" : ""}> Required steps only</label>
@@ -687,6 +728,16 @@
       state.settings.autoSplit.url = el.value.trim() || "http://127.0.0.1:8766";
       if (state.settings.autoSplit.enabled) AutoSplit.connect(state.settings.autoSplit.url);
       commit();
+    }
+    else if (el.id === "classSelect" || el.id === "routeClass") {
+      const c = char(), next = el.value || null;
+      if (c.classId && next !== c.classId && Run.isStarted(c) && !Run.isFinished(c) &&
+          !confirm("Change class notes mid-run? Tips update immediately; timers are unchanged.")) {
+        render(); return;
+      }
+      c.classId = next;
+      commit();
+      toast(next ? `Class: ${(classMeta(next) || {}).name}` : "Class notes cleared");
     }
     else if (el.id === "charSelect") { state.activeId = el.value; pobError = ""; commit(); scrollToCurrent(false); }
     else if (el.id === "importFile" && el.files[0]) {

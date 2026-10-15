@@ -321,3 +321,18 @@ body.hide-extra .now-info { display: none; }
 .theme-swatch .chips span { flex: 1; border-radius: 3px; border: 1px solid #0003; }
 .theme-swatch .name { font-size: 13px; font-weight: 600; }
 .theme-swatch .desc { font-size: 11px; color: var(--muted); }
+
+/* ---------- Class-aware notes ---------- */
+.class-picker { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: 6px 0 4px; }
+.class-picker select { min-width: 140px; }
+.class-note { margin: 4px 0 0; padding: 6px 8px; border-left: 3px solid var(--gold); background: var(--panel-2);
+  border-radius: 0 4px 4px 0; font-size: 12.5px; color: var(--hint-strong); }
+.class-note .tag { display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--gold-2); margin-right: 6px; }
+.class-note.uncertain { border-left-color: var(--run); }
+.class-note .alt { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+.class-rec { display: inline-block; margin: 2px 4px 0 0; padding: 1px 7px; border-radius: 4px;
+  background: var(--reward-must-bg); color: var(--gold-2); font-size: 11.5px; border: 1px solid var(--gold); }
+.class-rec .for { color: var(--muted); font-size: 10px; text-transform: uppercase; margin-right: 4px; }
+body.hide-hints .class-note { display: none; }
+.now-class { margin: 4px 0 0 30px; }

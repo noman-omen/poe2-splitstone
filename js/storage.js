@@ -19,6 +19,7 @@
       timers: {},   // timerKey -> { elapsed: ms, startedAt: epoch ms | null }
       maps: [],     // [{ id, name }] maps currently in the list (each has a "map:<id>" timer)
       mapHistory: [], // finished map runs, newest first: [{ id, name, ms, finished }]
+      classId: null, // basic class id (warrior|…|witch) or null — see data/class_notes.js
       build: null,  // parsed PoB2 summary (see pob.js)
       // Speedrun bookkeeping (see run.js)
       route: { mode: "normal", requiredOnly: false }, // route variant filter (run.js)
