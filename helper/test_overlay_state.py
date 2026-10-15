@@ -119,10 +119,10 @@ class HelperStateEndpointTest(unittest.TestCase):
 
     def test_options_cors(self):
         c = self._conn()
-        c.request("OPTIONS", "/state")
+        c.request("OPTIONS", "/state", headers={"Origin": "http://127.0.0.1:8765"})
         r = c.getresponse()
         self.assertIn(r.status, (200, 204))
-        self.assertEqual(r.getheader("Access-Control-Allow-Origin"), "*")
+        self.assertEqual(r.getheader("Access-Control-Allow-Origin"), "http://127.0.0.1:8765")
         c.close()
 
 

@@ -18,6 +18,10 @@ Localhost only (127.0.0.1):
   GET  /status   health + last zone event
   GET  /state    latest overlay snapshot (JSON)
   POST /state    browser pushes current step/timer (JSON) → overlay
+
+CORS: Origin allowlist (localhost / 127.0.0.1 / null). Optional --token or
+$SPLITSTONE_TOKEN requires X-Splitstone-Token (or ?token= for SSE).
+POST /state: Content-Length must be 0..64000. Paths are exact match.
 """
 import argparse
 import json
@@ -134,19 +138,56 @@ def tail(path, parser, stop, from_start=False, poll=0.25):
         stop.wait(poll)
 
 
-def make_handler(hub, log_path):
+def _origin_allowed(origin):
+    """Strict browser Origin allowlist for local helper CORS."""
+    if origin is None or origin == "":
+        return False
+    if origin == "null":  # file:// pages
+        return True
+    try:
+        from urllib.parse import urlparse
+        u = urlparse(origin)
+    except Exception:
+        return False
+    if u.scheme not in ("http", "https"):
+        return False
+    host = (u.hostname or "").lower()
+    return host in ("127.0.0.1", "localhost")
+
+
+def make_handler(hub, log_path, token=None):
     # Import here so unit tests that only need Parser don't need overlay_state on path quirks
     from overlay_state import normalise
+    from urllib.parse import urlparse, parse_qs
+
+    MAX_STATE = 64_000
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
 
+        def _path_only(self):
+            return (self.path or "/").split("?", 1)[0]
+
+        def _query(self):
+            q = urlparse(self.path).query
+            return parse_qs(q)
+
         def cors(self):
-            self.send_header("Access-Control-Allow-Origin", "*")
+            origin = self.headers.get("Origin")
+            if origin and _origin_allowed(origin):
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Vary", "Origin")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Splitstone-Token")
             self.send_header("Cache-Control", "no-store")
+
+        def _authorized(self):
+            if not token:
+                return True
+            hdr = self.headers.get("X-Splitstone-Token") or ""
+            qs = self._query().get("token", [None])[0]
+            return hdr == token or qs == token
 
         def do_OPTIONS(self):
             self.send_response(204)
@@ -161,13 +202,24 @@ def make_handler(hub, log_path):
             self.end_headers()
             self.wfile.write(body)
 
+        def _deny(self):
+            self._json(401, {"ok": False, "error": "unauthorized"})
+
         def do_POST(self):
-            if not self.path.startswith("/state"):
+            if self._path_only() != "/state":
                 self.send_error(404)
                 return
-            length = int(self.headers.get("Content-Length") or 0)
-            if length > 64_000:
-                self._json(413, {"ok": False, "error": "payload too large"})
+            if not self._authorized():
+                self._deny()
+                return
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except (TypeError, ValueError):
+                self._json(400, {"ok": False, "error": "bad Content-Length"})
+                return
+            if length < 0 or length > MAX_STATE:
+                self._json(413 if length > MAX_STATE else 400,
+                           {"ok": False, "error": "Content-Length out of bounds (0..64000)"})
                 return
             try:
                 raw = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
@@ -179,16 +231,27 @@ def make_handler(hub, log_path):
             self._json(200, {"ok": True})
 
         def do_GET(self):
-            if self.path.startswith("/status"):
+            path = self._path_only()
+            if path == "/status":
+                if not self._authorized():
+                    self._deny()
+                    return
                 self._json(200, {"ok": True, "version": VERSION, "log": str(log_path),
                                  "log_exists": Path(log_path).exists(), "last": hub.last,
-                                 "overlay": hub.state is not None})
+                                 "overlay": hub.state is not None,
+                                 "auth": bool(token)})
                 return
-            if self.path.startswith("/state"):
+            if path == "/state":
+                if not self._authorized():
+                    self._deny()
+                    return
                 self._json(200, hub.state or {})
                 return
-            if not self.path.startswith("/events"):
+            if path != "/events":
                 self.send_error(404)
+                return
+            if not self._authorized():
+                self._deny()
                 return
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
@@ -262,6 +325,8 @@ def main(argv=None):
     ap.add_argument("--opacity", type=float, default=0.88, help="overlay opacity 0.4–1.0 (default 0.88)")
     ap.add_argument("--click-through", action="store_true",
                     help="start overlay click-through (Windows; toggleable in the panel)")
+    ap.add_argument("--token", default=os.environ.get("SPLITSTONE_TOKEN") or None,
+                    help="require X-Splitstone-Token / ?token= (or set $SPLITSTONE_TOKEN)")
     args = ap.parse_args(argv)
 
     log_path = find_log(args.log)
@@ -272,11 +337,13 @@ def main(argv=None):
     if args.hotkeys:
         start_hotkeys(hub, args.hotkeys)
 
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(hub, log_path))
+    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(hub, log_path, token=args.token))
     server.daemon_threads = True
     threading.Thread(target=server.serve_forever, daemon=True).start()
     print(f"Watching {log_path}{'' if log_path.exists() else '  (not found yet, waiting)'}", flush=True)
     print(f"Serving http://127.0.0.1:{args.port}/  (events, state, status)  Ctrl+C to stop", flush=True)
+    if args.token:
+        print("Auth: token required (X-Splitstone-Token or ?token=)", flush=True)
 
     overlay = None
     if args.overlay:
