@@ -18,13 +18,21 @@
       timers: {},   // timerKey -> { elapsed: ms, startedAt: epoch ms | null }
       maps: [],     // [{ id, name, done }]
       build: null,  // parsed PoB2 summary (see pob.js)
+      // Speedrun bookkeeping (see run.js)
+      split: {},    // zoneId -> epoch ms when the zone was split (= completed in this run)
+      undo: [],     // stack of { zone, autoMarked[], prevBests{}, golds[] } for undo-split
+      golds: {},    // zoneId -> true when this run's segment beat the previous best
+      paused: null, // timer keys that were running when the run was paused
+      runStarted: null, // ISO time of the first timer start in this run
+      history: [],  // finished / abandoned runs, newest first (see Run.finish)
+      bests: {},    // "zone:<id>" | "section:<id>" | "group:<id>" | "total" -> best ms ever
     };
   }
 
   function defaultState() {
     const c = newCharacter("My character");
     return { schema: SCHEMA, activeId: c.id, characters: { [c.id]: c },
-             settings: { hideHints: false, hideExtra: false } };
+             settings: { hideHints: false, hideExtra: false, focusMode: false } };
   }
 
   /** Validate and normalise anything loaded from disk or an import file. */
@@ -32,7 +40,7 @@
     if (!s || typeof s !== "object" || !s.characters || typeof s.characters !== "object")
       throw new Error("Not a campaign tracker file");
     const out = { schema: SCHEMA, characters: {},
-                  settings: Object.assign({ hideHints: false, hideExtra: false }, s.settings || {}) };
+                  settings: Object.assign({ hideHints: false, hideExtra: false, focusMode: false }, s.settings || {}) };
     for (const [id, c] of Object.entries(s.characters)) {
       const base = newCharacter(String(c.name || "Character"));
       out.characters[id] = Object.assign(base, c, { id });

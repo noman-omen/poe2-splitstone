@@ -22,17 +22,38 @@
     <div class="toggles">
       <label class="switch"><input type="checkbox" id="hideHints"> Hide hints</label>
       <label class="switch"><input type="checkbox" id="hideExtra"> Hide extra info</label>
+      <label class="switch" title="Show only the current act/interlude (F)"><input type="checkbox" id="focusMode"> Focus mode</label>
     </div>
     <div class="io">
       <button data-action="export">Export JSON</button>
       <button data-action="import">Import JSON</button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
+      <button data-action="help" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
     </div>
   </header>
+
+  <section id="now" class="now" aria-label="Current zone"></section>
+
+  <div id="help" class="help card" hidden>
+    <h2>Keyboard shortcuts</h2>
+    <dl class="kv">
+      <dt><kbd>Space</kbd> / <kbd>Enter</kbd></dt><dd>Start run, or split: complete the current zone and start the next</dd>
+      <dt><kbd>U</kbd> / <kbd>Backspace</kbd></dt><dd>Undo last split</dd>
+      <dt><kbd>P</kbd></dt><dd>Pause / resume</dd>
+      <dt><kbd>R</kbd></dt><dd>New run (unfinished runs are kept in history)</dd>
+      <dt><kbd>C</kbd></dt><dd>Scroll to current zone</dd>
+      <dt><kbd>F</kbd></dt><dd>Focus mode (only the current act/interlude)</dd>
+      <dt><kbd>H</kbd> / <kbd>E</kbd></dt><dd>Hide hints / hide extra info</dd>
+      <dt><kbd>?</kbd> / <kbd>Esc</kbd></dt><dd>Show / hide this help; Esc also leaves a text field</dd>
+    </dl>
+    <p class="muted small">Ticking the last required step of the zone you are timing also splits automatically.
+      Hotkeys only work while this window has focus.</p>
+  </div>
 
   <div class="layout">
     <aside class="sidebar">
       <section class="card" id="totals" aria-label="Totals"></section>
+      <section class="card" id="history" aria-label="Run history"></section>
       <section class="card" id="character" aria-label="Character"></section>
     </aside>
     <main id="campaign" aria-live="polite"></main>
@@ -44,6 +65,7 @@
   <script src="data/campaign.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/timers.js"></script>
+  <script src="js/run.js"></script>
   <script src="js/pob.js"></script>
   <script src="js/app.js"></script>
 </body>

@@ -1,6 +1,7 @@
 /* app.js: UI wiring. State lives in `state`; every mutation goes through
- * commit(), which saves to localStorage and re-renders. A 1s ticker only
- * refreshes timer text, so running timers stay cheap. */
+ * commit(), which saves to localStorage and re-renders. A ticker refreshes
+ * only the timer/delta text, so running timers stay cheap.
+ * Speedrun rules (current zone, splits, PB, bests) live in run.js. */
 (function () {
   "use strict";
 
@@ -8,8 +9,19 @@
   const $ = sel => document.querySelector(sel);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const fmt = Timers.format;
+  /** Signed delta, e.g. "+0:12" / "−1:05". Short form drops the hour when 0. */
+  function fmtDelta(ms) {
+    if (ms === null || ms === undefined) return "";
+    const sign = ms > 0 ? "+" : ms < 0 ? "−" : "±";
+    const s = Math.round(Math.abs(ms) / 1000), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60;
+    const p = n => String(n).padStart(2, "0");
+    return sign + (h ? `${h}:${p(m)}:${p(x)}` : `${m}:${p(x)}`);
+  }
+  const deltaClass = ms => (ms === null || ms === undefined ? "" : ms > 0 ? "behind" : "ahead");
 
   let state = Storage2.load();
+  Object.values(state.characters).forEach(Run.prune);
   const collapsed = new Set();           // UI-only: collapsed section ids
   let pobError = "";
 
@@ -20,57 +32,130 @@
 
   function toast(msg) {
     const t = $("#toast"); t.textContent = msg; t.classList.add("show");
-    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2200);
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2400);
   }
 
-  /* ---------- Timer keys ----------
-   * section:<id>  act / interlude timer
-   * zone:<id>     zone timer
-   * map:<id>      endgame map timer */
-  function timerWidget(key, label) {
+  /* ---------- Small widgets ---------- */
+  function timerWidget(key, label, opts = {}) {
     const c = char(), run = Timers.isRunning(c, key);
     return `<span class="tw${run ? " running" : ""}" data-key="${esc(key)}">
-      <span class="timer" data-timer="${esc(key)}">${Timers.format(Timers.value(c, key))}</span>
-      <button class="tt" data-action="timer-toggle" data-key="${esc(key)}"
+      <span class="timer" data-timer="${esc(key)}">${fmt(Timers.value(c, key))}</span>
+      ${opts.noButtons ? "" : `<button class="tt" data-action="timer-toggle" data-key="${esc(key)}"
         aria-label="${run ? "Stop" : "Start"} ${esc(label)} timer">${run ? "Stop" : "Start"}</button>
-      <button data-action="timer-reset" data-key="${esc(key)}" title="Reset" aria-label="Reset ${esc(label)} timer">↺</button>
+      <button data-action="timer-reset" data-key="${esc(key)}" title="Reset" aria-label="Reset ${esc(label)} timer">↺</button>`}
     </span>`;
   }
+  /** Derived (sum) timer: section / group totals, refreshed by tick(). */
+  const sumTimer = (kind, id, ms) => `<span class="timer" data-sum="${kind}:${esc(id)}">${fmt(ms)}</span>`;
+  const sumValue = (c, kind, id, now) =>
+    kind === "section" ? Run.sectionMs(c, id, now) : kind === "group" ? Run.groupMs(c, id, now) : Run.totalMs(c, now);
 
   /* ---------- Rendering ---------- */
   function render() {
     const c = char();
-    document.body.classList.toggle("hide-hints", !!state.settings.hideHints);
-    document.body.classList.toggle("hide-extra", !!state.settings.hideExtra);
-    $("#hideHints").checked = !!state.settings.hideHints;
-    $("#hideExtra").checked = !!state.settings.hideExtra;
+    const s = state.settings;
+    document.body.classList.toggle("hide-hints", !!s.hideHints);
+    document.body.classList.toggle("hide-extra", !!s.hideExtra);
+    document.body.classList.toggle("focus-mode", !!s.focusMode);
+    $("#hideHints").checked = !!s.hideHints;
+    $("#hideExtra").checked = !!s.hideExtra;
+    $("#focusMode").checked = !!s.focusMode;
     $("#meta").textContent = `Patch ${DATA.meta.patch} · ${DATA.meta.league}`;
     $("#charSelect").innerHTML = Object.values(state.characters)
       .sort((a, b) => a.created.localeCompare(b.created))
       .map(x => `<option value="${esc(x.id)}"${x.id === c.id ? " selected" : ""}>${esc(x.name)}</option>`).join("");
-    renderTotals(); renderCharacter(); renderCampaign();
+    renderNow(); renderTotals(); renderHistory(); renderCharacter(); renderCampaign();
+    layoutSticky();
+  }
+
+  /** The top bar wraps on narrow screens, so sticky offsets are measured, not hard-coded. */
+  function layoutSticky() {
+    const top = $(".topbar"), now = $("#now"), root = document.documentElement.style;
+    const topH = getComputedStyle(top).position === "sticky" ? top.offsetHeight : 0;
+    now.style.top = topH + "px";
+    root.setProperty("--sticky-top", topH + now.offsetHeight + 12 + "px");
+  }
+  window.addEventListener("resize", () => layoutSticky());
+
+  /** The "now playing" bar: current zone, next steps, big timers, split controls. */
+  function renderNow() {
+    const c = char(), cur = Run.current(c), running = Run.runningZone(c), paused = Run.isPaused(c);
+    const p = Run.pb(c);
+    if (!cur) {
+      const last = c.history[0];
+      $("#now").innerHTML = `<div class="now-main"><div class="now-zone">🏁 Campaign complete</div>
+        <div class="now-sub">${last ? `Final time <b class="mono">${fmt(last.total)}</b>${p && p.id === last.id ? " · <span class='ahead'>New PB!</span>" : ""}` : ""}</div></div>
+        <div class="now-actions"><button data-action="undo">Undo split <kbd>U</kbd></button>
+        <button class="primary" data-action="new-run">New run <kbd>R</kbd></button></div>`;
+      return;
+    }
+    const z = cur.zone, pbSeg = p && p.zones[z.id], best = c.bests["zone:" + z.id];
+    const todo = z.steps.filter(s => !c.done[s.id]);
+    const next = Run.ORDER[cur.index + 1];
+    const label = running ? "Split" : paused ? "Resume" : Run.isStarted(c) ? "Resume" : "Start run";
+    $("#now").innerHTML = `
+      <div class="now-main">
+        <div class="now-where">${esc(cur.section.name)} · zone ${cur.section.zones.indexOf(z) + 1}/${cur.section.zones.length}${paused ? ' · <span class="behind">PAUSED</span>' : ""}</div>
+        <div class="now-zone">${esc(z.name)}</div>
+        <ul class="now-steps">${(todo.length ? todo : z.steps).slice(0, 3).map(s => `<li>
+          <label><input type="checkbox" data-action="step" data-id="${esc(s.id)}"${c.done[s.id] ? " checked" : ""}>
+          ${esc(s.objective)}${s.optional ? ' <span class="optional">optional</span>' : ""}</label>
+          ${s.hints.length ? `<div class="hints-inline">${esc(s.hints[0])}</div>` : ""}</li>`).join("")}</ul>
+        ${next ? `<div class="now-next">Next: ${esc(next.zone.name)}${next.section !== cur.section ? ` (${esc(next.section.name)})` : ""}</div>` : ""}
+      </div>
+      <div class="now-clock">
+        <div class="big mono" data-timer="zone:${esc(z.id)}">${fmt(Run.zoneMs(c, z.id))}</div>
+        <div class="now-cmp mono">${pbSeg ? `PB seg ${fmt(pbSeg)} · ` : ""}${best ? `Best ${fmt(best)}` : "no best yet"}</div>
+        <div class="now-run mono">Run ${sumTimer("total", "run", Run.totalMs(c))}
+          <span id="liveDelta" class="${deltaClass(Run.deltaVsPb(c))}">${p ? fmtDelta(Run.deltaVsPb(c)) : ""}</span></div>
+      </div>
+      <div class="now-actions">
+        <button class="primary big-btn" data-action="split">${label} <kbd>Space</kbd></button>
+        <button data-action="pause"${running || paused ? "" : " disabled"}>${paused ? "Resume" : "Pause"} <kbd>P</kbd></button>
+        <button data-action="undo"${c.undo.length ? "" : " disabled"}>Undo <kbd>U</kbd></button>
+        <button data-action="new-run">New run <kbd>R</kbd></button>
+      </div>`;
   }
 
   function renderTotals() {
-    const c = char(), steps = allSteps();
+    const c = char(), steps = allSteps(), p = Run.pb(c);
     const done = steps.filter(s => c.done[s.id]).length;
-    const row = (label, ms, cls = "") =>
-      `<div class="totals-row ${cls}"><span>${label}</span><span class="mono" data-total="${label}">${Timers.format(ms)}</span></div>`;
-    const t = totals();
-    $("#totals").innerHTML = `<h2>Progress &amp; totals</h2>
-      <div>${done} / ${steps.length} steps</div>
+    const row = (label, kind, id, ms, pbMs, bestMs, cls = "") => `<tr class="${cls}"><th>${esc(label)}</th>
+      <td>${sumTimer(kind, id, ms)}</td><td class="muted">${pbMs ? fmt(pbMs) : "–"}</td><td class="muted">${bestMs ? fmt(bestMs) : "–"}</td></tr>`;
+    const rows = [];
+    DATA.groups.forEach(g => {
+      const secs = DATA.sections.filter(s => s.group === g.id);
+      rows.push(row(g.name, "group", g.id, Run.groupMs(c, g.id), p && p.groups[g.id], c.bests["group:" + g.id], "grp"));
+      if (secs.length > 1) secs.forEach(s =>
+        rows.push(row("└ " + s.name.replace(/^.*· /, ""), "section", s.id, Run.sectionMs(c, s.id), p && p.sections[s.id], c.bests["section:" + s.id], "sub")));
+    });
+    const actsMs = DATA.groups.filter(g => g.kind === "act").reduce((a, g) => a + Run.groupMs(c, g.id), 0);
+    const intMs = DATA.groups.filter(g => g.kind === "interlude").reduce((a, g) => a + Run.groupMs(c, g.id), 0);
+    const sob = Run.sumOfBest(c);
+    $("#totals").innerHTML = `<h2>Run &amp; segments</h2>
+      <div>${done} / ${steps.length} steps · ${Object.keys(c.split).length}/${Run.ORDER.length} zones split</div>
       <div class="progress"><div style="width:${(100 * done / steps.length).toFixed(1)}%"></div></div>
-      ${DATA.sections.map(s => row(s.name, Timers.value(c, "section:" + s.id))).join("")}
-      ${row("Acts total", t.acts)}${row("Interludes total", t.interludes)}${row("Maps total", t.maps)}
-      ${row("Zones (sum)", t.zones)}
-      ${row("Campaign + maps", t.grand, "grand")}`;
+      <table class="seg"><thead><tr><th></th><th>Now</th><th>PB</th><th>Best</th></tr></thead><tbody>
+      ${rows.join("")}
+      <tr class="sum"><th>Acts</th><td><span class="timer" data-sum="acts:">${fmt(actsMs)}</span></td><td></td><td></td></tr>
+      <tr class="sum"><th>Interludes</th><td><span class="timer" data-sum="interludes:">${fmt(intMs)}</span></td><td></td><td></td></tr>
+      <tr class="grand"><th>Campaign</th><td>${sumTimer("total", "", Run.totalMs(c))}</td><td>${p ? fmt(p.total) : "–"}</td><td>${sob ? fmt(sob) : "–"}</td></tr>
+      </tbody></table>
+      <div class="muted small">Best = best segment ever (gold). Campaign best = sum of best zones.</div>
+      <div class="totals-row"><span>Maps total</span><span class="mono" data-sum="maps:">${fmt(Timers.sum(c, "map:"))}</span></div>`;
   }
 
-  function totals(now = Date.now()) {
-    const c = char(), sec = k => DATA.sections.filter(s => s.kind === k)
-      .reduce((a, s) => a + Timers.value(c, "section:" + s.id, now), 0);
-    const acts = sec("act"), interludes = sec("interlude"), maps = Timers.sum(c, "map:", now);
-    return { acts, interludes, maps, zones: Timers.sum(c, "zone:", now), grand: acts + interludes + maps };
+  function renderHistory() {
+    const c = char(), p = Run.pb(c);
+    const runs = c.history.slice(0, 15);
+    $("#history").innerHTML = `<h2>Run history</h2>
+      ${p ? `<div class="pb">PB <b class="mono">${fmt(p.total)}</b> <span class="muted">${new Date(p.finished).toLocaleDateString()}</span></div>` : '<div class="muted">No completed run yet.</div>'}
+      ${runs.length ? `<ol class="runs">${runs.map(h => `<li class="${p && h.id === p.id ? "is-pb" : ""}">
+        <span class="mono">${fmt(h.total)}</span>
+        <span class="muted">${h.complete ? (p && h.id !== p.id ? `<span class="behind">${fmtDelta(h.total - p.total)}</span>` : "PB") : `reset ${h.splitsDone}/${h.zonesTotal}`}</span>
+        <span class="muted small">${new Date(h.finished).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</span>
+        <button class="icon danger" data-action="run-delete" data-id="${esc(h.id)}" title="Delete run" aria-label="Delete run">✕</button></li>`).join("")}</ol>` : ""}
+      ${c.history.length > runs.length ? `<div class="muted small">+${c.history.length - runs.length} older runs (in export)</div>` : ""}`;
   }
 
   function renderCharacter() {
@@ -89,9 +174,9 @@
         ${g.supports.length ? `<div class="sup">${esc(g.supports.join(" · "))}</div>` : ""}</div>`).join("") || "<div class='empty'>No skills</div>"}
       <div class="row"><button data-action="pob-clear" class="danger">Remove build</button></div>`;
     } else {
-      html += `<p style="color:var(--muted);margin:4px 0 8px">Optional: paste a Path of Building 2 export code.</p>`;
+      html += `<p class="muted" style="margin:4px 0 8px">Optional: paste a Path of Building 2 export code.</p>`;
     }
-    html += `<details${b ? "" : " open"}><summary style="cursor:pointer;color:var(--muted);margin-top:8px">Import PoB2 code</summary>
+    html += `<details${b ? "" : " open"}><summary>Import PoB2 code</summary>
       <textarea id="pobCode" placeholder="eNrtPVlz2zjSz6N…" spellcheck="false"></textarea>
       <div class="row"><button class="primary" data-action="pob-import">Decode build</button></div>
       ${pobError ? `<div class="error" id="pobError">${esc(pobError)}</div>` : ""}</details>`;
@@ -116,26 +201,38 @@
     </div>`;
   }
 
+  function zoneHTML(z, c, cur) {
+    const p = Run.pb(c), isSplit = !!c.split[z.id], isCur = cur && cur.zone.id === z.id;
+    const ms = Run.zoneMs(c, z.id), pbSeg = p && p.zones[z.id];
+    const delta = isSplit && pbSeg ? ms - pbSeg : null;
+    return `<div class="zone${isSplit ? " complete" : ""}${isCur ? " current" : ""}" data-zone="${esc(z.id)}" id="zone-${esc(z.id)}">
+      <div class="zone-head"><h3>${isSplit ? "✓ " : isCur ? "▶ " : ""}${esc(z.name)}</h3>
+        ${c.golds[z.id] ? '<span class="gold" title="Best segment ever">★ gold</span>' : ""}
+        ${delta !== null ? `<span class="delta ${deltaClass(delta)}" title="vs PB segment ${fmt(pbSeg)}">${fmtDelta(delta)}</span>`
+          : pbSeg ? `<span class="muted small" title="PB segment">PB ${fmt(pbSeg)}</span>` : ""}
+        ${timerWidget("zone:" + z.id, z.name)}</div>
+      ${z.steps.map(s => stepHTML(s, c)).join("")}</div>`;
+  }
+
   function renderCampaign() {
-    const c = char();
+    const c = char(), cur = Run.current(c);
     const sections = DATA.sections.map(sec => {
       const steps = sec.zones.flatMap(z => z.steps), done = steps.filter(s => c.done[s.id]).length;
-      return `<section class="section${collapsed.has(sec.id) ? " collapsed" : ""}" data-section="${esc(sec.id)}">
-        <header data-action="collapse" data-id="${esc(sec.id)}">
-          <h2>${esc(sec.name)}<small>${esc(sec.region || "")} · lvl ${esc(sec.levels || "")}</small></h2>
+      const isCur = cur && cur.section.id === sec.id;
+      const isCollapsed = collapsed.has(sec.id);
+      return `<section class="section${isCollapsed ? " collapsed" : ""}${isCur ? " current" : ""}" data-section="${esc(sec.id)}">
+        <header>
+          <button class="collapse" data-action="collapse" data-id="${esc(sec.id)}" aria-expanded="${!isCollapsed}"
+            aria-label="Toggle ${esc(sec.name)}">${isCollapsed ? "▸" : "▾"}</button>
+          <h2>${esc(sec.name)}<small>${esc(sec.region || "")}${sec.levels ? " · lvl " + esc(sec.levels) : ""}</small></h2>
           <span class="badge">${done}/${steps.length}</span>
-          ${timerWidget("section:" + sec.id, sec.name)}
+          <span class="tw">${sumTimer("section", sec.id, Run.sectionMs(c, sec.id))}</span>
         </header>
-        <div class="zones">${sec.zones.map(z => {
-          const complete = z.steps.every(s => c.done[s.id]);
-          return `<div class="zone${complete ? " complete" : ""}" data-zone="${esc(z.id)}">
-            <div class="zone-head"><h3>${complete ? "✓ " : ""}${esc(z.name)}</h3>${timerWidget("zone:" + z.id, z.name)}</div>
-            ${z.steps.map(s => stepHTML(s, c)).join("")}</div>`;
-        }).join("")}</div></section>`;
+        <div class="zones">${sec.zones.map(z => zoneHTML(z, c, cur)).join("")}</div></section>`;
     }).join("");
 
-    const maps = `<section class="section" data-section="maps">
-      <header data-action="collapse" data-id="maps"><h2>Endgame maps<small>per-map timers</small></h2>
+    const maps = `<section class="section maps" data-section="maps">
+      <header><h2>Endgame maps<small>per-map timers (not part of the campaign run)</small></h2>
         <span class="badge">${c.maps.length}</span></header>
       <div class="zones">
         <form class="maps-add" data-form="map-add"><input type="text" id="mapName" placeholder="Map name, e.g. Burial Bog (T1)" maxlength="80">
@@ -147,48 +244,83 @@
     $("#campaign").innerHTML = sections + maps;
   }
 
-  /** Called every second: refresh only the numbers, not the DOM structure. */
+  /** Called 4×/s: refresh only the numbers, not the DOM structure. */
   function tick() {
     const c = char(), now = Date.now();
     document.querySelectorAll("[data-timer]").forEach(el => {
-      el.textContent = Timers.format(Timers.value(c, el.dataset.timer, now));
+      el.textContent = fmt(Timers.value(c, el.dataset.timer, now));
     });
-    const t = totals(now);
-    const map = { "Acts total": t.acts, "Interludes total": t.interludes, "Maps total": t.maps,
-                  "Zones (sum)": t.zones, "Campaign + maps": t.grand };
-    DATA.sections.forEach(s => { map[s.name] = Timers.value(c, "section:" + s.id, now); });
-    document.querySelectorAll("[data-total]").forEach(el => {
-      if (el.dataset.total in map) el.textContent = Timers.format(map[el.dataset.total]);
+    document.querySelectorAll("[data-sum]").forEach(el => {
+      const [kind, id] = el.dataset.sum.split(":");
+      let ms;
+      if (kind === "maps") ms = Timers.sum(c, "map:", now);
+      else if (kind === "acts" || kind === "interludes")
+        ms = DATA.groups.filter(g => g.kind === (kind === "acts" ? "act" : "interlude")).reduce((a, g) => a + Run.groupMs(c, g.id, now), 0);
+      else ms = sumValue(c, kind, id, now);
+      el.textContent = fmt(ms);
     });
+    const d = $("#liveDelta");
+    if (d && Run.pb(c)) { const v = Run.deltaVsPb(c, now); d.textContent = fmtDelta(v); d.className = deltaClass(v); }
   }
 
-  /** Map a zone id back to its section, so starting a zone also starts its act. */
-  const sectionOfZone = zid => DATA.sections.find(s => s.zones.some(z => z.id === zid));
+  function scrollToCurrent(smooth = true) {
+    const cur = Run.current(char());
+    const el = cur && document.getElementById("zone-" + cur.zone.id);
+    if (el) el.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "center" });
+  }
 
   /* ---------- Actions ---------- */
+  function doSplit() {
+    const c = char(), cur = Run.current(c);
+    if (!cur) return toast("Run complete. Press R for a new run.");
+    if (!Run.runningZone(c)) {           // nothing timing: Space starts/resumes
+      if (Run.isPaused(c)) Run.togglePause(c); else Run.startZone(c, cur.zone.id);
+      commit(); return;
+    }
+    const res = Run.split(c);
+    commit();
+    if (res === "finished") {
+      const p = Run.pb(c), last = c.history[0];
+      toast(p && last && p.id === last.id ? `New PB! ${fmt(last.total)}` : `Run finished: ${fmt(last.total)}`);
+    }
+    scrollToCurrent();
+  }
+
+  function doNewRun() {
+    const c = char();
+    if (Run.isStarted(c) && !Run.isFinished(c)) {
+      if (!confirm("Reset the current run? It will be saved in history as an unfinished attempt.")) return;
+      Run.finish(c, false);
+    } else if (Run.isStarted(c) && !confirm("Start a new run?")) return;
+    Run.newRun(c);
+    commit(); window.scrollTo({ top: 0 }); toast("New run ready. Press Space to start.");
+  }
+
   const actions = {
+    split: doSplit,
+    pause() { const r = Run.togglePause(char()); if (r) { commit(); toast(r === "paused" ? "Paused" : "Resumed"); } },
+    undo() { if (Run.undoSplit(char())) { commit(); toast("Split undone"); scrollToCurrent(); } },
+    "new-run": doNewRun,
     "timer-toggle"(el) {
       const c = char(), key = el.dataset.key;
-      const wasRunning = Timers.isRunning(c, key);
-      Timers.toggle(c, key);
-      if (!wasRunning && key.startsWith("zone:")) {
-        // Only one zone runs at a time; the parent act/interlude keeps running.
-        Object.keys(c.timers).filter(k => k.startsWith("zone:") && k !== key).forEach(k => Timers.stop(c, k));
-        const sec = sectionOfZone(key.slice(5));
-        if (sec) Timers.start(c, "section:" + sec.id);
-      }
+      if (key.startsWith("zone:")) {
+        if (Timers.isRunning(c, key)) Timers.stop(c, key); else Run.startZone(c, key.slice(5));
+      } else Timers.toggle(c, key);
       commit();
     },
     "timer-reset"(el) {
       if (confirm("Reset this timer to 0?")) { Timers.reset(char(), el.dataset.key); commit(); }
     },
     step(el) {
-      const c = char();
-      if (el.checked) c.done[el.dataset.id] = true; else delete c.done[el.dataset.id];
+      const c = char(), id = el.dataset.id;
+      if (el.checked) c.done[id] = true; else delete c.done[id];
+      // Auto-advance: ticking the last required step of the zone being timed splits it.
+      const cur = Run.current(c);
+      if (el.checked && cur && Run.runningZone(c) === cur.zone.id && cur.zone.steps.some(s => s.id === id)
+          && Run.requiredSteps(cur.zone).every(s => c.done[s.id])) return doSplit();
       commit();
     },
-    collapse(el, ev) {
-      if (ev.target.closest("button")) return; // clicks on timer buttons should not collapse
+    collapse(el) {
       const id = el.dataset.id;
       collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id);
       render();
@@ -197,6 +329,12 @@
       const c = char();
       c.maps = c.maps.filter(m => m.id !== el.dataset.id);
       Timers.reset(c, "map:" + el.dataset.id);
+      commit();
+    },
+    "run-delete"(el) {
+      if (!confirm("Delete this run from history? (Best segments are kept.)")) return;
+      const c = char();
+      c.history = c.history.filter(h => h.id !== el.dataset.id);
       commit();
     },
     "char-new"() {
@@ -212,7 +350,7 @@
     },
     "char-delete"() {
       if (Object.keys(state.characters).length === 1) return toast("You need at least one character.");
-      if (!confirm(`Delete "${char().name}" and all its progress?`)) return;
+      if (!confirm(`Delete "${char().name}" and all its progress and run history?`)) return;
       delete state.characters[state.activeId];
       state.activeId = Object.keys(state.characters)[0];
       commit();
@@ -228,6 +366,7 @@
       toast("Exported");
     },
     import() { $("#importFile").click(); },
+    help() { $("#help").toggleAttribute("hidden"); },
     async "pob-import"() {
       const code = $("#pobCode").value;
       try {
@@ -250,12 +389,15 @@
   document.addEventListener("change", ev => {
     const el = ev.target;
     if (el.dataset.action === "step") actions.step(el);
-    else if (el.id === "hideHints" || el.id === "hideExtra") { state.settings[el.id] = el.checked; commit(); }
-    else if (el.id === "charSelect") { state.activeId = el.value; pobError = ""; commit(); }
+    else if (["hideHints", "hideExtra", "focusMode"].includes(el.id)) { state.settings[el.id] = el.checked; commit(); }
+    else if (el.id === "charSelect") { state.activeId = el.value; pobError = ""; commit(); scrollToCurrent(false); }
     else if (el.id === "importFile" && el.files[0]) {
       el.files[0].text().then(text => {
-        try { const n = Storage2.importJSON(state, text); commit(); toast(`Imported ${n} character(s)`); }
-        catch (e) { toast("Import failed: " + e.message); }
+        try {
+          const n = Storage2.importJSON(state, text);
+          Object.values(state.characters).forEach(Run.prune);
+          commit(); toast(`Imported ${n} character(s)`);
+        } catch (e) { toast("Import failed: " + e.message); }
         el.value = "";
       });
     }
@@ -270,6 +412,35 @@
     $("#mapName").focus();
   });
 
+  /* ---------- Hotkeys (ignored while typing) ---------- */
+  const flip = key => { state.settings[key] = !state.settings[key]; commit(); };
+  const HOTKEYS = {
+    " ": doSplit, Enter: doSplit,
+    p: actions.pause, u: actions.undo, Backspace: actions.undo, r: doNewRun,
+    h: () => flip("hideHints"), e: () => flip("hideExtra"), f: () => { flip("focusMode"); scrollToCurrent(false); },
+    c: () => scrollToCurrent(), "?": actions.help, Escape: () => $("#help").setAttribute("hidden", ""),
+  };
+  document.addEventListener("keydown", ev => {
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    const t = ev.target;
+    if (t.closest && t.closest("input[type=text], textarea, select, [contenteditable]")) {
+      if (ev.key === "Escape") t.blur();  // Esc leaves the field so hotkeys work again
+      return;
+    }
+    const fn = HOTKEYS[ev.key.length === 1 ? ev.key.toLowerCase() : ev.key] || HOTKEYS[ev.key];
+    if (!fn) return;
+    // Enter/Space on a focused button should click that button, not split.
+    if ((ev.key === " " || ev.key === "Enter") && t.tagName === "BUTTON") return;
+    ev.preventDefault();
+    fn();
+  });
+
+  // Keep timers correct when coming back from a background tab / other monitor.
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
+  // Another tab changed the save: reload it instead of overwriting it later.
+  window.addEventListener("storage", ev => { if (ev.key === Storage2.KEY) { state = Storage2.load(); render(); } });
+
   render();
-  setInterval(tick, 1000);
+  scrollToCurrent(false);
+  setInterval(tick, 250);
 })();

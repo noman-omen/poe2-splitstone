@@ -6,9 +6,47 @@ window.CAMPAIGN_DATA = {
   "league": "Forbidden Rites",
   "generated": "2026-10-11"
  },
+ "groups": [
+  {
+   "id": "act1",
+   "kind": "act",
+   "name": "Act 1"
+  },
+  {
+   "id": "act2",
+   "kind": "act",
+   "name": "Act 2"
+  },
+  {
+   "id": "act3",
+   "kind": "act",
+   "name": "Act 3"
+  },
+  {
+   "id": "act4",
+   "kind": "act",
+   "name": "Act 4"
+  },
+  {
+   "id": "interlude2",
+   "kind": "interlude",
+   "name": "Interlude 2"
+  },
+  {
+   "id": "interlude3",
+   "kind": "interlude",
+   "name": "Interlude 3"
+  },
+  {
+   "id": "interlude1",
+   "kind": "interlude",
+   "name": "Interlude 1"
+  }
+ ],
  "sections": [
   {
    "id": "act1",
+   "group": "act1",
    "kind": "act",
    "name": "Act 1",
    "region": "Clearfell / Ogham",
@@ -668,6 +706,7 @@ window.CAMPAIGN_DATA = {
   },
   {
    "id": "act2",
+   "group": "act2",
    "kind": "act",
    "name": "Act 2",
    "region": "Vastiri desert",
@@ -1345,6 +1384,7 @@ window.CAMPAIGN_DATA = {
   },
   {
    "id": "act3",
+   "group": "act3",
    "kind": "act",
    "name": "Act 3",
    "region": "Jungle / Utzaal",
@@ -1987,6 +2027,7 @@ window.CAMPAIGN_DATA = {
   },
   {
    "id": "act4",
+   "group": "act4",
    "kind": "act",
    "name": "Act 4",
    "region": "Kingsmarch & the isles",
@@ -2592,14 +2633,15 @@ window.CAMPAIGN_DATA = {
    ]
   },
   {
-   "id": "interludes",
+   "id": "int2a",
+   "group": "interlude2",
    "kind": "interlude",
-   "name": "Interludes",
-   "region": "Khari → Kriar → Holten (route order 2 → 3 → 2 → 1)",
-   "levels": "50 → ~58",
+   "name": "Interlude 2 · part 1",
+   "region": "The Khari Bazaar → Pools of Khatal",
+   "levels": "~50",
    "zones": [
     {
-     "id": "interludes-z01",
+     "id": "int2a-z01",
      "name": "The Khari Bazaar",
      "steps": [
       {
@@ -2624,7 +2666,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z02",
+     "id": "int2a-z02",
      "name": "Skullmaw Stairway",
      "steps": [
       {
@@ -2655,7 +2697,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z03",
+     "id": "int2a-z03",
      "name": "The Galai Gates",
      "steps": [
       {
@@ -2678,7 +2720,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z04",
+     "id": "int2a-z04",
      "name": "The Khari Crossing",
      "steps": [
       {
@@ -2708,7 +2750,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z05",
+     "id": "int2a-z05",
      "name": "Pools of Khatal",
      "steps": [
       {
@@ -2728,9 +2770,19 @@ window.CAMPAIGN_DATA = {
        "warning": null
       }
      ]
-    },
+    }
+   ]
+  },
+  {
+   "id": "int3",
+   "group": "interlude3",
+   "kind": "interlude",
+   "name": "Interlude 3",
+   "region": "Mount Kriar → The Cuachic Vault",
+   "levels": "~51",
+   "zones": [
     {
-     "id": "interludes-z06",
+     "id": "int3-z01",
      "name": "The Glade → Ashen Forest",
      "steps": [
       {
@@ -2759,7 +2811,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z07",
+     "id": "int3-z02",
      "name": "Kriar Village",
      "steps": [
       {
@@ -2794,7 +2846,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z08",
+     "id": "int3-z03",
      "name": "Glacial Tarn → Howling Caves",
      "steps": [
       {
@@ -2822,7 +2874,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z09",
+     "id": "int3-z04",
      "name": "Glacial Tarn",
      "steps": [
       {
@@ -2843,7 +2895,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z10",
+     "id": "int3-z05",
      "name": "Kriar Peaks",
      "steps": [
       {
@@ -2873,7 +2925,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z11",
+     "id": "int3-z06",
      "name": "Etched Ravine",
      "steps": [
       {
@@ -2894,7 +2946,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z12",
+     "id": "int3-z07",
      "name": "The Cuachic Vault",
      "steps": [
       {
@@ -2915,9 +2967,19 @@ window.CAMPAIGN_DATA = {
        "warning": null
       }
      ]
-    },
+    }
+   ]
+  },
+  {
+   "id": "int2b",
+   "group": "interlude2",
+   "kind": "interlude",
+   "name": "Interlude 2 · part 2",
+   "region": "Sel Khari Sanctuary → Qimah Reservoir",
+   "levels": "~54",
+   "zones": [
     {
-     "id": "interludes-z13",
+     "id": "int2b-z01",
      "name": "Sel Khari Sanctuary",
      "steps": [
       {
@@ -2945,7 +3007,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z14",
+     "id": "int2b-z02",
      "name": "The Galai Gates",
      "steps": [
       {
@@ -2967,7 +3029,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z15",
+     "id": "int2b-z03",
      "name": "Qimah",
      "steps": [
       {
@@ -2997,7 +3059,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z16",
+     "id": "int2b-z04",
      "name": "Qimah Reservoir",
      "steps": [
       {
@@ -3017,9 +3079,19 @@ window.CAMPAIGN_DATA = {
        "warning": null
       }
      ]
-    },
+    }
+   ]
+  },
+  {
+   "id": "int1",
+   "group": "interlude1",
+   "kind": "interlude",
+   "name": "Interlude 1",
+   "region": "The Refuge → Holten → Kingsmarch",
+   "levels": "~57",
+   "zones": [
     {
-     "id": "interludes-z17",
+     "id": "int1-z01",
      "name": "The Refuge → Scorched Farmlands",
      "steps": [
       {
@@ -3042,7 +3114,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z18",
+     "id": "int1-z02",
      "name": "Stones of Serle",
      "steps": [
       {
@@ -3064,7 +3136,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z19",
+     "id": "int1-z03",
      "name": "The Blackwood → Holten",
      "steps": [
       {
@@ -3085,7 +3157,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z20",
+     "id": "int1-z04",
      "name": "Holten",
      "steps": [
       {
@@ -3109,7 +3181,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z21",
+     "id": "int1-z05",
      "name": "Wolvenhold",
      "steps": [
       {
@@ -3139,7 +3211,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z22",
+     "id": "int1-z06",
      "name": "Holten Estate",
      "steps": [
       {
@@ -3162,7 +3234,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z23",
+     "id": "int1-z07",
      "name": "The Refuge",
      "steps": [
       {
@@ -3181,7 +3253,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z24",
+     "id": "int1-z08",
      "name": "Kingsmarch",
      "steps": [
       {
@@ -3208,7 +3280,7 @@ window.CAMPAIGN_DATA = {
      ]
     },
     {
-     "id": "interludes-z25",
+     "id": "int1-z09",
      "name": "The Ziggurat Refuge",
      "steps": [
       {
