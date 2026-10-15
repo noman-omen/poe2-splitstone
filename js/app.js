@@ -27,6 +27,13 @@
     return sign + (h ? `${h}:${p(m)}:${p(x)}` : `${m}:${p(x)}`);
   }
   const deltaClass = ms => (ms === null || ms === undefined ? "" : ms > 0 ? "behind" : "ahead");
+  /** Sidebar/campaign Δ vs PB at the same split point (not full PB vs partial Now). */
+  function segDeltaVsPb(c, kind, id, now) {
+    if (kind === "total") return Run.deltaVsPb(c, now);
+    if (kind === "group") return Run.deltaVsPbIn(c, o => o.group === id, now);
+    if (kind === "section") return Run.deltaVsPbIn(c, o => o.section.id === id, now);
+    return null;
+  }
 
   let state = Storage2.load();
   Object.values(state.characters).forEach(Run.prune);
@@ -241,11 +248,11 @@
     const c = char(), steps = allSteps(c), p = Run.pb(c), bests = Run.bestsFor(c);
     const done = steps.filter(s => c.done[s.id]).length;
     const row = (label, kind, id, ms, pbMs, bestMs, cls = "") => {
-      const d = (pbMs && ms) ? ms - pbMs : null;
+      const d = segDeltaVsPb(c, kind, id);
       const dCls = d === null ? "" : deltaClass(d);
       return `<tr class="${cls}"><th>${esc(label)}</th>
         <td class="${dCls}">${sumTimer(kind, id, ms)}</td>
-        <td class="mono ${dCls}" data-seg-delta="${kind}:${esc(id)}">${d !== null ? fmtDelta(d) : "–"}</td>
+        <td class="mono ${d === null ? "muted" : dCls}" data-seg-delta="${kind}:${esc(id)}">${d !== null ? fmtDelta(d) : "–"}</td>
         <td class="muted">${pbMs ? fmt(pbMs) : "–"}</td>
         <td class="muted">${bestMs ? fmt(bestMs) : "–"}</td></tr>`;
     };
@@ -259,6 +266,7 @@
     const actsMs = DATA.groups.filter(g => g.kind === "act").reduce((a, g) => a + Run.groupMs(c, g.id), 0);
     const intMs = DATA.groups.filter(g => g.kind === "interlude").reduce((a, g) => a + Run.groupMs(c, g.id), 0);
     const sob = Run.sumOfBest(c);
+    const campD = p ? Run.deltaVsPb(c) : null;
     $("#totals").innerHTML = `<h2>Run &amp; segments</h2>
       <div>${done} / ${steps.length} steps · ${Run.order(c).filter(o => c.split[o.zone.id]).length}/${Run.order(c).length} zones split</div>
       <div class="progress"><div style="width:${(100 * done / steps.length).toFixed(1)}%"></div></div>
@@ -267,7 +275,7 @@
       <tr class="sum"><th>Acts</th><td><span class="timer" data-sum="acts:">${fmt(actsMs)}</span></td><td></td><td></td><td></td></tr>
       <tr class="sum"><th>Interludes</th><td><span class="timer" data-sum="interludes:">${fmt(intMs)}</span></td><td></td><td></td><td></td></tr>
       <tr class="grand"><th>Campaign</th><td>${sumTimer("total", "", Run.totalMs(c))}</td>
-        <td class="mono ${p ? deltaClass(Run.totalMs(c) - p.total) : ""}" data-seg-delta="total:">${p ? fmtDelta(Run.totalMs(c) - p.total) : "–"}</td>
+        <td class="mono ${campD === null ? "muted" : deltaClass(campD)}" data-seg-delta="total:">${campD !== null ? fmtDelta(campD) : "–"}</td>
         <td>${p ? fmt(p.total) : "–"}</td><td>${sob ? fmt(sob) : "–"}</td></tr>
       </tbody></table>
       <div class="muted small">Best = best segment ever (gold). Campaign best = sum of best zones.</div>
@@ -596,16 +604,11 @@
     });
     const d = $("#liveDelta");
     if (d && Run.pb(c)) { const v = Run.deltaVsPb(c, now); d.textContent = fmtDelta(v); d.className = deltaClass(v); }
-    const p = Run.pb(c);
-    if (p) {
+    if (Run.pb(c)) {
       document.querySelectorAll("[data-seg-delta]").forEach(el => {
         const [kind, id] = el.dataset.segDelta.split(":");
-        let ms, pbMs;
-        if (kind === "total") { ms = Run.totalMs(c, now); pbMs = p.total; }
-        else if (kind === "group") { ms = Run.groupMs(c, id, now); pbMs = p.groups[id]; }
-        else { ms = Run.sectionMs(c, id, now); pbMs = p.sections[id]; }
-        if (!pbMs || !ms) { el.textContent = "–"; el.className = "mono muted"; return; }
-        const v = ms - pbMs;
+        const v = segDeltaVsPb(c, kind, id, now);
+        if (v === null) { el.textContent = "–"; el.className = "mono muted"; return; }
         el.textContent = fmtDelta(v);
         el.className = "mono " + deltaClass(v);
       });

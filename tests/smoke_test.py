@@ -147,6 +147,30 @@ with sync_playwright() as p:
     check("gold marker for best segment", page.locator('.zone[data-zone="act1-z01"] .gold').count() == 1)
     tick(page, 1_000)
     check("live run delta ahead of PB", page.locator("#liveDelta.ahead").count() == 1, page.text_content("#now"))
+    # Sidebar Δ must match split-point PB (same as #liveDelta), not partial Now vs full PB
+    mid = js(page, """(() => {
+      const c = state_c(), now = Date.now(), p = Run.pb(c);
+      const live = Run.deltaVsPb(c, now);
+      const act1 = Run.deltaVsPbIn(c, o => o.group === 'act1', now);
+      const act4 = Run.deltaVsPbIn(c, o => o.group === 'act4', now);
+      const wrongCamp = Run.totalMs(c, now) - p.total;
+      const wrongAct1 = Run.groupMs(c, 'act1', now) - p.groups.act1;
+      const campEl = document.querySelector('[data-seg-delta="total:"]');
+      const act1El = document.querySelector('[data-seg-delta="group:act1"]');
+      const act4El = document.querySelector('[data-seg-delta="group:act4"]');
+      const liveEl = document.querySelector('#liveDelta');
+      return {
+        live, act1, act4, wrongCamp, wrongAct1,
+        campDom: campEl && campEl.textContent, liveDom: liveEl && liveEl.textContent,
+        act1Dom: act1El && act1El.textContent, act4Dom: act4El && act4El.textContent,
+        campAhead: !!(campEl && campEl.classList.contains('ahead')),
+        liveAhead: !!(liveEl && liveEl.classList.contains('ahead')),
+      };
+    })()""")
+    check("mid-run Campaign Δ equals #liveDelta (split-point)", mid["campDom"] == mid["liveDom"] and mid["campAhead"] and mid["liveAhead"], mid)
+    check("mid-run Campaign Δ is not partial-vs-full-PB", mid["live"] is not None and mid["wrongCamp"] < mid["live"] - 60_000, mid)
+    check("mid-run Act 1 Δ uses split-point (not full act PB)", mid["act1"] is not None and mid["wrongAct1"] < mid["act1"] - 10_000, mid)
+    check("unstarted Act 4 Δ is dash", mid["act4"] is None and mid["act4Dom"] == "–", mid)
     for _ in range(200):
         if page.locator("#now .now-zone", has_text="🏁").count():
             break

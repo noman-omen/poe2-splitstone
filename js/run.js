@@ -214,12 +214,14 @@
    * Comparison vs PB at the current point of the run: cumulative time through
    * the split zones (+ the live zone once it is slower than PB's segment) vs
    * the PB's time for the same zones. Positive = behind PB.
+   * Optional `pred(o)` limits the comparison to a group/section (sidebar Δ).
    */
-  function deltaVsPb(c, now = Date.now()) {
+  function deltaVsPbIn(c, pred, now = Date.now()) {
     const p = pb(c);
     if (!p) return null;
     let mine = 0, theirs = 0, any = false;
     for (const o of order(c)) {
+      if (pred && !pred(o)) continue;
       const zid = o.zone.id, live = T.isRunning(c, zoneKey(zid));
       if ((!c.split[zid] && !live) || p.zones[zid] === undefined) continue;
       const ms = zoneMs(c, zid, now);
@@ -228,6 +230,7 @@
     }
     return any ? mine - theirs : null;
   }
+  const deltaVsPb = (c, now) => deltaVsPbIn(c, null, now);
 
   /** Migrate older saves: drop stale timers; move flat bests under the "normal" variant. */
   function prune(c) {
@@ -241,6 +244,6 @@
 
   global.Run = { ALL, BY_ZONE, order, inOrder, route, variantKey, variantLabel, stepVisible, zoneActive,
     bestsFor, current, runningZone, isStarted, isPaused, isFinished, startZone, stopAllZones, split,
-    undoSplit, togglePause, finish, newRun, runsOf, pb, sumOfBest, deltaVsPb, zoneMs, sectionMs, groupMs,
+    undoSplit, togglePause, finish, newRun, runsOf, pb, sumOfBest, deltaVsPb, deltaVsPbIn, zoneMs, sectionMs, groupMs,
     totalMs, requiredSteps, prune };
 })(window);
