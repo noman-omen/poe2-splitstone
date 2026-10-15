@@ -30,14 +30,89 @@
       runStarted: null, // ISO time of the first timer start in this run
       history: [],  // finished / abandoned runs, newest first (see Run.finish)
       bests: {},    // "zone:<id>" | "section:<id>" | "group:<id>" | "total" -> best ms ever
+      level: null,  // manual character level (number) or null — PoB may also set build.level
     };
   }
+
+  const CHAR_KEYS = Object.keys(newCharacter(""));
 
   function defaultSettings() {
     return { hideHints: false, hideExtra: false, focusMode: false,
              theme: "ember",  // global UI theme (see css/styles.css data-theme)
              autoSplit: { enabled: false, url: "http://127.0.0.1:8766" },
              hotkeys: {} };  // action -> key overrides; defaults live in app.js (HOTKEY_DEFS)
+  }
+
+  const SETTINGS_KEYS = ["hideHints", "hideExtra", "focusMode", "theme", "autoSplit", "hotkeys"];
+
+  /** Helper URL must be http://127.0.0.1 or http://localhost with optional port only. */
+  function isLocalHelperUrl(url) {
+    try {
+      const u = new URL(String(url || ""));
+      if (u.protocol !== "http:") return false;
+      if (u.hostname !== "127.0.0.1" && u.hostname !== "localhost") return false;
+      if (u.username || u.password) return false;
+      const path = u.pathname || "/";
+      if (path !== "/" && path !== "") return false;
+      return true;
+    } catch (_) { return false; }
+  }
+
+  function sanitizeAutoSplit(raw, { allowEnabled = true } = {}) {
+    const d = defaultSettings().autoSplit;
+    const src = raw && typeof raw === "object" ? raw : {};
+    const url = isLocalHelperUrl(src.url) ? String(src.url).replace(/\/$/, "") : d.url;
+    const enabled = !!(allowEnabled && src.enabled && isLocalHelperUrl(url));
+    return { enabled, url };
+  }
+
+  function asObject(v) { return v && typeof v === "object" && !Array.isArray(v) ? v : {}; }
+  function asArray(v) { return Array.isArray(v) ? v : []; }
+  function asBool(v) { return !!v; }
+  function asString(v, fallback) { return typeof v === "string" ? v : fallback; }
+
+  function coerceCharacter(id, c) {
+    const src = c && typeof c === "object" ? c : {};
+    const base = newCharacter(asString(src.name, "Character"));
+    const out = { id: asString(id, base.id) };
+    for (const k of CHAR_KEYS) {
+      if (k === "id") continue;
+      if (!(k in src)) { out[k] = base[k]; continue; }
+      const v = src[k];
+      if (k === "name") out[k] = asString(v, base.name).slice(0, 80);
+      else if (k === "created" || k === "runStarted") out[k] = typeof v === "string" || v === null ? v : base[k];
+      else if (k === "classId") out[k] = typeof v === "string" || v === null ? v : null;
+      else if (k === "level") {
+        if (v === null || v === undefined || v === "") out[k] = null;
+        else { const n = Number(v); out[k] = Number.isFinite(n) && n >= 1 && n <= 100 ? Math.floor(n) : null; }
+      }
+      else if (k === "build") out[k] = v && typeof v === "object" ? v : null;
+      else if (k === "paused") out[k] = Array.isArray(v) || v === null ? v : null;
+      else if (k === "route") {
+        const r = asObject(v);
+        out[k] = {
+          mode: r.mode === "fast" ? "fast" : "normal",
+          requiredOnly: asBool(r.requiredOnly),
+        };
+      }
+      else if (k === "done" || k === "timers" || k === "split" || k === "golds" || k === "bests") out[k] = asObject(v);
+      else if (k === "maps" || k === "mapHistory" || k === "undo" || k === "history") out[k] = asArray(v);
+      else out[k] = base[k];
+    }
+    return out;
+  }
+
+  function coerceSettings(raw) {
+    const d = defaultSettings();
+    const src = asObject(raw);
+    const out = {};
+    out.hideHints = asBool(src.hideHints);
+    out.hideExtra = asBool(src.hideExtra);
+    out.focusMode = asBool(src.focusMode);
+    out.theme = typeof src.theme === "string" ? src.theme : d.theme;
+    out.hotkeys = asObject(src.hotkeys);
+    out.autoSplit = sanitizeAutoSplit(src.autoSplit, { allowEnabled: true });
+    return out;
   }
 
   function defaultState() {
@@ -48,14 +123,12 @@
 
   /** Validate and normalise anything loaded from disk or an import file. */
   function normalise(s) {
-    if (!s || typeof s !== "object" || !s.characters || typeof s.characters !== "object")
+    if (!s || typeof s !== "object" || Array.isArray(s) || !s.characters || typeof s.characters !== "object" || Array.isArray(s.characters))
       throw new Error("Not a campaign tracker file");
-    const out = { schema: SCHEMA, characters: {},
-                  settings: Object.assign(defaultSettings(), s.settings || {}) };
-    out.settings.autoSplit = Object.assign(defaultSettings().autoSplit, (s.settings || {}).autoSplit || {});
+    const out = { schema: SCHEMA, characters: {}, settings: coerceSettings(s.settings) };
     for (const [id, c] of Object.entries(s.characters)) {
-      const base = newCharacter(String(c.name || "Character"));
-      out.characters[id] = Object.assign(base, c, { id });
+      if (!id || typeof id !== "string") continue;
+      out.characters[id] = coerceCharacter(id, c);
     }
     const ids = Object.keys(out.characters);
     if (!ids.length) throw new Error("File contains no characters");
@@ -66,18 +139,22 @@
   function load() {
     try {
       let raw = localStorage.getItem(KEY);
-      // One-time migration from the pre-rebrand key.
-      if (!raw) {
-        for (const old of LEGACY_KEYS) {
-          raw = localStorage.getItem(old);
-          if (raw) {
-            localStorage.setItem(KEY, raw);
-            localStorage.removeItem(old);
-            break;
-          }
+      if (raw) return normalise(JSON.parse(raw));
+      // One-time migration from the pre-rebrand key: parse+normalise first;
+      // on failure leave the old key untouched so the user can recover.
+      for (const old of LEGACY_KEYS) {
+        const legacy = localStorage.getItem(old);
+        if (!legacy) continue;
+        try {
+          const state = normalise(JSON.parse(legacy));
+          localStorage.setItem(KEY, JSON.stringify(state));
+          localStorage.removeItem(old);
+          return state;
+        } catch (e) {
+          console.warn("Legacy state unreadable, leaving", old, e);
         }
       }
-      return raw ? normalise(JSON.parse(raw)) : defaultState();
+      return defaultState();
     } catch (e) {
       console.warn("Saved state unreadable, starting fresh", e);
       return defaultState();
@@ -94,14 +171,31 @@
       settings: state.settings, characters: chars }, null, 2);
   }
 
-  /** Import merges characters into the current state (same id = overwrite). */
-  function importJSON(state, text) {
+  /**
+   * Import merges characters into the current state (same id = overwrite).
+   * opts.keepHelper: if true, apply imported helper URL (localhost only) with
+   * enabled forced off. Otherwise preserve the current autoSplit settings.
+   * Never connects to the helper — caller must not auto-connect on import.
+   */
+  function importJSON(state, text, opts) {
+    const options = opts || {};
     const raw = JSON.parse(text), incoming = normalise(raw);
     Object.assign(state.characters, incoming.characters);
-    if (raw.settings) state.settings = incoming.settings;  // includes hotkey bindings
+    if (raw.settings) {
+      const prevHelper = state.settings.autoSplit;
+      state.settings = incoming.settings;
+      if (options.keepHelper) {
+        state.settings.autoSplit = sanitizeAutoSplit(incoming.settings.autoSplit, { allowEnabled: false });
+      } else {
+        state.settings.autoSplit = prevHelper;
+      }
+    }
     state.activeId = incoming.activeId;
     return Object.keys(incoming.characters).length;
   }
 
-  global.Storage2 = { KEY, load, save, exportJSON, importJSON, newCharacter, uid };
+  global.Storage2 = {
+    KEY, LEGACY_KEYS, load, save, exportJSON, importJSON, newCharacter, uid,
+    isLocalHelperUrl, sanitizeAutoSplit, normalise, defaultSettings,
+  };
 })(window);

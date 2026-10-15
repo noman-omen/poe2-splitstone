@@ -15,6 +15,7 @@
   const classRecsFor = (classId, stepId) =>
     classNotesFor(classId, stepId).filter(n => n.kind === "choice" && n.reward);
   const $ = sel => document.querySelector(sel);
+  const cssEsc = s => (window.CSS && CSS.escape) ? CSS.escape(String(s)) : String(s).replace(/[^a-zA-Z0-9_-]/g, "\\$&");
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const fmt = Timers.format;
@@ -561,7 +562,12 @@
   }
 
   /** CSV helpers: one row per run, times in seconds (spreadsheet friendly). */
-  const csvCell = v => (/[",\n]/.test(String(v ?? "")) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? ""));
+  const csvCell = v => {
+    let s = String(v ?? "");
+    // Neutralise spreadsheet formula injection (Excel/Sheets).
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
   const sec = ms => (ms ? (ms / 1000).toFixed(1) : "");
   function runsCSV(c) {
     const cols = [...DATA.groups.map(g => ["groups", g.id, g.name]), ...DATA.sections.map(s => ["sections", s.id, s.name]),
@@ -618,7 +624,7 @@
 
   function scrollToCurrent(smooth = true) {
     const cur = Run.current(char());
-    const el = cur && document.getElementById("zone-" + cur.zone.id);
+    const el = cur && document.querySelector("#zone-" + cssEsc(cur.zone.id));
     if (el) el.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "center" });
   }
 
@@ -785,7 +791,13 @@
       commit();
     }
     else if (el.id === "autoSplitUrl") {
-      state.settings.autoSplit.url = el.value.trim() || "http://127.0.0.1:8766";
+      const raw = el.value.trim() || "http://127.0.0.1:8766";
+      if (!Storage2.isLocalHelperUrl(raw)) {
+        toast("Helper URL must be http://127.0.0.1 or http://localhost");
+        el.value = state.settings.autoSplit.url;
+        return;
+      }
+      state.settings.autoSplit.url = raw.replace(/\/$/, "");
       if (state.settings.autoSplit.enabled) AutoSplit.connect(state.settings.autoSplit.url);
       commit();
     }
@@ -803,8 +815,18 @@
     else if (el.id === "importFile" && el.files[0]) {
       el.files[0].text().then(text => {
         try {
-          const n = Storage2.importJSON(state, text);
+          let keepHelper = false;
+          try {
+            const peek = JSON.parse(text);
+            if (peek && peek.settings && peek.settings.autoSplit) {
+              keepHelper = confirm(
+                "This file includes Auto-split / helper URL settings.\n\n" +
+                "Apply the helper URL? (enabled stays off — import never connects.)");
+            }
+          } catch (_) { /* normalise will throw below */ }
+          const n = Storage2.importJSON(state, text, { keepHelper });
           Object.values(state.characters).forEach(Run.prune);
+          // Never AutoSplit.connect on import — user must re-enable Auto-split.
           commit(); toast(`Imported ${n} character(s)`);
         } catch (e) { toast("Import failed: " + e.message); }
         el.value = "";

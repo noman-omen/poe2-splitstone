@@ -63,9 +63,15 @@
   /** Connect to the helper. EventSource reconnects by itself after errors. */
   function connect(url) {
     disconnect();
-    setStatus({ source: "helper", state: "connecting", detail: url });
+    const clean = String(url || "").replace(/\/$/, "");
+    if (global.Storage2 && Storage2.isLocalHelperUrl && !Storage2.isLocalHelperUrl(clean)) {
+      setStatus({ source: "helper", state: "error",
+        detail: "Helper URL must be http://127.0.0.1 or http://localhost" });
+      return;
+    }
+    setStatus({ source: "helper", state: "connecting", detail: clean });
     try {
-      es = new EventSource(url.replace(/\/$/, "") + "/events");
+      es = new EventSource(clean + "/events");
     } catch (e) { setStatus({ state: "error", detail: e.message }); return; }
     es.onmessage = m => { try { dispatch(JSON.parse(m.data)); } catch (e) { console.warn("bad event", e); } };
     es.onerror = () => setStatus({ state: "error", detail: `helper not reachable at ${url} (retrying)` });
@@ -109,6 +115,7 @@
     if (!snapshot) return;
     pushUrl = (url || pushUrl || "").replace(/\/$/, "");
     if (!pushUrl || status.state === "off") return;
+    if (global.Storage2 && Storage2.isLocalHelperUrl && !Storage2.isLocalHelperUrl(pushUrl)) return;
     const now = Date.now();
     // Cap at ~4 Hz so a 250ms tick does not flood the helper.
     if (now - lastPush < 200 && snapshot._force !== true) return;
