@@ -6,6 +6,27 @@ window.CAMPAIGN_DATA = {
   "league": "Forbidden Rites",
   "generated": "2026-10-11"
  },
+ "variants": {
+  "normal": {
+   "label": "Normal clear",
+   "desc": "Full campaign incl. optional zones, side bosses, secrets and all rewards.",
+   "tips": []
+  },
+  "fast": {
+   "label": "Fastest (speedrun)",
+   "desc": "Malura's 'Required + buffs' preset: story path + every permanent buff (passives, spirit, res, life/mana, charm slot, ascendancy), skip side content. Run past white mobs, kill blue/rare packs for XP, never full clear, never walk back for loot.",
+   "tips": [
+    "XP window: no penalty within 3 + 1 per 16 char levels of the area level. Never be more than 1 level outside it. Magic monsters give 3.5x XP, rares 5x.",
+    "Respawn at Checkpoint is your main tool: skips dialogue, spawns bosses instantly, pulls stuck NPCs, resets aggro.",
+    "Unknown layout: hug the wall. World map (U): the line to the next zone points to the exit side.",
+    "Sprint + dodge roll between packs (don't sprint near ranged mobs). Wolf form on weapon set 2 (Chain-link Talisman from Renly) is faster than running.",
+    "Logout trick: log out and back in to stand up after a knockdown, clear freeze/heavy stun/bleed and reset cooldowns. The author calls it an exploit that may be patched. Use at your own discretion.",
+    "Disable pause (menus/gem cutting don't pause; needed for the Eye of Hinekora trick). Ctrl-click passives/gems to skip confirmations.",
+    "Open the portal during the boss death animation, then loot. Know your gem/weapon timeline in advance: the biggest single time saver.",
+    "Ritual: only start a cluster you'll finish; do Rituals that are on your path (esp. Act 1 for an early weapon). Fate of the Vaal beacons: skip."
+   ]
+  }
+ },
  "groups": [
   {
    "id": "act1",
@@ -63,9 +84,16 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill The Bloated Miller, enter Clearfell Encampment",
        "waypoint": null,
        "optional": false,
+       "area": "g1_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Fight him in the corner opposite the entrance, then walk straight past the blockade into town.",
-        "Stay above 35 life and his slam won't kill you.",
+        "Stay above 35 life and his slam won't kill you."
+       ],
+       "fastTips": [
         "Ignore monsters in Riverbank/Clearfell/Grelwood: little XP (malura)."
        ],
        "details": [
@@ -75,6 +103,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_1"
      ]
     },
     {
@@ -88,7 +119,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to Renly → first Uncut Skill Gem, head out to Clearfell",
        "waypoint": null,
        "optional": false,
+       "area": "g1_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Cut your main skill right away."
        ],
@@ -102,6 +139,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_town"
      ]
     },
     {
@@ -115,8 +155,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Beira of the Rotten Pack (+10% cold res), go to The Grelwood",
        "waypoint": null,
        "optional": false,
+       "area": "g1_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Waypoint next to the Mud Burrow; the bridge onward leads to The Grelwood.",
+        "Waypoint next to the Mud Burrow; the bridge onward leads to The Grelwood."
+       ],
+       "fastTips": [
         "Minimal: run to The Grelwood exit; Beira is optional for progress, but take her for the +10% cold res."
        ],
        "details": [
@@ -140,6 +187,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_2"
      ]
     },
     {
@@ -153,10 +203,17 @@ window.CAMPAIGN_DATA = {
        "objective": "Grab the Tree of Souls waypoint and the Grim Tangle waypoint, then go up the river to The Red Vale",
        "waypoint": "Grelwood WP at the Tree of Souls; step into Grim Tangle for its WP",
        "optional": false,
+       "area": "g1_4",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Follow the glowing roots to the Tree of Souls, then go upriver to the Red Vale.",
         "The 4 POIs form a diamond: Witch Hut, Grim Tangle entrance, Tree of Souls, Brambleghast.",
-        "Follow the mushrooms to the Grim Tangle entrance.",
+        "Follow the mushrooms to the Grim Tangle entrance."
+       ],
+       "fastTips": [
         "Skip Witch Hut and Brambleghast. Just root trail → Tree of Souls WP, mushroom trail → Grim Tangle WP, river → Red Vale."
        ],
        "details": [
@@ -174,6 +231,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_4"
      ]
     },
     {
@@ -187,7 +247,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Activate 3 Obelisks of Rust, kill The Rust King, portal to town",
        "waypoint": null,
        "optional": false,
+       "area": "g1_5",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Each obelisk spawns a wave that drops a rune quest item; the Rust King spawns at the third.",
         "Click every Rusted/Refined Arms weapon rack: between them you get at least one weapon of every type except wand and staff. Transmute the best base."
@@ -202,6 +268,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_5"
      ]
     },
     {
@@ -215,7 +284,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Hand the runes to Renly → Runed Spikes, then WP to The Grelwood",
        "waypoint": null,
        "optional": false,
+       "area": "g1_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Identify rares before selling (sell for more gold).",
         "No usable weapon from Red Vale: buy a magic one with flat damage or %phys."
@@ -224,6 +299,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_town"
      ]
     },
     {
@@ -237,7 +315,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Break the 3 Runic Seals at the Tree of Souls, portal to town, talk to Una there, then WP to The Grim Tangle",
        "waypoint": null,
        "optional": false,
+       "area": "g1_4",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [],
        "skip": [
         "Don't talk to Una at the tree. Portal to town and talk to her there."
@@ -245,6 +329,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_4"
      ]
     },
     {
@@ -258,8 +345,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Summon Una at the roots, continue to Cemetery of the Eternals",
        "waypoint": null,
        "optional": false,
+       "area": "g1_6",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Mushroom clusters lead to the Druid; a trail of caskets leads to the Cemetery.",
+        "Mushroom clusters lead to the Druid; a trail of caskets leads to the Cemetery."
+       ],
+       "fastTips": [
         "Minimal: just run through; Ervig is optional."
        ],
        "details": [
@@ -276,6 +370,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_6"
      ]
     },
     {
@@ -289,9 +386,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Activate waypoint + checkpoint, enter Tomb of the Consort",
        "waypoint": "Cemetery WP (next to the Memorial Gate)",
        "optional": false,
+       "area": "g1_7",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Hug the walls to find both crypt entrances."
        ],
+       "fastTips": [],
        "details": [
         "Optional: Ancient Ruin sarcophagus at the zone edge: guaranteed Iron or Lazuli Ring (transmute it)."
        ],
@@ -305,6 +408,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_7"
      ]
     },
     {
@@ -318,7 +424,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Asinia → Memorial Key Piece",
        "waypoint": null,
        "optional": false,
+       "area": "g1_9",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Asinia teleports: use your burst only after the teleport.",
         "Optional: Haunted Treasure POI spawns a rare with a guaranteed Support Gem."
@@ -333,6 +445,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_9"
      ]
     },
     {
@@ -346,9 +461,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Draven → Memorial Key Piece",
        "waypoint": null,
        "optional": false,
+       "area": "g1_8",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "The round Wheel tile is the center. Draven is on the side opposite the entrance."
        ],
+       "fastTips": [],
        "details": [
         "Damage window is when he stabs the ground and sends out his wave.",
         "Optional: Forgotten Riches POI: gold + rare chest with a Support Gem."
@@ -363,6 +484,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_8"
      ]
     },
     {
@@ -376,7 +500,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Open the Memorial Gate by the WP, kill Lachlann of Endless Lament, go to Hunting Grounds",
        "waypoint": null,
        "optional": false,
-       "hints": [
+       "area": "g1_7",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Open the gate, then Respawn at Checkpoint so Lachlann spawns without his monologue.",
         "Leave Count Lachlann's Ring on the ground to skip the Una cutscene."
        ],
@@ -394,6 +524,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_7"
      ]
     },
     {
@@ -407,9 +540,16 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill The Crowbell (+2 passive points), activate Ogham Farmlands WP, go to Freythorn",
        "waypoint": "Hunting Grounds WP; step into Ogham Farmlands for its WP",
        "optional": false,
+       "area": "g1_11",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Follow the zone edge: Crowbell and the Farmlands and Freythorn entrances are along it.",
-        "Blood trails from crows on dead livestock lead to the Crowbell.",
+        "Blood trails from crows on dead livestock lead to the Crowbell."
+       ],
+       "fastTips": [
         "Crowbell is optional for progress, but +2 passive points are worth it.",
         "Step into Ogham Farmlands for its WP, then go to Freythorn."
        ],
@@ -433,6 +573,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_11"
      ]
     },
     {
@@ -446,8 +589,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Cleanse 3 Ritual Altars, kill The King in the Mists (+30 Spirit)",
        "waypoint": "Freythorn WP",
        "optional": true,
+       "area": "g1_12",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Smoke trails at a cleansed altar point to the next one.",
+        "Smoke trails at a cleansed altar point to the next one."
+       ],
+       "fastTips": [
         "Worth it: +30 Spirit. Follow the smoke trails, don't sweep the zone."
        ],
        "details": [
@@ -470,6 +620,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_12"
      ]
     },
     {
@@ -483,7 +636,12 @@ window.CAMPAIGN_DATA = {
        "objective": "Finn: pick a Charm; Una: buy a Greater Life/Mana Flask, then WP to Ogham Farmlands",
        "waypoint": null,
        "optional": true,
-       "hints": [
+       "area": "g1_town",
+       "modes": [
+        "normal"
+       ],
+       "hints": [],
+       "fastTips": [
         "Skipped in fast mode: charm + flask shopping only."
        ],
        "details": [
@@ -500,6 +658,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_town"
      ]
     },
     {
@@ -513,8 +674,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Pick up Una's Lute at Una's Hut, follow the road to Ogham Village",
        "waypoint": null,
        "optional": false,
+       "area": "g1_13_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Roads lead to Una's Hut (checkpoint) with the lute; then follow a road to Ogham Village.",
+        "Roads lead to Una's Hut (checkpoint) with the lute; then follow a road to Ogham Village."
+       ],
+       "fastTips": [
         "Lute is optional for progress but +2 passive points are worth it. Skip the Crop Circle."
        ],
        "details": [
@@ -535,6 +703,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_13_1"
      ]
     },
     {
@@ -548,8 +719,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill The Executioner, pull the lever, talk to Leitis. Get Smithing Tools from Renly's Workshop.",
        "waypoint": null,
        "optional": false,
+       "area": "g1_13_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Follow the paved cobble road straight to the smithing house.",
+        "Follow the paved cobble road straight to the smithing house."
+       ],
+       "fastTips": [
         "Executioner, lever and Leitis are required; workshop/chest are optional (but the Blacksmith's Chest Artificer + Blank Rune feed the Lv16 weapon)."
        ],
        "details": [
@@ -576,6 +754,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_13_2"
      ]
     },
     {
@@ -589,7 +770,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Hand Una's Lute to Una (+2 passive points), collect Leitis' Lv5 gem, give Smithing Tools + Blank Rune to Renly",
        "waypoint": null,
        "optional": false,
-       "hints": [
+       "area": "g1_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Can be merged into the end-of-act town visit (malura)."
        ],
        "details": [
@@ -617,6 +804,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_town"
      ]
     },
     {
@@ -630,7 +820,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Go to Ogham Manor, reaching level 13 on the way",
        "waypoint": null,
        "optional": false,
+       "area": "g1_14",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Good XP zone: follow the inner edge and kill everything.",
         "The Gallows (outer edge, checkpoint): click the corpse and walk away. The Support Gem drops next to you. Guaranteed magic pack next to it."
@@ -645,6 +841,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_14"
      ]
     },
     {
@@ -658,8 +857,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Candlemass (+20 life) on floor 1, kill Count Geonor at level 14",
        "waypoint": null,
        "optional": false,
+       "area": "g1_15",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Each floor is area, bridge, area. On the next floor run the opposite direction.",
+        "Each floor is area, bridge, area. On the next floor run the opposite direction."
+       ],
+       "fastTips": [
         "Kill Geonor first; while his dialogue plays take the lift up, checkpoint to Candlemass, then back to Geonor's loot.",
         "Only Geonor is required, but Candlemass (+20 life) is on floor 1, so take it."
        ],
@@ -678,6 +884,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": "Fight Geonor at level 14 (gem level 5 needs char 14). Below that, keep killing packs in the Manor."
       }
+     ],
+     "areas": [
+      "g1_15"
      ]
     },
     {
@@ -691,7 +900,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to the Hooded One → 'Follow the Beast's Trail' → Vastiri Outskirts",
        "waypoint": null,
        "optional": false,
+       "area": "g1_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Sell inventory, check vendor first.",
         "Catch up on anything you skipped: lute to Una, Lv5 gem from Leitis, Smithing Tools/Blank Rune to Renly."
@@ -700,6 +915,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g1_town"
      ]
     }
    ]
@@ -723,9 +941,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Rathbreaker, portal back, take Zarka's Uncut Skill Gem, enter The Ardura Caravan",
        "waypoint": null,
        "optional": false,
+       "area": "g2_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Follow the spear lines on the ground: they point to the bone passage towards Rathbreaker."
        ],
+       "fastTips": [],
        "details": [
         "Stay behind him so his slam can't hit you.",
         "Optional: Raider Camp (checkpoint): tier-2 support gem."
@@ -745,6 +969,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_1"
      ]
     },
     {
@@ -758,7 +985,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to the Hooded One, then Asala → Desert Map → Mawdun Quarry",
        "waypoint": null,
        "optional": false,
-       "hints": [
+       "area": "g2_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Pick the Desert Map destination FIRST, then shop/stash while the caravan travels (all act)."
        ],
        "details": [
@@ -769,6 +1002,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_town"
      ]
     },
     {
@@ -782,7 +1018,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Find the entrance to Mawdun Mine",
        "waypoint": null,
        "optional": false,
-       "hints": [
+       "area": "g2_10_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Don't backtrack for the War Cache."
        ],
        "details": [
@@ -800,6 +1042,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_10_1"
      ]
     },
     {
@@ -813,8 +1058,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Rudja, the Dread Engineer, free Risu, portal to caravan",
        "waypoint": null,
        "optional": false,
+       "area": "g2_10_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Follow the rails north/north-east; at intersections take the turnout that connects the tracks.",
+        "Follow the rails north/north-east; at intersections take the turnout that connects the tracks."
+       ],
+       "fastTips": [
         "Respawn at Checkpoint on entering to skip the elevator."
        ],
        "details": [
@@ -831,6 +1083,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_10_2"
      ]
     },
     {
@@ -844,12 +1099,21 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to Risu, then Asala → Desert Map → Traitor's Passage",
        "waypoint": null,
        "optional": false,
+       "area": "g2_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [],
        "skip": [],
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_town"
      ]
     },
     {
@@ -863,8 +1127,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Run through to The Halani Gates",
        "waypoint": null,
        "optional": false,
+       "area": "g2_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Guaranteed intersection with obelisk + checkpoint: walls WITHOUT parchment lead to the exit, walls WITH parchment lead to Balbala.",
+        "Guaranteed intersection with obelisk + checkpoint: walls WITHOUT parchment lead to the exit, walls WITH parchment lead to Balbala."
+       ],
+       "fastTips": [
         "Follow the walls WITHOUT parchment straight to the exit. Skip Balbala (late ascend with the Deshar Barya)."
        ],
        "details": [
@@ -877,6 +1148,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_2"
      ]
     },
     {
@@ -890,7 +1164,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Jamanra, the Risen King (level 18+), take the stairs down, portal to caravan",
        "waypoint": null,
        "optional": false,
-       "hints": [
+       "area": "g2_3",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "If Asala lags: Respawn at the checkpoint before the 2nd bridge."
        ],
        "details": [
@@ -901,6 +1181,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": "Fight Jamanra at level 18+."
       }
+     ],
+     "areas": [
+      "g2_3"
      ]
     },
     {
@@ -914,7 +1197,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Take Zarka's Lv7 Uncut Skill Gem, talk to Asala → Mastodon Badlands",
        "waypoint": null,
        "optional": false,
+       "area": "g2_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Do the horn regions in order Badlands → Keth → Valley: doing Badlands before Keth makes Kabala drop a Lv7 gem instead of Lv6.",
         "Early ascendancy alternative (strong builds, Lv 19-22): Zarka → Desert Map → Trial of the Sekhemas with Balbala's Lv22 Barya."
@@ -929,6 +1218,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_town"
      ]
     },
     {
@@ -942,8 +1234,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Find the entrance to The Bone Pits",
        "waypoint": null,
        "optional": false,
+       "area": "g2_5_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Follow the cracks in the ground.",
+        "Follow the cracks in the ground."
+       ],
+       "fastTips": [
         "Follow the cracks in the ground straight to The Bone Pits."
        ],
        "details": [
@@ -953,6 +1252,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_5_1"
      ]
     },
     {
@@ -966,8 +1268,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Iktab & Ekbab → Mastodon Tusks; collect the Sun Clan Relic from hyenas",
        "waypoint": null,
        "optional": false,
+       "area": "g2_5_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "The bosses are in the direction the zone entrance faces.",
+        "The bosses are in the direction the zone entrance faces."
+       ],
+       "fastTips": [
         "Kill every hyena until the Sun Clan Relic drops; DON'T checkpoint-reset while searching (packs respawn)."
        ],
        "details": [
@@ -990,6 +1299,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_5_2"
      ]
     },
     {
@@ -1003,8 +1315,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Kabala, Constrictor Queen (+2 passive points); collect the Kabala Clan Relic from snakes",
        "waypoint": null,
        "optional": false,
+       "area": "g2_4_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Follow the snakes and kill them: they lead to Kabala's arena (checkpoint). Exit to The Lost City is at the far end.",
+        "Follow the snakes and kill them: they lead to Kabala's arena (checkpoint). Exit to The Lost City is at the far end."
+       ],
+       "fastTips": [
         "Kabala is optional for progress but +2 passive points; snakes lead to her arena."
        ],
        "details": [
@@ -1031,6 +1350,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_4_1"
      ]
     },
     {
@@ -1044,8 +1366,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Find the entrance to the Buried Shrines",
        "waypoint": null,
        "optional": false,
+       "area": "g2_4_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "The first corridor shows the general direction. Entrance is at the zone edge by the checkpoint at the V-shaped bridge.",
+        "The first corridor shows the general direction. Entrance is at the zone edge by the checkpoint at the V-shaped bridge."
+       ],
+       "fastTips": [
         "Skip the Golden Tomb / Ninth Treasure."
        ],
        "details": [
@@ -1061,6 +1390,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_4_2"
      ]
     },
     {
@@ -1074,8 +1406,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Azarian, the Forsaken Son, put the Water Goddess to rest → Essence of Water",
        "waypoint": null,
        "optional": false,
+       "area": "g2_4_3",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Descend through the Heart of Keth vestibule to the Halani Shrine at the bottom.",
+        "Descend through the Heart of Keth vestibule to the Halani Shrine at the bottom."
+       ],
+       "fastTips": [
         "Skip the Elemental Offering unless you need the res ring. Take the guaranteed magic packs on the bridges (XP is tight from here)."
        ],
        "details": [
@@ -1098,6 +1437,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_4_3"
      ]
     },
     {
@@ -1111,8 +1453,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Activate the 3 Ancient Seals; place both relics at the Relic Altar (+1 charm slot)",
        "waypoint": "Valley WP (in the canyon with the relic altar)",
        "optional": false,
+       "area": "g2_6",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "One seal at the end of each canyon. Titan Grotto checkpoint is near the start: take it, then return via checkpoint after the seals.",
+        "One seal at the end of each canyon. Titan Grotto checkpoint is near the start: take it, then return via checkpoint after the seals."
+       ],
+       "fastTips": [
         "Take the Grotto checkpoint near the start, do the 3 canyons, then return via checkpoint."
        ],
        "details": [
@@ -1133,6 +1482,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_6"
      ]
     },
     {
@@ -1146,7 +1498,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Zalmarath, the Colossus → Flame Ruby; Zarka gives the Horn of the Vastiri",
        "waypoint": null,
        "optional": false,
+       "area": "g2_7",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Stand right against his chest under his arm.",
         "Optional: Titan's Sword POI: guaranteed Lesser Rune (only if on your path)."
@@ -1161,6 +1519,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_7"
      ]
     },
     {
@@ -1174,7 +1535,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Desert Map to the sandstorm (Traitor's Passage), Sound the Horn at the front, Asala → Deshar",
        "waypoint": null,
        "optional": false,
+       "area": "g2_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Zarka only gives the horn after Tusks, Essence of Water and Flame Ruby are handed in.",
         "Upgrade flasks to Lv23 bases while travelling."
@@ -1183,6 +1550,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_town"
      ]
     },
     {
@@ -1196,7 +1566,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Take the Final Letter from Fallen Dekhara; kill the Watchful Twins vultures for the Lv28 Barya",
        "waypoint": null,
        "optional": false,
-       "hints": [
+       "area": "g2_8",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Letter and Barya are optional for progress, but the letter = +2 passive points and the vultures' Lv28 Barya is the speedrun ascend key."
        ],
        "details": [
@@ -1219,6 +1595,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": "Enter Deshar at level 24+; it gives full XP up to 27."
       }
+     ],
+     "areas": [
+      "g2_8"
      ]
     },
     {
@@ -1232,9 +1611,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Run through to The Spires of Deshar",
        "waypoint": null,
        "optional": false,
+       "area": "g2_9_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "The world map (U) shows the exit direction."
        ],
+       "fastTips": [],
        "details": [
         "Optional: Shifting Vases / Hushed Urn: 4 rares + Lv2 Support Gem (domistae)."
        ],
@@ -1242,6 +1627,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_9_1"
      ]
     },
     {
@@ -1255,9 +1643,16 @@ window.CAMPAIGN_DATA = {
        "objective": "Click the Sisters of Garukhan (+10% lightning res), kill Tor Gul, the Defiler",
        "waypoint": null,
        "optional": false,
+       "area": "g2_9_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "You start facing north; Tor Gul is at the north end.",
-        "The paths around the Sisters statue form a 'G' on the map.",
+        "The paths around the Sisters statue form a 'G' on the map."
+       ],
+       "fastTips": [
         "Tor Gul is required; the Sisters statue (+10% lightning res) is a short detour, so take it."
        ],
        "details": [
@@ -1273,6 +1668,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": "Be at least level 26 for Tor Gul."
       }
+     ],
+     "areas": [
+      "g2_9_2"
      ]
     },
     {
@@ -1286,8 +1684,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Hand the Final Letter to Shambrin (+2 passive points); Zarka → Desert Map → Trial of the Sekhemas",
        "waypoint": null,
        "optional": false,
-       "hints": [
-        "Pick The Dreadnought/Trial on the Desert Map first, then hand in the letter while travelling."
+       "area": "g2_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
+        "Pick The Dreadnought/Trial on the Desert Map first, then hand in the letter while travelling.",
+        "Saves ~10 s (skips the Dreadnought ride)"
        ],
        "details": [],
        "skip": [],
@@ -1300,6 +1705,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_town"
      ]
     },
     {
@@ -1313,7 +1721,13 @@ window.CAMPAIGN_DATA = {
        "objective": "1st Ascendancy: run the trial with the Lv28 Barya from Deshar",
        "waypoint": "Trial of the Sekhemas WP",
        "optional": true,
-       "hints": [
+       "area": "g2_13",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Default for speedrunners too: run the trial at ~28 with the Deshar Barya. Ritual and Chalice rooms are fastest; avoid Gauntlet; ignore keys and chests."
        ],
        "details": [
@@ -1332,6 +1746,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_13"
      ]
     },
     {
@@ -1345,7 +1762,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Jamanra, the Abomination (act boss)",
        "waypoint": null,
        "optional": false,
+       "area": "g2_12",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Burst ~55k damage quickly so he doesn't get to his storm attack. Phase 2: stay close and dodge-roll his slam and slash.",
         "At least level 28, 29 is better.",
@@ -1355,6 +1778,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": "At least level 28, 29 is better; otherwise reset the zone and farm."
       }
+     ],
+     "areas": [
+      "g2_12"
      ]
     },
     {
@@ -1368,7 +1794,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to the Hooded One in the shrine NW of the caravan's midpoint, then Asala → Sandswept Marsh",
        "waypoint": null,
        "optional": false,
-       "hints": [
+       "area": "g2_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "After talking to the Hooded One: Esc → character select → log back in to stand at the WP."
        ],
        "details": [
@@ -1378,6 +1810,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g2_town"
      ]
     }
    ]
@@ -1401,8 +1836,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Run through to the Ziggurat Encampment",
        "waypoint": null,
        "optional": false,
+       "area": "g3_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Take the crossing at the edge of the starting area, then straight through the marsh.",
+        "Take the crossing at the edge of the starting area, then straight through the marsh."
+       ],
+       "fastTips": [
         "Minimal: just pass through."
        ],
        "details": [
@@ -1425,6 +1867,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": "Reach town at level 29+, otherwise farm in the marsh (early Act 3 zones give little XP)."
       }
+     ],
+     "areas": [
+      "g3_1"
      ]
     },
     {
@@ -1438,7 +1883,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to Oswald (opens his shop), check vendors, exit at the top of town to Jungle Ruins",
        "waypoint": null,
        "optional": false,
+       "area": "g3_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "From level 30: Colossal Life Flask at Servi.",
         "Oswald: weapons, armour, belts. Servi: sceptres, wands, staves, flasks, rings, amulets, charms."
@@ -1447,6 +1898,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_town"
      ]
     },
     {
@@ -1460,8 +1914,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Mighty Silverfist (+2 passive points), follow snakes to the Venom Crypts",
        "waypoint": "Jungle Ruins WP (follow the water's edge)",
        "optional": false,
+       "area": "g3_3",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Follow the water's edge to the WP. Silverfist is in the middle of the zone. Snake trail leads to the Venom Crypts entrance.",
+        "Follow the water's edge to the WP. Silverfist is in the middle of the zone. Snake trail leads to the Venom Crypts entrance."
+       ],
+       "fastTips": [
         "Silverfist is optional for progress but +2 passive points."
        ],
        "details": [
@@ -1484,6 +1945,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_3"
      ]
     },
     {
@@ -1497,7 +1961,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Take the venom from the corpse; hand it to Servi for a PERMANENT choice + Artificer's Orb",
        "waypoint": null,
        "optional": true,
-       "hints": [
+       "area": "g3_4",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Short side zone (permanent Servi choice); its exit drops you next to the Infested Barrens."
        ],
        "details": [
@@ -1520,6 +1990,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_4"
      ]
     },
     {
@@ -1533,7 +2006,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Run through to the Chimeral Wetlands",
        "waypoint": "Infested Barrens WP (near Alva)",
        "optional": false,
+       "area": "g3_2_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Troubled Camp chest next to the vendor: guaranteed rare boots. The NPC there reveals the exit."
        ],
@@ -1547,6 +2026,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_2_1"
      ]
     },
     {
@@ -1560,9 +2042,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Grab the Temple of Chaos WP, kill Xyclucian → Chimeral Inscribed Ultimatum, enter Jiquani's Machinarium",
        "waypoint": "Chimeral Wetlands WP + Temple of Chaos WP",
        "optional": false,
+       "area": "g3_5",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Both along the zone edge: Temple of Chaos WP and Xyclucian in front of the Machinarium entrance."
        ],
+       "fastTips": [],
        "details": [
         "At 75/50/25% he flies onto a pillar: destroy the stone platform under him to stun him.",
         "Optional: Ravaged Camp: guaranteed rare armour + Lost Temple Logbook."
@@ -1582,6 +2070,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_5"
      ]
     },
     {
@@ -1595,8 +2086,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Use Small Soul Cores (altar + locked exit); kill Blackjaw → Flame Core (+10% fire res)",
        "waypoint": null,
        "optional": false,
+       "area": "g3_6_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Squared U-shape. Follow the main corridor and only leave it for cores or Blackjaw. Leap/Pounce over blockages.",
+        "Squared U-shape. Follow the main corridor and only leave it for cores or Blackjaw. Leap/Pounce over blockages."
+       ],
+       "fastTips": [
         "Minimal: 2 Small Soul Cores (altar + exit). Blackjaw (+10% fire res) is worth it."
        ],
        "details": [
@@ -1612,6 +2110,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_6_1"
      ]
     },
     {
@@ -1625,9 +2126,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Place 2 Medium Soul Cores in the generators, kill Zicoatl → Large Soul Core, WP to Jungle Ruins",
        "waypoint": null,
        "optional": false,
+       "area": "g3_6_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Generators in a V shape; cores are usually toward the middle. Search one side up to the checkpoint, checkpoint back, then the other side."
        ],
+       "fastTips": [],
        "details": [
         "After the generators: Respawn at Checkpoint, go to the start, click the core and Zicoatl comes at once.",
         "Triangle slam: stand at one of the triangle's corners."
@@ -1636,6 +2143,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_6_2"
      ]
     },
     {
@@ -1649,7 +2159,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Put the Large Soul Core into the Stone Altar → opens The Matlan Waterways",
        "waypoint": null,
        "optional": false,
+       "area": "g3_3",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Since 0.5 the Waterways entrance is in the Jungle Ruins (altar is at the WP)."
        ],
@@ -1657,6 +2173,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_3"
      ]
     },
     {
@@ -1670,7 +2189,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Walk over the pressure pads, activate the mechanism at the end",
        "waypoint": "Waterways WP (Azak Bog entrance is at it)",
        "optional": false,
+       "area": "g3_2_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "0.5: pressure pads instead of levers, last section pre-drained.",
         "Ravaged Corpse near the Azak Bog entrance: summon Servi → rare belt.",
@@ -1687,6 +2212,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_2_2"
      ]
     },
     {
@@ -1700,8 +2228,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Ignagduk, the Bog Witch → Gemrot Skull (+30 Spirit)",
        "waypoint": "Azak Bog WP",
        "optional": true,
+       "area": "g3_7",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Boss arena always top-right (rotation depends on entrance side).",
+        "Boss arena always top-right (rotation depends on entrance side)."
+       ],
+       "fastTips": [
         "Optional zone but +30 Spirit: worth it. Do the Flameskin Ritual first; its flames point to Ignagduk."
        ],
        "details": [
@@ -1724,6 +2259,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_7"
      ]
     },
     {
@@ -1737,7 +2275,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Servi: Ghastly Spear → charm (and venom if not done); Alva at the bottom → The Drowned City",
        "waypoint": null,
        "optional": false,
+       "area": "g3_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Thawing or Staunching Charm recommended.",
         "Buy the Colossal Life Flask if not done yet."
@@ -1752,6 +2296,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_town"
      ]
     },
     {
@@ -1765,7 +2312,12 @@ window.CAMPAIGN_DATA = {
        "objective": "2nd Ascendancy: Trial of Chaos with the Chimeral Inscribed Ultimatum",
        "waypoint": "Temple of Chaos WP",
        "optional": true,
-       "hints": [
+       "area": null,
+       "modes": [
+        "normal"
+       ],
+       "hints": [],
+       "fastTips": [
         "Most speedrunners skip the Trial of Chaos and do it after the campaign (malura). Keep the Ultimatum."
        ],
        "details": [
@@ -1785,7 +2337,8 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
-     ]
+     ],
+     "areas": []
     },
     {
      "id": "act3-z14",
@@ -1798,9 +2351,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Grab the WP at the start, run through to the Apex of Filth",
        "waypoint": "Drowned City WP (start); also pop into Molten Vault for its WP if doing it",
        "optional": false,
+       "area": "g3_8",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Layout is fixed and mirrors Utzaal."
        ],
+       "fastTips": [],
        "details": [
         "Avoid the teal drowning orbs.",
         "Level 36 = gems to level 10."
@@ -1809,6 +2368,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_8"
      ]
     },
     {
@@ -1822,7 +2384,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill the Queen of Filth → Temple Door Idol; return and talk to Alva (opens Temple of Kopec)",
        "waypoint": "Apex of Filth WP",
        "optional": false,
-       "hints": [
+       "area": "g3_11",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Ignore mushrooms and the Cauldron Keeper. Way back: checkpoint → WP → Drowned City → exit puts you at the Temple door."
        ],
        "details": [
@@ -1835,6 +2403,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_11"
      ]
     },
     {
@@ -1848,7 +2419,12 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Mektul, the Forgemaster → Hammer of Kamasa to Oswald: Reforging Bench",
        "waypoint": "Molten Vault WP",
        "optional": true,
-       "hints": [
+       "area": "g3_9",
+       "modes": [
+        "normal"
+       ],
+       "hints": [],
+       "fastTips": [
         "Skip in fast mode / on alts: Reforging Bench only matters on the league's first character."
        ],
        "details": [
@@ -1875,6 +2451,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_9"
      ]
     },
     {
@@ -1888,8 +2467,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Run to the top, kill Ketzuli, High Priest of the Sun; talk to Alva",
        "waypoint": null,
        "optional": false,
+       "area": "g3_12",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Each floor is a triangle: check the far corner first (~50%). Floor 2: follow the ground crack from the sun to the wall, jump across.",
+        "Each floor is a triangle: check the far corner first (~50%). Floor 2: follow the ground crack from the sun to the wall, jump across."
+       ],
+       "fastTips": [
         "Portal out when Alva says 'wait' or 'offering' to skip the rest of the scene."
        ],
        "details": [
@@ -1900,6 +2486,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_12"
      ]
     },
     {
@@ -1913,7 +2502,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Go through the Gateway, down the stairs to Utzaal",
        "waypoint": null,
        "optional": false,
+       "area": "g3_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "The Gateway only appears after Alva's scene.",
         "Bring cold res or a Sapphire Charm: Eye of Winter casters in Utzaal are dangerous."
@@ -1922,6 +2517,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_town"
      ]
     },
     {
@@ -1935,9 +2533,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Viper Napuatzi; kill every Vaal Goliath for the Sacrificial Heart",
        "waypoint": null,
        "optional": false,
+       "area": "g3_14",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Follow the war-cry sound / paved road to her."
        ],
+       "fastTips": [],
        "details": [
         "Spear phase: dodge-roll every thrust. Soldiers shrinking the arena refill flasks.",
         "Only Vaal Goliaths (canister on shoulder) drop the Sacrificial Heart (also in Aggorat)."
@@ -1946,6 +2550,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_14"
      ]
     },
     {
@@ -1959,7 +2566,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Sacrifice the Sacrificial Heart at the blood altar (+2 passive points), enter The Black Chambers",
        "waypoint": null,
        "optional": false,
-       "hints": [
+       "area": "g3_16",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "After the points, Respawn at Checkpoint, then run to the Black Chambers entrance."
        ],
        "details": [
@@ -1977,6 +2590,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_16"
      ]
     },
     {
@@ -1990,9 +2606,17 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Doryani, Royal Thaumaturge (act boss)",
        "waypoint": null,
        "optional": false,
+       "area": "g3_17",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Mazes connected by bridges.",
-        "Get Doryani below 50% before the laser altar."
+        "Mazes connected by bridges."
+       ],
+       "fastTips": [
+        "Get Doryani below 50% before the laser altar.",
+        "Saves 15-20 s"
        ],
        "details": [
         "Get Doryani below 50% before the laser altar (saves 15-20 s). Mech phase: the giant fist follows and slams; move out in time.",
@@ -2002,6 +2626,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": "Level ~40 for Doryani."
       }
+     ],
+     "areas": [
+      "g3_17"
      ]
     },
     {
@@ -2015,12 +2642,21 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to Doryani (Cataclysm), then Doryani → Hooded One → Alva last → Kingsmarch",
        "waypoint": null,
        "optional": false,
+       "area": "g3_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [],
        "skip": [],
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g3_town"
      ]
     }
    ]
@@ -2044,7 +2680,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to Doryani and Alva, then Makoru at the ship → Isle of Kin",
        "waypoint": null,
        "optional": false,
-       "hints": [
+       "area": "g4_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Ignore the Torn Map Pieces (Plunder's Point / Verisium Anvil) in a speedrun (malura)."
        ],
        "details": [
@@ -2056,6 +2698,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_town"
      ]
     },
     {
@@ -2069,7 +2714,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Go through to the Volcanic Warrens",
        "waypoint": null,
        "optional": false,
-       "hints": [
+       "area": "g4_1_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Run straight to the Volcanic Warrens; you're 4-8 levels under the zones in Act 4, so kill rares and magic packs on the way (malura)."
        ],
        "details": [
@@ -2093,6 +2744,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": "Act 4 zones run 4-8 levels above you: take rares and magic packs on the way (malura)."
       }
+     ],
+     "areas": [
+      "g4_1_1"
      ]
     },
     {
@@ -2106,9 +2760,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Krutog, Lord of Kin → weapon piece 1/3 (or free Matiki)",
        "waypoint": "Volcanic Warrens WP",
        "optional": false,
+       "area": "g4_1_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Follow the lava river upstream."
        ],
+       "fastTips": [],
        "details": [
         "On his slam, roll through between his legs.",
         "Wait until the Hooded One has picked up the weapon piece before leaving.",
@@ -2129,6 +2789,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_1_2"
      ]
     },
     {
@@ -2142,7 +2805,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Sail to Kedge Bay, run through the fog to Journey's End",
        "waypoint": "Kedge Bay WP",
        "optional": true,
+       "area": "g4_2_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Journey's End is only reachable through Kedge Bay. Worth it for the +2 passive points.",
         "Torn Map piece (Dead Man's Chest / Smuggler's Stash), only for Plunder's Point.",
@@ -2152,6 +2821,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_2_1"
      ]
     },
     {
@@ -2165,7 +2837,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Tujen → kill Captain Hartlin → Verisium → Dannig's Verisium Spikes → free Freya → kill Omniphobia; Tujen: +2 passive points",
        "waypoint": "Journey's End WP",
        "optional": true,
-       "hints": [
+       "area": "g4_2_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Only worth it for the +2 passive points. If Omniphobia is too tanky, leave after Hartlin and come back via WP before Arastas."
        ],
        "details": [
@@ -2189,6 +2867,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_2_2"
      ]
     },
     {
@@ -2202,7 +2883,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Go through to Solitary Confinement; optional Goddess of Justice (flask recovery)",
        "waypoint": "Abandoned Prison WP",
        "optional": false,
-       "hints": [
+       "area": "g4_5_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Minimal: skip the chapel and the Armoury (malura). The flask buff is permanent but swappable; take it if the key drops on your path."
        ],
        "details": [
@@ -2219,6 +2906,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_5_1"
      ]
     },
     {
@@ -2232,10 +2922,16 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill The Prisoner → weapon piece 2/3 (or free Matiki)",
        "waypoint": null,
        "optional": false,
+       "area": "g4_5_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Follow the outer wall on the sea side, it leads straight to the boss.",
         "With Leap/Pounce: jump through barred walls."
        ],
+       "fastTips": [],
        "details": [
         "At 50% and 25% life use a ballista: pull the lever as soon as prompted, otherwise he regenerates.",
         "Wait until the Hooded One has picked up the weapon piece before leaving.",
@@ -2251,6 +2947,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_5_2"
      ]
     },
     {
@@ -2264,7 +2963,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Scourge of the Skies → weapon piece 3/3 (or free Matiki)",
        "waypoint": null,
        "optional": false,
+       "area": "g4_7",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Run to the end of the zone. Wait for the Hooded One to pick up the piece.",
         "Torn Map piece in the Corpse Nest, only for Plunder's Point."
@@ -2279,6 +2984,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_7"
      ]
     },
     {
@@ -2292,7 +3000,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill the Great White One → Shark Fin (for Kaimana's permanent buff)",
        "waypoint": null,
        "optional": true,
-       "hints": [
+       "area": "g4_3_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Speedrunners skip the shark arena: the buff is barely worth the time (malura). You still need Whakapanu → Singing Caverns if Diamora holds Matiki (needed for Eye of Hinekora: +5% mana, tattoos, +2 points).",
         "Skip the shark arena (buff barely worth the time) but still go through Whakapanu → Singing Caverns if Diamora holds Matiki."
        ],
@@ -2316,6 +3030,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_3_1"
      ]
     },
     {
@@ -2329,7 +3046,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Diamora, Song of Death → free Matiki (or weapon piece)",
        "waypoint": "Singing Caverns WP",
        "optional": true,
+       "area": "g4_3_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Follow the singing voice. Bring cold res. When she sings, don't look into the water mirrors at the arena edge (petrification stacks).",
         "Talk to Matiki, back to the ship, talk to Matiki again → sail to the Eye of Hinekora.",
@@ -2345,6 +3068,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_3_2"
      ]
     },
     {
@@ -2358,7 +3084,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to Matiki, peer into the Well, complete the 3 Tests of Mettle, Pay Respects at the Silent Hall (+5% max mana)",
        "waypoint": "Eye of Hinekora WP",
        "optional": true,
-       "hints": [
+       "area": "g4_4_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Respawn at Checkpoint when '+5% mana' appears in chat to skip the animation (pause must be disabled)."
        ],
        "details": [
@@ -2380,6 +3112,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_4_1"
      ]
     },
     {
@@ -2393,8 +3128,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Complete 3 tests → 3 tattoos (+5% res or +5 attribute each, permanent); kill Yama the White",
        "waypoint": null,
        "optional": true,
+       "area": "g4_4_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Tests are laid out in a clover-leaf.",
+        "Tests are laid out in a clover-leaf."
+       ],
+       "fastTips": [
         "Worth it: 3 permanent tattoos + leads to the +2 points in Trial of the Ancestors."
        ],
        "details": [
@@ -2411,6 +3153,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_4_2"
      ]
     },
     {
@@ -2424,7 +3169,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to Navali → Tattoo of Hinekora (+2 passive points)",
        "waypoint": null,
        "optional": true,
+       "area": "g4_4_3",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Use the Tattoo of Hinekora with right-click."
        ],
@@ -2438,6 +3189,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_4_3"
      ]
     },
     {
@@ -2451,7 +3205,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to the Hooded One, then Makoru → Arastas (needs all 3 weapon pieces)",
        "waypoint": null,
        "optional": false,
+       "area": "g4_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Hand the Humming Pearl to Rog → Pearlescent Amulet.",
         "Journey's End still open? Do Omniphobia now via WP, then talk to Tujen.",
@@ -2467,6 +3227,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_town"
      ]
     },
     {
@@ -2480,7 +3243,12 @@ window.CAMPAIGN_DATA = {
        "objective": "The Runeseeker: turn in 4 Torn Map pieces → Plunder's Point → Expedition → Deserted Post → Farrow (unlocks Verisium Anvil)",
        "waypoint": null,
        "optional": true,
+       "area": "g4_13",
+       "modes": [
+        "normal"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Needs all 4 Torn Map Pieces (Whakapanu, Shrike, Isle of Kin, Kedge Bay).",
         "In Forbidden Rites/Standard this optional quest is the only way to unlock the Verisium Anvil (runeforging). Not needed for the campaign."
@@ -2495,6 +3263,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_13"
      ]
     },
     {
@@ -2508,9 +3279,16 @@ window.CAMPAIGN_DATA = {
        "objective": "Follow Missionary Lorandis, destroy the forcefield, kill Torvian → The Excavation",
        "waypoint": "Arastas WP",
        "optional": false,
-       "hints": [
+       "area": "g4_8a",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Kill the pack outside the bubble before moving on, or a death/reset sends you back before the cutscene.",
-        "Minimal: skip the bells."
+        "Minimal: skip the bells.",
+        "Saves ~1 min (avoids replaying the cutscene)"
        ],
        "details": [
         "Priests: the right one gives Torvian damage reduction, the left one elemental immunity. When he picks up a rock, stand next to a priest: if he hits the priest, that buff is gone.",
@@ -2527,6 +3305,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_8a"
      ]
     },
     {
@@ -2540,7 +3321,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Benedictus (Precursor Forge), talk to the Hooded One, portal to Kingsmarch",
        "waypoint": null,
        "optional": false,
-       "hints": [
+       "area": "g4_10",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Enter the arena, then Respawn at Checkpoint right away to skip his dialogue.",
         "When the quest shows 'Speak to the Hooded One' after entering the Excavated Site: Esc → Respawn at Checkpoint (skips the cutscene)."
        ],
@@ -2552,6 +3339,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_10"
      ]
     },
     {
@@ -2565,7 +3355,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to the Hooded One, then Rhodri at the ship → Ngakanu",
        "waypoint": null,
        "optional": false,
+       "area": "g4_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Makoru is wounded: from here Rhodri sails.",
         "Put on your tankiest gear: Ngakanu/Heart of the Tribe have many projectiles and the biggest level deficit."
@@ -2574,6 +3370,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_town"
      ]
     },
     {
@@ -2587,9 +3386,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Tavakai (final Act 4 boss), talk to him, portal to Kingsmarch",
        "waypoint": null,
        "optional": false,
+       "area": "g4_11_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Heart of the Tribe: after the 1st checkpoint go between the two buildings, keep going deeper. Further checkpoints mark side objectives: turn back."
        ],
+       "fastTips": [],
        "details": [
         "3 phases; if you die the fight restarts. Phase 2: stand in a corner, roll out and back in when spikes come from the air. Phase 3 the same, plus stun him.",
         "Optional: Mad Butcher (Ngakanu hut), Meeting House chests."
@@ -2598,6 +3403,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": "Biggest level deficit of the campaign: tankiest gear on."
       }
+     ],
+     "areas": [
+      "g4_11_2"
      ]
     },
     {
@@ -2611,7 +3419,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to the Hooded One → Interludes unlocked; Kaimana: Shark Fin → permanent Lesson",
        "waypoint": null,
        "optional": false,
-       "hints": [
+       "area": "g4_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Without the Shark Fin there is no Kaimana choice; that's fine in fast mode."
        ],
        "details": [
@@ -2628,6 +3442,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_town"
      ]
     }
    ]
@@ -2651,7 +3468,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Interlude 2 (part 1): talk to Asala and Zarka, take the NE exit",
        "waypoint": null,
        "optional": false,
-       "hints": [
+       "area": "p2_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Whole Interlude block played cleanly: ~40 min (malura)."
        ],
        "details": [
@@ -2663,6 +3486,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": "Resistance penalty jumps to -40% (area 54-59) / -50% (60-64). Each Interlude boss raises the other Interludes' zone levels."
       }
+     ],
+     "areas": [
+      "p2_town"
      ]
     },
     {
@@ -2676,7 +3502,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Take Molten One's Gift (+5% max life)",
        "waypoint": null,
        "optional": true,
-       "hints": [
+       "area": "p2_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Worth it: +5% max life. Respawn at Checkpoint afterwards to return to the Crossing."
        ],
        "details": [
@@ -2694,6 +3526,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "p2_1"
      ]
     },
     {
@@ -2707,9 +3542,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Just grab the waypoint, go back to the Khari Crossing",
        "waypoint": "Galai Gates WP",
        "optional": true,
+       "area": "p2_5",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "In the Khari Crossing, follow the west wall."
        ],
+       "fastTips": [],
        "details": [
         "Vornas is killed later (after Elzarah)."
        ],
@@ -2717,6 +3558,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "p2_5"
      ]
     },
     {
@@ -2730,7 +3574,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Akthi & Anundr (scorpion + sandworm), portal to the Bazaar → Risu: +2 passive points",
        "waypoint": null,
        "optional": true,
-       "hints": [
+       "area": "p2_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Worth it: +2 passive points (Risu)."
        ],
        "details": [
@@ -2747,6 +3597,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "p2_1"
      ]
     },
     {
@@ -2760,7 +3613,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Activate the waypoint, WP back to the Bazaar, Hooded One → Mount Kriar",
        "waypoint": "Pools of Khatal WP",
        "optional": false,
+       "area": "p2_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Bazaar: SW exit, then west through the Khari Crossing. Wayfinder quest step only shows the way: run straight west.",
         "Guaranteed Expedition spawn here (domistae)."
@@ -2769,6 +3628,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "p2_2"
      ]
     }
    ]
@@ -2792,7 +3654,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Interlude 3: through the Ashen Forest to Kriar Village",
        "waypoint": null,
        "optional": false,
+       "area": "p3_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Ashen Forest has no waypoint.",
         "Optional: Ancient Monument (checkpoint): Lv14 Uncut Skill Gem (level scales with interlude order).",
@@ -2808,6 +3676,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "p3_1"
      ]
     },
     {
@@ -2821,9 +3692,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Lythara, the Wayward Spear → Gemcrust Skull (+40 Spirit)",
        "waypoint": "Kriar Village WP",
        "optional": false,
+       "area": "p3_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Roving wisps (2 to follow) show the way (domistae)."
        ],
+       "fastTips": [],
        "details": [
         "Stun her at half HP and finish her in the stun window. Wisps empower her over time, so burst her.",
         "Right-click the Gemcrust Skull: +40 Spirit + Lv14 Uncut Spirit Gem (order-dependent)."
@@ -2843,6 +3720,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "p3_2"
      ]
     },
     {
@@ -2856,8 +3736,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill the Abominable Yeti → Icy Tusks; portal to The Glade, give to Hilda: +2 passive points; WP back",
        "waypoint": null,
        "optional": true,
+       "area": "p3_4",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Glacial Tarn: follow the east (right) wall to the Howling Caves.",
+        "Glacial Tarn: follow the east (right) wall to the Howling Caves."
+       ],
+       "fastTips": [
         "Worth it: +2 passive points (Hilda)."
        ],
        "details": [],
@@ -2871,6 +3758,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "p3_4"
      ]
     },
     {
@@ -2884,14 +3774,23 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Rakkar, the Frozen Talon → entrance to Kriar Peaks",
        "waypoint": "Glacial Tarn WP",
        "optional": false,
+       "area": "p3_3",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Follow the north-west wall: Rakkar guards the Kriar Peaks entrance."
        ],
+       "fastTips": [],
        "details": [],
        "skip": [],
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "p3_3"
      ]
     },
     {
@@ -2905,7 +3804,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to Elder Madox → 1 Unique of your choice; take the platform down into the Etched Ravine",
        "waypoint": null,
        "optional": false,
-       "hints": [
+       "area": "p3_5",
+       "modes": [
+        "normal",
+        "fast"
+       ],
+       "hints": [],
+       "fastTips": [
         "Minimal: just run through; Elder Madox is optional (malura). Take him if a leveling unique helps you.",
         "Minimal: just run through; Elder Madox is optional."
        ],
@@ -2922,6 +3827,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "p3_5"
      ]
     },
     {
@@ -2935,7 +3843,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Stormgore, the Guardian → The Cuachic Vault",
        "waypoint": null,
        "optional": false,
+       "area": "p3_6",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Guards the Vault entrance. Roll through his slams (lightning + reanimating robots)."
        ],
@@ -2943,6 +3857,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "p3_6"
      ]
     },
     {
@@ -2956,7 +3873,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Zolin & Zelina, then summon and talk to Doryani; WP to the Pools of Khatal",
        "waypoint": null,
        "optional": false,
+       "area": "p3_7",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Kill Zelina first: her claw causes heavy bleed, wear a Staunching Charm.",
         "Without talking to Doryani the Interlude is not completed.",
@@ -2966,6 +3889,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "p3_7"
      ]
     }
    ]
@@ -2989,7 +3915,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Interlude 2 (part 2): kill Elzarah, the Cobra Lord, talk to Asala",
        "waypoint": "Sel Khari Sanctuary WP",
        "optional": false,
+       "area": "p2_3",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Optional: put Yoon's and Rangeen's Barya (found on the way) into the two pedestals at the edges → 2 wishes: rare ring, amulet or jewel.",
         "If Elzarah drops a Lv60 Barya, keep it for the 3rd Ascendancy."
@@ -3004,6 +3936,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "p2_3"
      ]
     },
     {
@@ -3017,7 +3952,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Vornas → Qimah",
        "waypoint": null,
        "optional": false,
+       "area": "p2_5",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Portal to the Bazaar, WP to the Galai Gates. Vornas: physical + lightning.",
         "After Interlude 3 these zones are level ~60: resistance penalty -50%. Check your resistances."
@@ -3026,6 +3967,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": "After Interlude 3 these zones are ~level 60: -50% res. Check resistances."
       }
+     ],
+     "areas": [
+      "p2_5"
      ]
     },
     {
@@ -3039,9 +3983,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Pick a Boon at the Seven Pillars; summon Jado (opens Qimah Reservoir)",
        "waypoint": null,
        "optional": false,
+       "area": "p2_6",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Pillars: side room with a checkpoint, at the north edge or SE of the arena entrance."
        ],
+       "fastTips": [],
        "details": [
         "Boons (changeable any time): Tabana's +5% all ele res, Orbala's 3% movement speed, Kochai's +5 all attributes, Halani's 12% cooldown recovery, Ahkeli's 15% global defences, Galai's 20% presence AoE.",
         "DON'T take Alima's Disgrace (+5% XP): it inverts all six other boons."
@@ -3056,6 +4006,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "p2_6"
      ]
     },
     {
@@ -3069,7 +4022,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Azmadi, the Faridun Prince, use the Grand Barya, talk to Jado; portal to Bazaar → Hooded One → Ogham",
        "waypoint": null,
        "optional": false,
+       "area": "p2_7",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Long combos: roll through them and only hit in the window, or burst him. At ~70% Zarokh stops time (domistae).",
         "Optional: 2 Vials of Sacred Water (monster drops) into the Sacred Wells → 1 random currency each. Optional rare Bloodbilge (giant vase)."
@@ -3078,6 +4037,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "p2_7"
      ]
     }
    ]
@@ -3101,7 +4063,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Interlude 1: kill Isolde & Heldra → Stones of Serle",
        "waypoint": null,
        "optional": false,
+       "area": "p1_1",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "First grab the checkpoint at the wall of darkness, then find the two. Isolde: cold, Heldra: fire.",
         "Zones are level 62-64 by now: resistance penalty -50%. Top up resistances beforehand.",
@@ -3111,6 +4079,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": "Zones are 62-64 by now: -50% res. Top up resistances."
       }
+     ],
+     "areas": [
+      "p1_1"
      ]
     },
     {
@@ -3124,7 +4095,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Activate the 6 megaliths, kill Siora, talk to Una",
        "waypoint": null,
        "optional": false,
+       "area": "p1_2",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Megaliths at the zone edge; Siora in the stone circle in the middle. When she darkens the arena, run to the glowing megalith. She's very mobile: stun her.",
         "Only go back once the quest shows 'Return to the Darkness'."
@@ -3133,6 +4110,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "p1_2"
      ]
     },
     {
@@ -3146,7 +4126,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Checkpoint to the darkness, through The Blackwood to Holten",
        "waypoint": null,
        "optional": false,
+       "area": "p1_3",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [],
        "skip": [
         "Omen altars in the Blackwood (Omens / Dark Omens)."
@@ -3154,6 +4140,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "p1_3"
      ]
     },
     {
@@ -3167,7 +4156,12 @@ window.CAMPAIGN_DATA = {
        "objective": "Optional: buy Greater Runes from the Soul of the Ferryman (~2000 gold each)",
        "waypoint": null,
        "optional": true,
+       "area": "p1_4",
+       "modes": [
+        "normal"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Along the NE edge to the bridge, cross it, then SW.",
         "Runes for resistances and your next weapon."
@@ -3178,6 +4172,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "p1_4"
      ]
     },
     {
@@ -3191,8 +4188,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Oswin, the Dread Warden → Warden's Ledger (+2 passive points); checkpoint back to Holten",
        "waypoint": null,
        "optional": true,
+       "area": "p1_5",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
-        "Holten: along the NE edge to Wolvenhold. Oswin is at the NE or NW end of the zone.",
+        "Holten: along the NE edge to Wolvenhold. Oswin is at the NE or NW end of the zone."
+       ],
+       "fastTips": [
         "Worth it: +2 passive points (Warden's Ledger)."
        ],
        "details": [
@@ -3208,6 +4212,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "p1_5"
      ]
     },
     {
@@ -3221,9 +4228,15 @@ window.CAMPAIGN_DATA = {
        "objective": "Kill Thane Wulfric & Lady Elswyth; portal out",
        "waypoint": null,
        "optional": false,
+       "area": "p1_6",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [
         "Holten: along the north edge to the Estate. Loop left to the stairs, same pattern upstairs to the arena."
        ],
+       "fastTips": [],
        "details": [
         "Kill Lady Elswyth first."
        ],
@@ -3231,6 +4244,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "p1_6"
      ]
     },
     {
@@ -3244,12 +4260,21 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to Renly, WP to Kingsmarch",
        "waypoint": null,
        "optional": false,
+       "area": "p1_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [],
        "skip": [],
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "p1_town"
      ]
     },
     {
@@ -3263,7 +4288,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Hooded One: Book of Specialisation (+2 passive points) → Travel to Oriath",
        "waypoint": null,
        "optional": false,
+       "area": "g4_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Use the book right away."
        ],
@@ -3277,6 +4308,9 @@ window.CAMPAIGN_DATA = {
        ],
        "warning": null
       }
+     ],
+     "areas": [
+      "g4_town"
      ]
     },
     {
@@ -3290,7 +4324,13 @@ window.CAMPAIGN_DATA = {
        "objective": "Talk to the Hooded One and Doryani, use the Map Device. Campaign complete.",
        "waypoint": null,
        "optional": false,
+       "area": "g_endgame_town",
+       "modes": [
+        "normal",
+        "fast"
+       ],
        "hints": [],
+       "fastTips": [],
        "details": [
         "Next: Doryani's waystones + Reforging Bench (3 same tier → 1 next tier); 3rd/4th Ascendancy points with a Lv60+ Barya or Ultimatum (run at ~Lv70).",
         "Vendors sell Lv65 items: look for a new weapon base."
@@ -3299,6 +4339,9 @@ window.CAMPAIGN_DATA = {
        "rewards": [],
        "warning": null
       }
+     ],
+     "areas": [
+      "g_endgame_town"
      ]
     }
    ]

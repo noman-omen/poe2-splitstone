@@ -26,7 +26,9 @@
   let pobError = "";
 
   const char = () => state.characters[state.activeId];
-  const allSteps = () => DATA.sections.flatMap(s => s.zones.flatMap(z => z.steps));
+  /** Steps visible under the character's route variant. */
+  const visibleSteps = (c, zone) => zone.steps.filter(s => Run.stepVisible(s, Run.route(c)));
+  const allSteps = c => DATA.sections.flatMap(s => s.zones.flatMap(z => visibleSteps(c, z)));
 
   function commit() { Storage2.save(state); render(); }
 
@@ -89,18 +91,18 @@
         <button class="primary" data-action="new-run">New run <kbd>R</kbd></button></div>`;
       return;
     }
-    const z = cur.zone, pbSeg = p && p.zones[z.id], best = c.bests["zone:" + z.id];
-    const todo = z.steps.filter(s => !c.done[s.id]);
-    const next = Run.ORDER[cur.index + 1];
+    const z = cur.zone, pbSeg = p && p.zones[z.id], best = Run.bestsFor(c)["zone:" + z.id];
+    const vis = visibleSteps(c, z), todo = vis.filter(s => !c.done[s.id]);
+    const next = Run.order(c)[cur.index + 1];
     const label = running ? "Split" : paused ? "Resume" : Run.isStarted(c) ? "Resume" : "Start run";
     $("#now").innerHTML = `
       <div class="now-main">
-        <div class="now-where">${esc(cur.section.name)} · zone ${cur.section.zones.indexOf(z) + 1}/${cur.section.zones.length}${paused ? ' · <span class="behind">PAUSED</span>' : ""}</div>
+        <div class="now-where">${esc(cur.section.name)} · zone ${cur.index >= 0 ? cur.index + 1 : "–"}/${Run.order(c).length}${paused ? ' · <span class="behind">PAUSED</span>' : ""}</div>
         <div class="now-zone">${esc(z.name)}</div>
-        <ul class="now-steps">${(todo.length ? todo : z.steps).slice(0, 3).map(s => `<li>
+        <ul class="now-steps">${(todo.length ? todo : vis).slice(0, 3).map(s => `<li>
           <label><input type="checkbox" data-action="step" data-id="${esc(s.id)}"${c.done[s.id] ? " checked" : ""}>
           ${esc(s.objective)}${s.optional ? ' <span class="optional">optional</span>' : ""}</label>
-          ${s.hints.length ? `<div class="hints-inline">${esc(s.hints[0])}</div>` : ""}</li>`).join("")}</ul>
+          ${stepHints(c, s).length ? `<div class="hints-inline">${esc(stepHints(c, s)[0])}</div>` : ""}</li>`).join("")}</ul>
         ${next ? `<div class="now-next">Next: ${esc(next.zone.name)}${next.section !== cur.section ? ` (${esc(next.section.name)})` : ""}</div>` : ""}
       </div>
       <div class="now-clock">
@@ -118,22 +120,22 @@
   }
 
   function renderTotals() {
-    const c = char(), steps = allSteps(), p = Run.pb(c);
+    const c = char(), steps = allSteps(c), p = Run.pb(c), bests = Run.bestsFor(c);
     const done = steps.filter(s => c.done[s.id]).length;
     const row = (label, kind, id, ms, pbMs, bestMs, cls = "") => `<tr class="${cls}"><th>${esc(label)}</th>
       <td>${sumTimer(kind, id, ms)}</td><td class="muted">${pbMs ? fmt(pbMs) : "–"}</td><td class="muted">${bestMs ? fmt(bestMs) : "–"}</td></tr>`;
     const rows = [];
     DATA.groups.forEach(g => {
       const secs = DATA.sections.filter(s => s.group === g.id);
-      rows.push(row(g.name, "group", g.id, Run.groupMs(c, g.id), p && p.groups[g.id], c.bests["group:" + g.id], "grp"));
+      rows.push(row(g.name, "group", g.id, Run.groupMs(c, g.id), p && p.groups[g.id], bests["group:" + g.id], "grp"));
       if (secs.length > 1) secs.forEach(s =>
-        rows.push(row("└ " + s.name.replace(/^.*· /, ""), "section", s.id, Run.sectionMs(c, s.id), p && p.sections[s.id], c.bests["section:" + s.id], "sub")));
+        rows.push(row("└ " + s.name.replace(/^.*· /, ""), "section", s.id, Run.sectionMs(c, s.id), p && p.sections[s.id], bests["section:" + s.id], "sub")));
     });
     const actsMs = DATA.groups.filter(g => g.kind === "act").reduce((a, g) => a + Run.groupMs(c, g.id), 0);
     const intMs = DATA.groups.filter(g => g.kind === "interlude").reduce((a, g) => a + Run.groupMs(c, g.id), 0);
     const sob = Run.sumOfBest(c);
     $("#totals").innerHTML = `<h2>Run &amp; segments</h2>
-      <div>${done} / ${steps.length} steps · ${Object.keys(c.split).length}/${Run.ORDER.length} zones split</div>
+      <div>${done} / ${steps.length} steps · ${Run.order(c).filter(o => c.split[o.zone.id]).length}/${Run.order(c).length} zones split</div>
       <div class="progress"><div style="width:${(100 * done / steps.length).toFixed(1)}%"></div></div>
       <table class="seg"><thead><tr><th></th><th>Now</th><th>PB</th><th>Best</th></tr></thead><tbody>
       ${rows.join("")}
@@ -148,13 +150,15 @@
   function renderHistory() {
     const c = char(), p = Run.pb(c);
     const runs = c.history.slice(0, 15);
+    const pbOf = h => Run.pb(c, h.variant || "normal");
     $("#history").innerHTML = `<h2>Run history</h2>
+      <div class="muted small">${esc(Run.variantLabel(Run.variantKey(Run.route(c))))}</div>
       ${p ? `<div class="pb">PB <b class="mono">${fmt(p.total)}</b> <span class="muted">${new Date(p.finished).toLocaleDateString()}</span></div>` : '<div class="muted">No completed run yet.</div>'}
-      ${runs.length ? `<ol class="runs">${runs.map(h => `<li class="${p && h.id === p.id ? "is-pb" : ""}">
+      ${runs.length ? `<ol class="runs">${runs.map(h => { const hp = pbOf(h); return `<li class="${hp && h.id === hp.id ? "is-pb" : ""}" title="${esc(Run.variantLabel(h.variant || "normal"))}">
         <span class="mono">${fmt(h.total)}</span>
-        <span class="muted">${h.complete ? (p && h.id !== p.id ? `<span class="behind">${fmtDelta(h.total - p.total)}</span>` : "PB") : `reset ${h.splitsDone}/${h.zonesTotal}`}</span>
+        <span class="muted">${(h.variant || "normal").startsWith("fast") ? "⚡" : ""}${h.complete ? (hp && h.id !== hp.id ? `<span class="behind">${fmtDelta(h.total - hp.total)}</span>` : "PB") : `reset ${h.splitsDone}/${h.zonesTotal}`}</span>
         <span class="muted small">${new Date(h.finished).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</span>
-        <button class="icon danger" data-action="run-delete" data-id="${esc(h.id)}" title="Delete run" aria-label="Delete run">✕</button></li>`).join("")}</ol>` : ""}
+        <button class="icon danger" data-action="run-delete" data-id="${esc(h.id)}" title="Delete run" aria-label="Delete run">✕</button></li>`; }).join("")}</ol>` : ""}
       ${c.history.length > runs.length ? `<div class="muted small">+${c.history.length - runs.length} older runs (in export)</div>` : ""}`;
   }
 
@@ -183,6 +187,9 @@
     $("#character").innerHTML = html;
   }
 
+  /** Layout hints, plus the speedrun tips (⚡) when the fast route is selected. */
+  const stepHints = (c, s) => s.hints.concat(Run.route(c).mode === "fast" ? s.fastTips.map(t => "⚡ " + t) : []);
+
   function stepHTML(s, c) {
     const done = !!c.done[s.id];
     const extra = [];
@@ -196,7 +203,7 @@
       <input type="checkbox" id="st-${esc(s.id)}" data-action="step" data-id="${esc(s.id)}"${done ? " checked" : ""}>
       <label for="st-${esc(s.id)}"><span class="objective">${esc(s.objective)}</span>
         ${s.level ? `<span class="lvl">· lvl ${esc(s.level)}</span>` : ""}${s.optional ? `<span class="optional">optional</span>` : ""}</label>
-      ${s.hints.length ? `<ul class="hints">${s.hints.map(h => `<li>${esc(h)}</li>`).join("")}</ul>` : ""}
+      ${stepHints(c, s).length ? `<ul class="hints">${stepHints(c, s).map(h => `<li>${esc(h)}</li>`).join("")}</ul>` : ""}
       ${extra.length ? `<ul class="extra">${extra.join("")}</ul>` : ""}
     </div>`;
   }
@@ -211,13 +218,15 @@
         ${delta !== null ? `<span class="delta ${deltaClass(delta)}" title="vs PB segment ${fmt(pbSeg)}">${fmtDelta(delta)}</span>`
           : pbSeg ? `<span class="muted small" title="PB segment">PB ${fmt(pbSeg)}</span>` : ""}
         ${timerWidget("zone:" + z.id, z.name)}</div>
-      ${z.steps.map(s => stepHTML(s, c)).join("")}</div>`;
+      ${visibleSteps(c, z).map(s => stepHTML(s, c)).join("")}</div>`;
   }
 
   function renderCampaign() {
     const c = char(), cur = Run.current(c);
+    const r = Run.route(c);
     const sections = DATA.sections.map(sec => {
-      const steps = sec.zones.flatMap(z => z.steps), done = steps.filter(s => c.done[s.id]).length;
+      const zones = sec.zones.filter(z => Run.zoneActive(z, r));
+      const steps = zones.flatMap(z => visibleSteps(c, z)), done = steps.filter(s => c.done[s.id]).length;
       const isCur = cur && cur.section.id === sec.id;
       const isCollapsed = collapsed.has(sec.id);
       return `<section class="section${isCollapsed ? " collapsed" : ""}${isCur ? " current" : ""}" data-section="${esc(sec.id)}">
@@ -228,7 +237,7 @@
           <span class="badge">${done}/${steps.length}</span>
           <span class="tw">${sumTimer("section", sec.id, Run.sectionMs(c, sec.id))}</span>
         </header>
-        <div class="zones">${sec.zones.map(z => zoneHTML(z, c, cur)).join("")}</div></section>`;
+        <div class="zones">${zones.map(z => zoneHTML(z, c, cur)).join("")}</div></section>`;
     }).join("");
 
     const maps = `<section class="section maps" data-section="maps">
@@ -241,7 +250,15 @@
           ${timerWidget("map:" + m.id, m.name)}<button data-action="map-delete" data-id="${esc(m.id)}" class="danger" title="Remove map">✕</button></div>`).join("")
           : `<div class="empty">No maps yet.</div>`}
       </div></section>`;
-    $("#campaign").innerHTML = sections + maps;
+    const v = DATA.variants[r.mode] || {};
+    const routeBar = `<section class="card route-bar" aria-label="Route">
+      <label>Route <select id="routeMode">${Object.entries(DATA.variants).map(([k, x]) =>
+        `<option value="${esc(k)}"${k === r.mode ? " selected" : ""}>${esc(x.label)}</option>`).join("")}</select></label>
+      <label class="switch"><input type="checkbox" id="requiredOnly"${r.requiredOnly ? " checked" : ""}> Required steps only</label>
+      <span class="muted small">${esc(v.desc || "")} · ${Run.order(c).length} zones, ${allSteps(c).length} steps</span>
+      ${v.tips && v.tips.length ? `<details class="tips"><summary>Speedrun tips (${v.tips.length})</summary><ul>${v.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul></details>` : ""}
+    </section>`;
+    $("#campaign").innerHTML = routeBar + sections + maps;
   }
 
   /** Called 4×/s: refresh only the numbers, not the DOM structure. */
@@ -317,7 +334,7 @@
       // Auto-advance: ticking the last required step of the zone being timed splits it.
       const cur = Run.current(c);
       if (el.checked && cur && Run.runningZone(c) === cur.zone.id && cur.zone.steps.some(s => s.id === id)
-          && Run.requiredSteps(cur.zone).every(s => c.done[s.id])) return doSplit();
+          && Run.requiredSteps(cur.zone, Run.route(c)).every(s => c.done[s.id])) return doSplit();
       commit();
     },
     collapse(el) {
@@ -390,6 +407,17 @@
     const el = ev.target;
     if (el.dataset.action === "step") actions.step(el);
     else if (["hideHints", "hideExtra", "focusMode"].includes(el.id)) { state.settings[el.id] = el.checked; commit(); }
+    else if (el.id === "routeMode" || el.id === "requiredOnly") {
+      const c = char(), next = Object.assign({}, Run.route(c),
+        el.id === "routeMode" ? { mode: el.value } : { requiredOnly: el.checked });
+      if (Run.isStarted(c) && !Run.isFinished(c) &&
+          !confirm("Change the route during a run? Times will be compared with that route's PB from now on.")) return render();
+      // A zone that disappears from the route must not keep running.
+      const running = Run.runningZone(c);
+      c.route = next;
+      if (running && !Run.inOrder(c, running)) Run.stopAllZones(c);
+      commit();
+    }
     else if (el.id === "charSelect") { state.activeId = el.value; pobError = ""; commit(); scrollToCurrent(false); }
     else if (el.id === "importFile" && el.files[0]) {
       el.files[0].text().then(text => {

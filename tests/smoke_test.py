@@ -50,6 +50,7 @@ with sync_playwright() as p:
     page.on("pageerror", lambda e: errors.append(str(e)))
     answer = {"text": None}  # what the next prompt() should receive
     page.on("dialog", lambda d: d.accept(answer["text"]) if d.type == "prompt" else d.accept())
+    page.add_init_script("window.state_c = () => { const s = JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')); return s.characters[s.activeId]; }")
     page.goto(URL)
     js(page, "localStorage.clear()")
     page.reload()
@@ -124,7 +125,7 @@ with sync_playwright() as p:
         tick(page, 10_000)
         page.keyboard.press("Space")
     c = char(page)
-    zones = js(page, "Run.ORDER.length")
+    zones = js(page, "Run.ALL.length")
     check("run 1 finished, stored in history", len(c["history"]) == 1 and c["history"][0]["complete"], len(c["history"]))
     run1 = c["history"][0]
     check("history stores every zone time", len(run1["zones"]) == zones, len(run1["zones"]))
@@ -158,7 +159,7 @@ with sync_playwright() as p:
     check("run 2 saved, history has 2", len(c["history"]) == 2)
     check("new PB is the faster run", c["history"][0]["total"] < c["history"][1]["total"]
           and js(page, "Run.pb(JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).characters[JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).activeId]).id") == c["history"][0]["id"])
-    check("bests: sum of best = PB total", c["bests"]["total"] == c["history"][0]["total"])
+    check("bests: best total = PB total", c["bests"]["normal"]["total"] == c["history"][0]["total"])
     check("older run shows +delta in history", "+" in page.text_content("#history"))
 
     # --- Abandoned run is kept as an attempt ---
@@ -169,12 +170,38 @@ with sync_playwright() as p:
     check("reset mid-run stores unfinished attempt", len(c["history"]) == 3 and not c["history"][0]["complete"])
     check("unfinished attempt does not become PB", js(page, "Run.pb(JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).characters[JSON.parse(localStorage.getItem('poe2-campaign-tracker:v1')).activeId]).complete"))
 
+    # --- Route variants (per character) ---
+    page.keyboard.press("r")
+    n_normal = js(page, "Run.order(state_c()).length")
+    page.select_option("#routeMode", "fast")
+    c = char(page)
+    check("route mode persisted on character", c["route"]["mode"] == "fast")
+    n_fast = js(page, "Run.order(state_c()).length")
+    check(f"fast route drops normal-only zones ({n_normal}->{n_fast})", n_fast < n_normal)
+    check("normal-only step hidden in fast route", page.locator('input[data-id="act1-15"]').count() == 0)
+    check("fast tips shown with ⚡ in fast route", page.locator(".zone .hints li", has_text="⚡").count() > 0)
+    page.check("#requiredOnly")
+    check("required-only hides optional steps", page.locator('input[data-id="interludes-20"]').count() == 0
+          and js(page, "Run.order(state_c()).length") <= n_fast)
+    page.uncheck("#requiredOnly")
+    for _ in range(200):
+        if page.locator("#now .now-zone", has_text="🏁").count():
+            break
+        tick(page, 4_000)
+        page.keyboard.press("Space")
+    c = char(page)
+    check("fast run saved with its variant", c["history"][0]["variant"] == "fast" and c["history"][0]["complete"])
+    check("fast run has its own PB (not compared with normal)", c["bests"]["fast"]["total"] == c["history"][0]["total"]
+          and c["bests"]["normal"]["total"] != c["history"][0]["total"])
+    page.keyboard.press("r")
+    page.select_option("#routeMode", "normal")
+
     # --- Persistence ---
     page.keyboard.press("Space"); tick(page, 4_000)
     page.check("#hideExtra")
     page.reload()
     c = char(page)
-    check("history persisted across reload", len(c["history"]) == 3)
+    check("history persisted across reload", len(c["history"]) == 4)
     check("running timer survives reload", c["timers"]["zone:act1-z01"]["startedAt"])
     check("settings persisted", page.is_checked("#hideExtra"))
     page.uncheck("#hideExtra")
@@ -208,7 +235,7 @@ with sync_playwright() as p:
     dl.value.save_as(export_path)
     exported = json.loads(export_path.read_text())
     ec = list(exported["characters"].values())[0]
-    check("export includes history + bests", len(ec["history"]) == 3 and ec["bests"])
+    check("export includes history + bests", len(ec["history"]) == 4 and ec["bests"])
 
     answer["text"] = "Second char"
     page.click('[data-action="char-new"]')
@@ -217,7 +244,7 @@ with sync_playwright() as p:
     page.click('[data-action="char-rename"]')
     check("rename works", "Renamed char" in page.text_content("#charSelect"))
     page.select_option("#charSelect", index=0)
-    check("switch character restores its history", len(char(page)["history"]) == 3)
+    check("switch character restores its history", len(char(page)["history"]) == 4)
     page.select_option("#charSelect", index=1)
     page.click('[data-action="char-delete"]')
     check("delete works", page.locator("#charSelect option").count() == 1)
@@ -227,7 +254,7 @@ with sync_playwright() as p:
     check("cleared state is fresh", not char(page)["history"] if js(page, "!!localStorage.getItem('poe2-campaign-tracker:v1')") else True)
     page.set_input_files("#importFile", str(export_path))
     page.wait_for_timeout(300)
-    check("import restores history + build", len(char(page)["history"]) == 3 and "Infernalist" in page.text_content("#character"))
+    check("import restores history + build", len(char(page)["history"]) == 4 and "Infernalist" in page.text_content("#character"))
     page.set_input_files("#importFile", {"name": "bad.json", "mimeType": "application/json", "buffer": b"{\"x\":1}"})
     page.wait_for_timeout(300)
     check("bad import rejected gracefully", "Import failed" in page.text_content("#toast"))

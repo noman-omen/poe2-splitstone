@@ -15,6 +15,10 @@ SRC = Path(sys.argv[1] if len(sys.argv) > 1 else "/workspace/poe2/campaign/route
 OUT = Path(__file__).resolve().parent.parent / "data" / "campaign.js"
 
 
+# Area ids missing in the source data (verified against Client.txt "Generating level" lines).
+AREA_OVERRIDES = {"act1-01": "g1_1"}
+
+
 def slim_step(s):
     """Keep only what the tracker renders.
     hints = layout + fast tips (how-to-play advice);
@@ -26,7 +30,11 @@ def slim_step(s):
         "objective": s["objective"],
         "waypoint": s.get("waypoint"),
         "optional": bool(s.get("optional")),
-        "hints": list(s.get("layout") or []) + list(s.get("fast_tips") or []),
+        "area": (s.get("area_id") or AREA_OVERRIDES.get(s["id"]) or "").lower() or None,
+        # Route variants: "normal" = full clear, "fast" = speedrun route (skip_in_fast steps dropped).
+        "modes": [m for m in (s.get("modes") or ["normal", "fast"]) if not (m == "fast" and s.get("skip_in_fast"))],
+        "hints": list(s.get("layout") or []),
+        "fastTips": list(s.get("fast_tips") or []) + ([f"Saves {x}" for x in [s["fast_saves"]]] if s.get("fast_saves") else []),
         "details": list(s.get("details") or []),
         "skip": list(s.get("skip") or []),
         "rewards": [
@@ -78,6 +86,8 @@ def main():
             if not zones or zones[-1]["name"] != step["zone"]:
                 zones.append({"id": f"{act['id']}-z{len(zones) + 1:02d}", "name": step["zone"], "steps": []})
             zones[-1]["steps"].append(slim_step(step))
+        for z in zones:  # area ids used by the Client.txt auto-splitter
+            z["areas"] = sorted({st["area"] for st in z["steps"] if st["area"]})
         if act["group"] not in [g["id"] for g in groups]:
             groups.append({"id": act["group"], "kind": act["kind"],
                            "name": GROUP_NAMES.get(act["group"], act["name"])})
@@ -90,8 +100,11 @@ def main():
             "levels": act.get("levels"),
             "zones": zones,
         })
+    pace = route["meta"].get("pace", {})
     data = {
         "meta": {k: route["meta"].get(k) for k in ("title", "patch", "league", "generated")},
+        "variants": {k: {"label": v.get("label"), "desc": v.get("desc"), "tips": v.get("general_tips", [])}
+                     for k, v in pace.items()},
         "groups": groups,
         "sections": sections,
     }

@@ -164,3 +164,8 @@ ol.runs li.is-pb .mono { color: var(--gold-2); }
 details summary { cursor: pointer; color: var(--muted); margin-top: 8px; }
 .help { position: fixed; z-index: 10; top: 80px; right: 20px; width: min(460px, 92vw); box-shadow: 0 10px 40px #000a; }
 .help .kv { grid-template-columns: 150px 1fr; gap: 6px 10px; }
+
+/* ---------- Milestone 3 ---------- */
+.route-bar { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin-bottom: 16px; }
+.route-bar .tips { flex-basis: 100%; }
+.route-bar .tips ul { margin: 6px 0 0; padding-left: 18px; color: #cfc3a6; font-size: 13px; }

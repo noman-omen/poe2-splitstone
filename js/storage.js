@@ -19,6 +19,7 @@
       maps: [],     // [{ id, name, done }]
       build: null,  // parsed PoB2 summary (see pob.js)
       // Speedrun bookkeeping (see run.js)
+      route: { mode: "normal", requiredOnly: false }, // route variant filter (run.js)
       split: {},    // zoneId -> epoch ms when the zone was split (= completed in this run)
       undo: [],     // stack of { zone, autoMarked[], prevBests{}, golds[] } for undo-split
       golds: {},    // zoneId -> true when this run's segment beat the previous best
