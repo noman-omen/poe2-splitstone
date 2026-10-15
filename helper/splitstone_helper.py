@@ -19,8 +19,9 @@ Localhost only (127.0.0.1):
   GET  /state    latest overlay snapshot (JSON)
   POST /state    browser pushes current step/timer (JSON) → overlay
 
-CORS: Origin allowlist (localhost / 127.0.0.1 / null). Optional --token or
-$SPLITSTONE_TOKEN requires X-Splitstone-Token (or ?token= for SSE).
+CORS: Origin allowlist (localhost / 127.0.0.1 / ::1 / null). Optional --token or
+$SPLITSTONE_TOKEN requires X-Splitstone-Token on fetch; EventSource cannot set
+headers so SSE uses ?token= only. GET /status is open and reports auth:true|false.
 POST /state: Content-Length must be 0..64000. Paths are exact match.
 """
 import argparse
@@ -152,7 +153,7 @@ def _origin_allowed(origin):
     if u.scheme not in ("http", "https"):
         return False
     host = (u.hostname or "").lower()
-    return host in ("127.0.0.1", "localhost")
+    return host in ("127.0.0.1", "localhost", "::1")
 
 
 def make_handler(hub, log_path, token=None):
@@ -233,9 +234,8 @@ def make_handler(hub, log_path, token=None):
         def do_GET(self):
             path = self._path_only()
             if path == "/status":
-                if not self._authorized():
-                    self._deny()
-                    return
+                # Unauthenticated on purpose: exposes auth:true so the browser can
+                # prompt for a token. Other endpoints still require the token.
                 self._json(200, {"ok": True, "version": VERSION, "log": str(log_path),
                                  "log_exists": Path(log_path).exists(), "last": hub.last,
                                  "overlay": hub.state is not None,

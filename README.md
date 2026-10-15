@@ -60,6 +60,7 @@ A browser tab cannot sit on top of fullscreen PoE2. I ship a small always-on-top
 - **Map history** — Timed map runs with per-map PB / average and CSV export (separate from the campaign run).
 - **Characters** — Create, switch, rename, delete; one saved campaign per character.
 - **Persistence** — `localStorage` (`splitstone:v1`; older `poe2-campaign-tracker:v1` saves migrate automatically). JSON export / import.
+- **Gear / gem checkpoints** — Glanceable cues for vendor checks, weapon crafts (e.g. lvl 16), Uncut skill/support/Spirit gems, and class-specific swaps (six basic classes). Uncertain notes are dashed. Hidden with **Hide hints** / **Hide extra info**.
 - **Level / XP warnings** — Per-zone recommended / area level from the route; warns when your character level (manual field or PoB) is under-leveled or near the XP-penalty window (`±(3 + ⌊level/16⌋)`, Malura 0.5.x). Glanceable in the zone list + now bar; hidden with **Hide extra info**.
 - **Auto-split from Client.txt** — Optional local helper (SSE) or Chrome/Edge File System Access. Hideouts, re-entries, and backtracking are ignored.
 - **Rebindable hotkeys** — Settings panel with conflict detection; bindings export with the save.
@@ -78,6 +79,8 @@ Skills are **not** class-locked in PoE2 — Uncut gems just highlight class-reco
 ![Class notes](screenshots/class-notes.png)
 
 ![Level / XP warnings](screenshots/level-xp-warnings.png)
+
+![Gear / gem checkpoints](screenshots/gear-gem-checkpoints.png)
 
 ## Vision
 
@@ -159,7 +162,7 @@ A normal browser window **cannot** draw over fullscreen PoE2. Use the helper for
 
 Overlay buttons publish the same hotkey actions over the helper’s event stream, so Split / Pause / Undo work without focusing the browser.
 
-**Helper security (local only):** the helper binds `127.0.0.1` only. CORS reflects an Origin allowlist (`http://127.0.0.1`, `http://localhost`, and `null` for `file://`). Optional `--token` / `$SPLITSTONE_TOKEN` requires `X-Splitstone-Token` (or `?token=` on SSE). Splitstone only connects Auto-split to `http://127.0.0.1` / `http://localhost`; import never auto-connects and asks before applying a helper URL.
+**Helper security (local only):** the helper binds `127.0.0.1` only. CORS reflects an Origin allowlist (`http://127.0.0.1`, `http://localhost`, `http://[::1]`, and `null` for `file://`). Optional `--token` / `$SPLITSTONE_TOKEN`: paste the same token under **Auto-split settings**. Fetch uses the `X-Splitstone-Token` header only; EventSource cannot set headers, so SSE uses `?token=` only. `GET /status` stays open and reports `auth: true|false`. Helper URLs must not include `?query` or `#hash`. Import never auto-connects.
 
 
 ---

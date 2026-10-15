@@ -196,9 +196,10 @@
     };
   }
 
+  const autoSplitOpts = () => ({ token: state.settings.autoSplit.token || "" });
   function pushOverlay() {
     if (AutoSplit.status().state === "off") return;
-    AutoSplit.pushState(buildOverlayState(), state.settings.autoSplit.url);
+    AutoSplit.pushState(buildOverlayState(), state.settings.autoSplit.url, autoSplitOpts());
   }
 
   /** The "now playing" bar: current zone, next steps, big timers, split controls. */
@@ -231,6 +232,7 @@
           if (st.kind === "ok") return `<div class="now-lvl muted small lvl-cue" title="${esc(st.detail)}">${esc(st.text)}</div>`;
           return `<div class="now-lvl lvl-cue ${st.kind}" title="${esc(st.detail)}">${esc(st.text)}</div>`;
         })()}
+        ${step ? gearNowHTML(c.classId, step.id) : ""}
         ${nowStepHTML(c, step, true)}
         ${step ? `<div class="now-class">${classNoteHTML(c, step.id)}</div>` : ""}
         ${others.length ? `<ul class="now-more">${others.map(x => `<li><label><input type="checkbox" data-action="step" data-id="${esc(x.id)}"${c.done[x.id] ? " checked" : ""}>
@@ -352,6 +354,20 @@
     $("#character").innerHTML = html;
   }
 
+  function gearCueHTML(classId, zone) {
+    const items = (typeof Gear !== "undefined" ? Gear.forZone(classId, zone) : []).slice(0, 4);
+    if (!items.length) return "";
+    return `<span class="gear-cues">${items.map(n =>
+      `<span class="gear-cue${n.uncertain ? " uncertain" : ""}" data-kind="${esc(n.kind)}" title="${esc(n.text)}${n.uncertain ? " (uncertain)" : ""}">${Gear.icon(n.kind)} ${esc(n.short)}</span>`
+    ).join("")}</span>`;
+  }
+  function gearNowHTML(classId, stepId) {
+    const items = typeof Gear !== "undefined" ? Gear.forStep(classId, stepId) : [];
+    if (!items.length) return "";
+    return `<div class="now-gear gear-cues">${items.map(n =>
+      `<span class="gear-cue${n.uncertain ? " uncertain" : ""}" data-kind="${esc(n.kind)}" title="${esc(n.text)}${n.uncertain ? " (uncertain)" : ""}">${Gear.icon(n.kind)} ${esc(n.short)}</span>`
+    ).join("")}</div>`;
+  }
   function classNoteHTML(c, stepId) {
     const notes = classNotesFor(c.classId, stepId);
     if (!notes.length) return "";
@@ -397,9 +413,10 @@
     const delta = isSplit && pbSeg ? ms - pbSeg : null;
     const zLvl = Levels.zoneLevelInfo(z), zStat = Levels.status(Levels.charLevel(c), zLvl);
     const lvlCue = zLvl ? `<span class="zone-lvl${zStat && zStat.kind !== "ok" ? " " + zStat.kind : ""}${zLvl.uncertain ? " uncertain" : ""}" title="${esc((zStat && zStat.detail) || ("Route level " + zLvl.label))}">${zStat && zStat.kind !== "ok" ? esc(zStat.text) : "lvl " + esc(zLvl.label)}</span>` : "";
+    const gearCue = gearCueHTML(c.classId, z);
     return `<div class="zone${isSplit ? " complete" : ""}${isCur ? " current" : ""}${zStat && zStat.kind === "bad" ? " underlevel" : ""}" data-zone="${esc(z.id)}" id="zone-${esc(z.id)}">
       <div class="zone-head"><h3>${isSplit ? "✓ " : isCur ? "▶ " : ""}${esc(z.name)}</h3>
-        ${lvlCue}
+        ${lvlCue}${gearCue}
         ${c.golds[z.id] ? '<span class="gold" title="Best segment ever">★ gold</span>' : ""}
         ${delta !== null ? `<span class="delta ${deltaClass(delta)}" title="vs PB segment ${fmt(pbSeg)}">${fmtDelta(delta)}</span>`
           : pbSeg ? `<span class="muted small" title="PB segment">PB ${fmt(pbSeg)}</span>` : ""}
@@ -447,8 +464,12 @@
         <span class="muted small" data-as-last>${esc(lastAuto)}</span>
       </span>
       <details class="as-settings" data-keep="as-settings"${openDetails.has("as-settings") ? " open" : ""}><summary>Auto-split settings</summary>
-        <label>Helper URL <input type="text" id="autoSplitUrl" value="${esc(state.settings.autoSplit.url)}" size="28"></label>
-        <span class="muted small">Run <code>helper/splitstone_helper.py --overlay</code> on the gaming PC for auto-split + the top-right in-game panel (see README).</span>
+        <label>Helper URL <input type="text" id="autoSplitUrl" value="${esc(state.settings.autoSplit.url)}" size="28"
+          placeholder="http://127.0.0.1:8766" title="http://127.0.0.1, localhost, or [::1] only — no ?query or #hash"></label>
+        <label>Helper token <input type="password" id="autoSplitToken" value="${esc(state.settings.autoSplit.token || "")}" size="20"
+          placeholder="optional" autocomplete="off"
+          title="Required when the helper was started with --token. Sent as X-Splitstone-Token on fetch; ?token= on SSE only."></label>
+        <span class="muted small">Run <code>helper/splitstone_helper.py --overlay</code> on the gaming PC. If you pass <code>--token</code>, paste the same value here (header on POST; query only for EventSource).</span>
       </details>
       ${v.tips && v.tips.length ? `<details class="tips" data-keep="tips"${openDetails.has("tips") ? " open" : ""}><summary>Speedrun tips (${v.tips.length})</summary><ul>${v.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul></details>` : ""}
     </section>`;
@@ -820,18 +841,25 @@
     }
     else if (el.id === "autoSplit") {
       state.settings.autoSplit.enabled = el.checked;
-      if (el.checked) AutoSplit.connect(state.settings.autoSplit.url); else AutoSplit.disconnect();
+      if (el.checked) AutoSplit.connect(state.settings.autoSplit.url, autoSplitOpts());
+      else AutoSplit.disconnect();
       commit();
     }
     else if (el.id === "autoSplitUrl") {
       const raw = el.value.trim() || "http://127.0.0.1:8766";
-      if (!Storage2.isLocalHelperUrl(raw)) {
-        toast("Helper URL must be http://127.0.0.1 or http://localhost");
+      const canon = Storage2.canonicalHelperUrl(raw);
+      if (!canon) {
+        toast("Helper URL must be http://127.0.0.1, localhost, or [::1] (no ?query/#hash)");
         el.value = state.settings.autoSplit.url;
         return;
       }
-      state.settings.autoSplit.url = raw.replace(/\/$/, "");
-      if (state.settings.autoSplit.enabled) AutoSplit.connect(state.settings.autoSplit.url);
+      state.settings.autoSplit.url = canon;
+      if (state.settings.autoSplit.enabled) AutoSplit.connect(canon, autoSplitOpts());
+      commit();
+    }
+    else if (el.id === "autoSplitToken") {
+      state.settings.autoSplit.token = el.value.slice(0, 128);
+      if (state.settings.autoSplit.enabled) AutoSplit.connect(state.settings.autoSplit.url, autoSplitOpts());
       commit();
     }
     else if (el.id === "classSelect" || el.id === "routeClass") {
@@ -992,7 +1020,7 @@
       if (fn) fn();
     },
   });
-  if (state.settings.autoSplit.enabled) AutoSplit.connect(state.settings.autoSplit.url);
+  if (state.settings.autoSplit.enabled) AutoSplit.connect(state.settings.autoSplit.url, autoSplitOpts());
   applyTheme(state.settings.theme || "ember");
 
   render();

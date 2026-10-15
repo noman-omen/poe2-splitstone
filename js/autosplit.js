@@ -60,21 +60,42 @@
       detail: ev.log_exists ? `watching ${ev.log}` : `waiting for ${ev.log}` });
   }
 
-  /** Connect to the helper. EventSource reconnects by itself after errors. */
-  function connect(url) {
+  /** Connect to the helper. EventSource reconnects by itself after errors.
+   * opts.token: optional helper auth; sent as ?token= on SSE only (EventSource cannot set headers). */
+  let helperToken = "";
+  let helperAuth = null; // null unknown, true/false from /status
+  function connect(url, opts) {
     disconnect();
-    const clean = String(url || "").replace(/\/$/, "");
-    if (global.Storage2 && Storage2.isLocalHelperUrl && !Storage2.isLocalHelperUrl(clean)) {
+    const options = opts || {};
+    helperToken = typeof options.token === "string" ? options.token : (helperToken || "");
+    const clean = (global.Storage2 && Storage2.canonicalHelperUrl)
+      ? Storage2.canonicalHelperUrl(url)
+      : String(url || "").replace(/\/$/, "");
+    if (!clean || (global.Storage2 && Storage2.isLocalHelperUrl && !Storage2.isLocalHelperUrl(clean))) {
       setStatus({ source: "helper", state: "error",
-        detail: "Helper URL must be http://127.0.0.1 or http://localhost" });
+        detail: "Helper URL must be http://127.0.0.1, http://localhost, or http://[::1]" });
       return;
     }
     setStatus({ source: "helper", state: "connecting", detail: clean });
+    // Probe /status (no token required) so UI knows if auth is enabled.
     try {
-      es = new EventSource(clean + "/events");
+      fetch(new URL("/status", clean + "/").href, { method: "GET", mode: "cors" })
+        .then(r => r.json()).then(j => {
+          helperAuth = !!(j && j.auth);
+          if (helperAuth && !helperToken) {
+            setStatus({ state: "error",
+              detail: "Helper requires a token — set it under Auto-split settings" });
+          }
+          handlers.onStatus && handlers.onStatus(status);
+        }).catch(() => {});
+    } catch (_) { /* ignore */ }
+    try {
+      const ev = new URL("/events", clean + "/");
+      if (helperToken) ev.searchParams.set("token", helperToken);
+      es = new EventSource(ev.href);
     } catch (e) { setStatus({ state: "error", detail: e.message }); return; }
     es.onmessage = m => { try { dispatch(JSON.parse(m.data)); } catch (e) { console.warn("bad event", e); } };
-    es.onerror = () => setStatus({ state: "error", detail: `helper not reachable at ${url} (retrying)` });
+    es.onerror = () => setStatus({ state: "error", detail: `helper not reachable at ${clean} (retrying)` });
   }
 
   /** No-helper mode: poll a user-picked Client.txt via the File System Access API. */
@@ -111,9 +132,14 @@
 
   /** Push the current-step snapshot to the helper overlay (POST /state). Fire-and-forget. */
   let lastPush = 0, pushUrl = null;
-  function pushState(snapshot, url) {
+  function pushState(snapshot, url, opts) {
     if (!snapshot) return;
-    pushUrl = (url || pushUrl || "").replace(/\/$/, "");
+    const options = opts || {};
+    if (typeof options.token === "string") helperToken = options.token;
+    const base = (global.Storage2 && Storage2.canonicalHelperUrl)
+      ? Storage2.canonicalHelperUrl(url || pushUrl || "")
+      : String(url || pushUrl || "").replace(/\/$/, "");
+    pushUrl = base;
     if (!pushUrl || status.state === "off") return;
     if (global.Storage2 && Storage2.isLocalHelperUrl && !Storage2.isLocalHelperUrl(pushUrl)) return;
     const now = Date.now();
@@ -122,14 +148,19 @@
     lastPush = now;
     const body = JSON.stringify(snapshot);
     try {
-      // keepalive so a closing tab still delivers the last frame when possible
-      fetch(pushUrl + "/state", { method: "POST", headers: { "Content-Type": "application/json" },
-        body, mode: "cors", keepalive: true }).catch(() => {});
+      const headers = { "Content-Type": "application/json" };
+      // Header only for fetch — EventSource cannot set headers (uses ?token= instead).
+      if (helperToken) headers["X-Splitstone-Token"] = helperToken;
+      fetch(new URL("/state", pushUrl + "/").href, {
+        method: "POST", headers, body, mode: "cors", keepalive: true,
+      }).catch(() => {});
     } catch (_) { /* ignore */ }
   }
 
+
   global.AutoSplit = {
     init: h => { handlers = h; }, connect, watchFile, disconnect, match, zoneMatches,
-    pushState, status: () => status, canWatchFile: () => !!global.showOpenFilePicker,
+    pushState, status: () => status, helperAuth: () => helperAuth, setToken: t => { helperToken = String(t || ""); },
+    canWatchFile: () => !!global.showOpenFilePicker,
   };
 })(window);

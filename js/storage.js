@@ -39,31 +39,49 @@
   function defaultSettings() {
     return { hideHints: false, hideExtra: false, focusMode: false,
              theme: "ember",  // global UI theme (see css/styles.css data-theme)
-             autoSplit: { enabled: false, url: "http://127.0.0.1:8766" },
+             autoSplit: { enabled: false, url: "http://127.0.0.1:8766", token: "" },
              hotkeys: {} };  // action -> key overrides; defaults live in app.js (HOTKEY_DEFS)
   }
 
   const SETTINGS_KEYS = ["hideHints", "hideExtra", "focusMode", "theme", "autoSplit", "hotkeys"];
 
-  /** Helper URL must be http://127.0.0.1 or http://localhost with optional port only. */
+  /** Local helper hosts: 127.0.0.1, localhost, [::1]. No path/search/hash/userinfo. */
+  function isLocalHelperHost(hostname) {
+    const h = String(hostname || "").toLowerCase();
+    return h === "127.0.0.1" || h === "localhost" || h === "[::1]" || h === "::1";
+  }
+
   function isLocalHelperUrl(url) {
     try {
       const u = new URL(String(url || ""));
       if (u.protocol !== "http:") return false;
-      if (u.hostname !== "127.0.0.1" && u.hostname !== "localhost") return false;
+      if (!isLocalHelperHost(u.hostname)) return false;
       if (u.username || u.password) return false;
       const path = u.pathname || "/";
       if (path !== "/" && path !== "") return false;
+      // Reject query/hash so "?token=x" cannot be glued into "/events" by string concat.
+      if (u.search || u.hash) return false;
       return true;
     } catch (_) { return false; }
+  }
+
+  /** Canonical base URL (no trailing slash, no search/hash). */
+  function canonicalHelperUrl(url) {
+    if (!isLocalHelperUrl(url)) return null;
+    const u = new URL(String(url));
+    u.hash = "";
+    u.search = "";
+    let out = u.origin; // http://127.0.0.1:8766 or http://[::1]:8766
+    return out;
   }
 
   function sanitizeAutoSplit(raw, { allowEnabled = true } = {}) {
     const d = defaultSettings().autoSplit;
     const src = raw && typeof raw === "object" ? raw : {};
-    const url = isLocalHelperUrl(src.url) ? String(src.url).replace(/\/$/, "") : d.url;
+    const url = canonicalHelperUrl(src.url) || d.url;
     const enabled = !!(allowEnabled && src.enabled && isLocalHelperUrl(url));
-    return { enabled, url };
+    const token = typeof src.token === "string" ? src.token.slice(0, 128) : "";
+    return { enabled, url, token };
   }
 
   function asObject(v) { return v && typeof v === "object" && !Array.isArray(v) ? v : {}; }
@@ -196,6 +214,6 @@
 
   global.Storage2 = {
     KEY, LEGACY_KEYS, load, save, exportJSON, importJSON, newCharacter, uid,
-    isLocalHelperUrl, sanitizeAutoSplit, normalise, defaultSettings,
+    isLocalHelperUrl, isLocalHelperHost, canonicalHelperUrl, sanitizeAutoSplit, normalise, defaultSettings,
   };
 })(window);

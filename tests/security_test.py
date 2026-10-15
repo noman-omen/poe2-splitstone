@@ -83,21 +83,52 @@ class HelperSecurityTest(unittest.TestCase):
         r = c.getresponse(); r.read(); c.close()
         self.assertEqual(r.getheader("Access-Control-Allow-Origin"), "http://127.0.0.1:8765")
 
+    def test_cors_allowlist_ipv6(self):
+        c = self._conn()
+        c.request("OPTIONS", "/state", headers={"Origin": "http://[::1]:8765"})
+        r = c.getresponse(); r.read(); c.close()
+        self.assertEqual(r.getheader("Access-Control-Allow-Origin"), "http://[::1]:8765")
+
     def test_cors_rejects_foreign_origin(self):
         c = self._conn()
         c.request("OPTIONS", "/state", headers={"Origin": "https://evil.example"})
         r = c.getresponse(); r.read(); c.close()
         self.assertIsNone(r.getheader("Access-Control-Allow-Origin"))
 
-    def test_token_required(self):
+    def test_status_reports_auth_without_token(self):
         c = self._conn(self.token_port)
         c.request("GET", "/status")
+        r = c.getresponse(); body = r.read(); c.close()
+        self.assertEqual(r.status, 200, body)
+        self.assertTrue(json.loads(body)["auth"])
+
+    def test_token_required_on_state(self):
+        c = self._conn(self.token_port)
+        c.request("GET", "/state")
         r = c.getresponse(); r.read(); c.close()
         self.assertEqual(r.status, 401)
         c = self._conn(self.token_port)
-        c.request("GET", "/status", headers={"X-Splitstone-Token": "sekrit"})
+        c.request("GET", "/state", headers={"X-Splitstone-Token": "sekrit"})
         r = c.getresponse(); body = r.read(); c.close()
         self.assertEqual(r.status, 200, body)
+
+
+    def test_post_state_accepts_header_token(self):
+        payload = {"v": 1, "zone": "Clearfell", "step": "x", "zoneMs": 1, "runMs": 1, "running": False}
+        body = json.dumps(payload).encode()
+        c = self._conn(self.token_port)
+        c.request("POST", "/state", body=body, headers={
+            "Content-Type": "application/json", "X-Splitstone-Token": "sekrit"})
+        r = c.getresponse(); data = r.read(); c.close()
+        self.assertEqual(r.status, 200, data)
+
+    def test_post_state_rejects_wrong_token(self):
+        c = self._conn(self.token_port)
+        c.request("POST", "/state", body=b"{}", headers={
+            "Content-Type": "application/json", "X-Splitstone-Token": "nope",
+            "Content-Length": "2"})
+        r = c.getresponse(); r.read(); c.close()
+        self.assertEqual(r.status, 401)
 
 
 class BrowserSecurityTest(unittest.TestCase):
@@ -120,13 +151,18 @@ class BrowserSecurityTest(unittest.TestCase):
         ok = self.page.evaluate("""() => ({
           good1: Storage2.isLocalHelperUrl('http://127.0.0.1:8766'),
           good2: Storage2.isLocalHelperUrl('http://localhost:8766'),
+          good6: Storage2.isLocalHelperUrl('http://[::1]:8766'),
           badHost: Storage2.isLocalHelperUrl('http://evil.example:8766'),
           badHttps: Storage2.isLocalHelperUrl('https://127.0.0.1:8766'),
           badPath: Storage2.isLocalHelperUrl('http://127.0.0.1:8766/evil'),
           badUser: Storage2.isLocalHelperUrl('http://u:p@127.0.0.1:8766'),
+          badQuery: Storage2.isLocalHelperUrl('http://127.0.0.1:8766?token=x'),
+          badHash: Storage2.isLocalHelperUrl('http://127.0.0.1:8766#x'),
+          canon: Storage2.canonicalHelperUrl('http://127.0.0.1:8766/'),
         })""")
-        self.assertTrue(ok["good1"] and ok["good2"])
-        self.assertFalse(ok["badHost"] or ok["badHttps"] or ok["badPath"] or ok["badUser"])
+        self.assertTrue(ok["good1"] and ok["good2"] and ok["good6"])
+        self.assertFalse(ok["badHost"] or ok["badHttps"] or ok["badPath"] or ok["badUser"] or ok["badQuery"] or ok["badHash"])
+        self.assertEqual(ok["canon"], "http://127.0.0.1:8766")
 
     def test_import_strips_autosplit_enabled(self):
         result = self.page.evaluate("""() => {

@@ -130,8 +130,9 @@ button.primary { background: var(--primary-bg); border-color: var(--gold); color
 .badge { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
 .zone { padding: 10px 16px 6px; border-bottom: 1px solid var(--zone-line); }
 .zone:last-child { border-bottom: 0; }
-.zone-head { display: flex; align-items: center; gap: 10px; }
-.zone-head h3 { margin: 0; font-size: 14px; flex: 1; }
+.zone-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.zone-head h3 { margin: 0; font-size: 14px; flex: 1 1 auto; min-width: 0; }
+.zone-head .tw { flex: 0 0 auto; margin-left: auto; }
 .zone.complete .zone-head h3 { color: var(--ok); }
 .step { display: grid; grid-template-columns: 22px 1fr; gap: 4px 8px; padding: 6px 0 6px 4px; }
 .step input { margin-top: 3px; accent-color: var(--ok); }
@@ -299,12 +300,16 @@ body.hide-extra .now-info { display: none; }
   .now-clock .big { font-size: 30px; }
   #liveDelta { font-size: 15px; }
   .now-actions .big-btn { font-size: 16px; padding: 10px; }
-  /* overflow fixes */
-  .map-row, .route-bar { flex-wrap: wrap; }
+  /* overflow fixes (level/gear cues + timer widgets) */
+  .map-row, .route-bar, .zone-head { flex-wrap: wrap; }
   .stats .zones { overflow-x: auto; }
   select, .chart-title select { max-width: 100%; }
-  .as-settings input { width: 100%; }
+  .as-settings input { width: 100%; max-width: 100%; box-sizing: border-box; }
   .stats header { flex-wrap: wrap; }
+  .zone { padding-left: 12px; padding-right: 12px; }
+  .zone-head .gear-cues { flex: 1 1 100%; margin-left: 0; max-width: 100%; }
+  .gear-cue { max-width: min(160px, 42vw); }
+  html, body { overflow-x: clip; max-width: 100%; }
 }
 .layout > * { min-width: 0; }
 @media (max-width: 860px) { .layout { padding: 10px; } table.seg th, table.seg td { padding: 2px 2px; } }
@@ -368,3 +373,15 @@ table.seg td.behind, table.seg .behind { color: var(--bad); }
 .now-lvl { margin: 2px 0 4px; font-size: 13px; }
 body.hide-extra .lvl-cue { display: none; }
 body.hide-extra .zone-lvl { display: none; }
+
+/* Gear / gem checkpoints (glanceable) */
+.gear-cues { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-left: 4px; }
+.gear-cue { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: var(--panel-2);
+  color: var(--gold-2, var(--gold)); border: 1px solid var(--line); white-space: nowrap; max-width: 160px;
+  overflow: hidden; text-overflow: ellipsis; }
+.gear-cue[data-kind="gem"], .gear-cue[data-kind="spirit"] { border-color: color-mix(in srgb, var(--gold) 50%, var(--line)); }
+.gear-cue[data-kind="weapon"], .gear-cue[data-kind="craft"] { color: var(--text); }
+.gear-cue[data-kind="vendor"] { color: var(--muted); }
+.gear-cue.uncertain { opacity: .85; border-style: dashed; }
+.now-gear { margin: 2px 0 6px; }
+body.hide-hints .gear-cues, body.hide-extra .gear-cues { display: none; }
