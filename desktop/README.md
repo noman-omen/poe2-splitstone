@@ -31,3 +31,7 @@ Artifacts land in `desktop/dist/`. The GitHub Actions workflow `.github/workflow
 ## Legacy
 
 The Python helper under `helper/` remains supported for browser-only users.
+
+## Auto-update
+
+Packaged builds check GitHub Releases on launch (`electron-updater`). Default is **on** (`autoUpdate: true` in `userData/desktop-settings.json`). Players can disable it with the **Auto-update** toggle in the app. Dev (`npm start`) never checks — only `app.isPackaged` builds do.

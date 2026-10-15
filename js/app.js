@@ -536,6 +536,8 @@
           <button type="button" data-action="desktop-browse" title="Pick Client.txt">Client.txt…</button>
           <label class="switch" title="Always-on-top overlay (click-through)">
             <input type="checkbox" id="desktopOverlay" checked> Overlay</label>
+          <label class="switch desktop-only" title="When on, Splitstone checks GitHub for a newer installer on launch and can download it for you. Turn off if you prefer to update by hand.">
+            <input type="checkbox" id="desktopAutoUpdate"${(window.__desktopAutoUpdate !== false) ? " checked" : ""}> Auto-update</label>
         ` : `
         <label class="switch" title="Split automatically when you enter the next zone (reads Client.txt via the helper)">
           <input type="checkbox" id="autoSplit"${state.settings.autoSplit.enabled ? " checked" : ""}> Auto-split</label>
@@ -1449,6 +1451,12 @@
   if (window.splitstoneDesktop && window.splitstoneDesktop.isDesktop) {
     document.body.classList.add("is-desktop");
     state.settings.autoSplit.enabled = true; // always on in desktop
+    window.__desktopAutoUpdate = true; // default on until status says otherwise
+    window.splitstoneDesktop.getStatus().then(st => {
+      if (st && typeof st.autoUpdate === "boolean") window.__desktopAutoUpdate = st.autoUpdate;
+      const box = document.getElementById("desktopAutoUpdate");
+      if (box) box.checked = window.__desktopAutoUpdate !== false;
+    }).catch(() => {});
     AutoSplit.connectDesktop();
     syncDesktopHotkeys();
     window.splitstoneDesktop.onFirstRunNeeded(info => showDesktopSetup(info));

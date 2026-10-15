@@ -28,30 +28,13 @@ let overlayWindow = null;
 let firstRunWindow = null;
 let logWatcher = null;
 let overlayState = { ...EMPTY, hotkeys: { ...EMPTY.hotkeys } };
-let settings = {
-  clientLogPath: null,
-  overlayEnabled: true,
-  overlayOpacity: 0.92,
-  hotkeys: { split: " ", pause: "p", undo: "u", newRun: "n" },
-  firstRunDone: false,
-};
+let settings = mergeDesktopSettings(null);
 
 function loadSettings() {
   try {
     const raw = JSON.parse(fs.readFileSync(SETTINGS_FILE(), "utf8"));
-    if (raw && typeof raw === "object") {
-      if (typeof raw.clientLogPath === "string" && isClientTxtPath(raw.clientLogPath))
-        settings.clientLogPath = raw.clientLogPath;
-      if (typeof raw.overlayEnabled === "boolean") settings.overlayEnabled = raw.overlayEnabled;
-      if (typeof raw.overlayOpacity === "number") settings.overlayOpacity = Math.min(1, Math.max(0.3, raw.overlayOpacity));
-      if (raw.hotkeys && typeof raw.hotkeys === "object") {
-        for (const k of ["split", "pause", "undo", "newRun"]) {
-          if (typeof raw.hotkeys[k] === "string") settings.hotkeys[k] = raw.hotkeys[k].slice(0, 16);
-        }
-      }
-      if (raw.firstRunDone) settings.firstRunDone = true;
-    }
-  } catch (_) { /* first launch */ }
+    settings = mergeDesktopSettings(raw);
+  } catch (_) { settings = mergeDesktopSettings(null); }
 }
 
 function saveSettings() {
@@ -72,6 +55,7 @@ function statusPayload() {
     overlayOpacity: settings.overlayOpacity,
     hotkeys: { ...settings.hotkeys },
     firstRunDone: settings.firstRunDone,
+    autoUpdate: settings.autoUpdate !== false,
   };
 }
 
@@ -233,6 +217,8 @@ function wireIpc() {
     return settings.hotkeys;
   });
   ipcMain.handle("desktop:set-overlay", (_e, on) => { setOverlayEnabled(on); return settings.overlayEnabled; });
+  ipcMain.handle("desktop:set-auto-update", (_e, on) => setAutoUpdate(!!on));
+  ipcMain.handle("desktop:get-auto-update", () => settings.autoUpdate !== false);
   ipcMain.handle("desktop:set-overlay-opacity", (_e, n) => {
     const v = Math.min(1, Math.max(0.3, Number(n) || 0.92));
     settings.overlayOpacity = v;
@@ -266,11 +252,20 @@ function wireIpc() {
 }
 
 function setupAutoUpdater() {
-  if (!autoUpdater || !app.isPackaged) return;
+  if (!shouldCheckForUpdates(settings, { isPackaged: app.isPackaged, hasUpdater: !!autoUpdater }))
+    return;
   try {
     autoUpdater.autoDownload = true;
     autoUpdater.checkForUpdatesAndNotify().catch(() => {});
   } catch (_) { /* */ }
+}
+
+function setAutoUpdate(on) {
+  settings.autoUpdate = !!on;
+  saveSettings();
+  if (settings.autoUpdate) setupAutoUpdater();
+  broadcastStatus();
+  return settings.autoUpdate;
 }
 
 app.whenReady().then(() => {

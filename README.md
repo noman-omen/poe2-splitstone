@@ -65,7 +65,7 @@ A browser tab cannot sit on top of fullscreen PoE2. I ship a small always-on-top
 5. Start Splitstone. It looks for Path of Exile 2’s `Client.txt` automatically. If it can’t find it, click **Browse for Client.txt…** once (usually under your Steam folder → `Path of Exile 2` → `logs` → `Client.txt`).
 6. Play. Auto-split, global hotkeys, and the top-right overlay work with no Python or terminal.
 
-Optional: the app can check GitHub Releases for updates when you’re online.
+**Auto-update is on by default.** When you’re online, Splitstone checks GitHub Releases at launch and can download a newer installer for you. To turn that off: in the desktop app, uncheck **Auto-update** next to Overlay (under the route bar). You can always download a new build by hand from the Releases page.
 
 ---
 

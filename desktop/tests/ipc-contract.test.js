@@ -15,6 +15,7 @@ describe("IPC contract", () => {
       "desktop:get-status", "desktop:set-client-log", "desktop:browse-client-log",
       "desktop:find-client-log", "desktop:set-hotkeys", "desktop:set-overlay",
       "desktop:overlay-state", "desktop:zone", "desktop:hotkey",
+      "desktop:set-auto-update", "desktop:get-auto-update",
     ]) {
       assert.ok(main.includes(ch) || src.includes(ch), "missing " + ch);
     }
