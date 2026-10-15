@@ -156,6 +156,9 @@ A normal browser window **cannot** draw over fullscreen PoE2. Use the helper for
 
 Overlay buttons publish the same hotkey actions over the helper’s event stream, so Split / Pause / Undo work without focusing the browser.
 
+**Helper security (local only):** the helper binds `127.0.0.1` only. CORS reflects an Origin allowlist (`http://127.0.0.1`, `http://localhost`, and `null` for `file://`). Optional `--token` / `$SPLITSTONE_TOKEN` requires `X-Splitstone-Token` (or `?token=` on SSE). Splitstone only connects Auto-split to `http://127.0.0.1` / `http://localhost`; import never auto-connects and asks before applying a helper URL.
+
+
 ---
 
 ## Project layout

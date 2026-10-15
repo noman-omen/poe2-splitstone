@@ -23,13 +23,34 @@
     } catch (_) { throw new PobError("The code is not valid base64."); }
   }
 
+  const MAX_COMPRESSED = 512 * 1024;       // 512 KiB compressed
+  const MAX_DECOMPRESSED = 4 * 1024 * 1024; // 4 MiB decompressed
+
   async function inflate(bytes) {
     if (typeof DecompressionStream === "undefined")
       throw new PobError("This browser cannot decompress build codes (no DecompressionStream).");
+    if (bytes.length > MAX_COMPRESSED)
+      throw new PobError("Build code is too large to decompress safely.");
     try {
       const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate"));
-      return await new Response(stream).text();
-    } catch (_) { throw new PobError("The code could not be decompressed. Is it complete?"); }
+      const reader = stream.getReader();
+      const chunks = [];
+      let total = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > MAX_DECOMPRESSED) {
+          try { await reader.cancel(); } catch (_) {}
+          throw new PobError("Build expands past the safe size limit.");
+        }
+        chunks.push(value);
+      }
+      return new TextDecoder("utf-8").decode(await new Blob(chunks).arrayBuffer());
+    } catch (e) {
+      if (e instanceof PobError) throw e;
+      throw new PobError("The code could not be decompressed. Is it complete?");
+    }
   }
 
   const attr = (el, name) => (el && el.getAttribute(name)) || "";
@@ -46,7 +67,8 @@
     // Skills: use the active skill set if there is one, otherwise all skills.
     const skillsEl = root.querySelector("Skills");
     const activeSet = attr(skillsEl, "activeSkillSet");
-    const setEl = activeSet && skillsEl.querySelector(`SkillSet[id="${activeSet}"]`);
+    const setEl = activeSet && skillsEl && Array.from(skillsEl.querySelectorAll("SkillSet"))
+      .find(el => attr(el, "id") === activeSet);
     const skills = Array.from((setEl || skillsEl || root).querySelectorAll("Skill"));
     const mainIdx = parseInt(attr(build, "mainSocketGroup"), 10) - 1;
     const groups = skills.filter(s => attr(s, "enabled") !== "false").map((s, i) => {
@@ -90,5 +112,5 @@
     return summarise(xml);
   }
 
-  global.PoB = { decode, PobError };
+  global.PoB = { decode, inflate, base64UrlToBytes, PobError, MAX_COMPRESSED, MAX_DECOMPRESSED };
 })(window);
