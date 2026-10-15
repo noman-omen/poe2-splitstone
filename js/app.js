@@ -1244,6 +1244,16 @@
     else if (el.id === "desktopOverlay") {
       if (window.splitstoneDesktop) window.splitstoneDesktop.setOverlayEnabled(el.checked);
     }
+    else if (el.id === "desktopAutoUpdate" || el.id === "desktopAutoUpdateSettings") {
+      if (window.splitstoneDesktop) {
+        window.splitstoneDesktop.setAutoUpdate(el.checked).then(v => {
+          window.__desktopAutoUpdate = !!v;
+          const a = $("#desktopAutoUpdate"), b = $("#desktopAutoUpdateSettings");
+          if (a) a.checked = !!v;
+          if (b) b.checked = !!v;
+        });
+      }
+    }
     else if (el.id === "autoSplit") {
       state.settings.autoSplit.enabled = el.checked;
       if (el.checked) AutoSplit.connect(state.settings.autoSplit.url, autoSplitOpts());
@@ -1357,7 +1367,21 @@
   }
 
   Object.assign(actions, {
-    settings() { $("#help").setAttribute("hidden", ""); capturing = null; renderHelp(); $("#settings").removeAttribute("hidden"); },
+    settings() {
+      $("#help").setAttribute("hidden", "");
+      capturing = null;
+      renderHelp();
+      const desk = $("#desktopSettingsBlock");
+      if (desk) {
+        const isDesk = !!(window.splitstoneDesktop && window.splitstoneDesktop.isDesktop);
+        desk.hidden = !isDesk;
+        if (isDesk) {
+          const box = $("#desktopAutoUpdateSettings");
+          if (box) box.checked = window.__desktopAutoUpdate !== false;
+        }
+      }
+      $("#settings").removeAttribute("hidden");
+    },
     "settings-close"() { capturing = null; $("#settings").setAttribute("hidden", ""); },
     "key-change"(el) { capturing = capturing === el.dataset.id ? null : el.dataset.id; $("#keyError").textContent = ""; renderHelp(); },
     "keys-reset"() { state.settings.hotkeys = {}; capturing = null; $("#keyError").textContent = ""; commit(); toast("Hotkeys reset"); },

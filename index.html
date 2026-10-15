@@ -82,6 +82,12 @@
     <h2>Colour theme</h2>
     <p class="muted small">Global preference (saved for this browser; included in JSON export).</p>
     <div class="theme-grid" id="themeGrid" role="listbox" aria-label="Colour theme"></div>
+    <div id="desktopSettingsBlock" class="desktop-only" hidden>
+      <h2>Desktop</h2>
+      <p class="muted small">These apply only in the Splitstone Windows/Linux app.</p>
+      <label class="switch"><input type="checkbox" id="desktopAutoUpdateSettings"> Auto-update from GitHub Releases</label>
+      <p class="muted small">Checks for a new version when the app starts. Uncheck to stop automatic checks.</p>
+    </div>
     <h2>Hotkeys</h2>
     <p class="muted small">Click "Change", then press the new key. Esc cancels.</p>
     <table class="keys" id="keyTable"></table>
