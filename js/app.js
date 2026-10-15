@@ -301,20 +301,40 @@
       <div class="totals-row"><span>Maps total</span><span class="mono" data-sum="maps:">${fmt(Timers.sum(c, "map:"))}</span></div>`;
   }
 
+  /** Sidebar + analytics: All / Campaign / Practice (default Campaign). */
+  let historyFilter = "campaign";
+  const isPracticeRun = h => !!(h && (h.practice || String(h.variant || "").includes("+p:")));
+  function filteredHistory(c) {
+    const all = c.history || [];
+    if (historyFilter === "all") return all;
+    if (historyFilter === "practice") return all.filter(isPracticeRun);
+    return all.filter(h => !isPracticeRun(h));
+  }
+  const pbFromRuns = runs => (runs || []).filter(h => h.complete)
+    .reduce((best, h) => (!best || h.total < best.total ? h : best), null);
+
   function renderHistory() {
-    const c = char(), p = Run.pb(c);
-    const runs = c.history.slice(0, 15);
-    const pbOf = h => Run.pb(c, h.variant || "normal");
+    const c = char();
+    const filtered = filteredHistory(c);
+    const runs = filtered.slice(0, 15);
+    const p = pbFromRuns(filtered);
+    const pbOf = h => pbFromRuns(filtered.filter(x => (x.variant || "normal") === (h.variant || "normal")));
+    const filterSel = `<label class="hist-filter">Show <select id="historyFilter">
+      <option value="campaign"${historyFilter === "campaign" ? " selected" : ""}>Campaign</option>
+      <option value="practice"${historyFilter === "practice" ? " selected" : ""}>Practice</option>
+      <option value="all"${historyFilter === "all" ? " selected" : ""}>All</option>
+    </select></label>`;
     $("#history").innerHTML = `<h2>Run history</h2>
-      <div class="muted small">${esc(Run.variantLabel(Run.variantKey(Run.route(c))))}</div>
-      ${p ? `<div class="pb">PB <b class="mono">${fmt(p.total)}</b> <span class="muted">${new Date(p.finished).toLocaleDateString()}</span></div>` : '<div class="muted">No completed run yet.</div>'}
+      ${filterSel}
+      <div class="muted small">${historyFilter === "all" ? "All variants" : historyFilter === "practice" ? "Practice runs only" : "Campaign runs (no practice)"} · ${esc(Run.variantLabel(Run.variantKey(Run.route(c))))}</div>
+      ${p ? `<div class="pb">PB <b class="mono">${fmt(p.total)}</b> <span class="muted">${new Date(p.finished).toLocaleDateString()}</span></div>` : '<div class="muted">No completed run in this filter.</div>'}
       ${runs.length ? `<ol class="runs">${runs.map(h => { const hp = pbOf(h); return `<li class="${hp && h.id === hp.id ? "is-pb" : ""}" title="${esc(Run.variantLabel(h.variant || "normal"))}">
         <span class="mono">${fmt(h.total)}</span>
-        <span class="muted">${(h.variant || "normal").startsWith("fast") ? "⚡" : ""}${h.complete ? (hp && h.id !== hp.id ? `<span class="behind">${fmtDelta(h.total - hp.total)}</span>` : "PB") : `reset ${h.splitsDone}/${h.zonesTotal}`}</span>
+        <span class="muted">${isPracticeRun(h) ? "◎ " : ""}${(h.variant || "normal").startsWith("fast") ? "⚡" : ""}${h.complete ? (hp && h.id !== hp.id ? `<span class="behind">${fmtDelta(h.total - hp.total)}</span>` : "PB") : `reset ${h.splitsDone}/${h.zonesTotal}`}</span>
         <span class="muted small">${new Date(h.finished).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</span>
-        <button class="icon danger" data-action="run-delete" data-id="${esc(h.id)}" title="Delete run" aria-label="Delete run">✕</button></li>`; }).join("")}</ol>` : ""}
+        <button class="icon danger" data-action="run-delete" data-id="${esc(h.id)}" title="Delete run" aria-label="Delete run">✕</button></li>`; }).join("")}</ol>` : `<div class="empty">No runs in this filter.</div>`}
       <div class="row"><a href="#stats" class="small">📈 Run analytics &amp; CSV</a></div>
-      ${c.history.length > runs.length ? `<div class="muted small">+${c.history.length - runs.length} older runs (in export)</div>` : ""}`;
+      ${filtered.length > runs.length ? `<div class="muted small">+${filtered.length - runs.length} older in this filter</div>` : ""}`;
   }
 
   function renderCharacter() {
@@ -568,8 +588,14 @@
 
   function statsHTML(c) {
     const variant = Run.variantKey(Run.route(c));
-    const runs = Run.runsOf(c, variant).slice().reverse();       // chronological
-    const complete = runs.filter(h => h.complete), p = Run.pb(c), sob = Run.sumOfBest(c);
+    // Charts follow the history filter (Campaign / Practice / All), chronological.
+    const runs = filteredHistory(c).slice().reverse();
+    const complete = runs.filter(h => h.complete);
+    const p = pbFromRuns(runs);
+    const route = Run.route(c);
+    const sobOk = (historyFilter === "campaign" && !route.practice)
+      || (historyFilter === "practice" && !!route.practice);
+    const sob = sobOk ? Run.sumOfBest(c) : null;
     const totals = complete.map(h => h.total), last5 = totals.slice(-5);
     const card = (label, v) => `<div class="stat"><div class="muted small">${label}</div><div class="mono">${v}</div></div>`;
     const opts = segmentOptions(c);
@@ -601,8 +627,9 @@
       const vals = runs.map(h => h.groups[g.id]).filter(Boolean), b = Run.bestsFor(c)["group:" + g.id];
       return { name: g.name, avg: avg(vals), best: b, pb: p && p.groups[g.id], last: vals[vals.length - 1], gain: b && vals.length ? avg(vals) - b : null };
     });
+    const filterNote = historyFilter === "all" ? "All runs" : historyFilter === "practice" ? "Practice runs" : "Campaign runs";
     return `<section class="section stats" data-section="stats" id="stats">
-      <header><h2>Run analytics<small>${esc(Run.variantLabel(variant))}</small></h2>
+      <header><h2>Run analytics<small>${esc(filterNote)} · ${esc(Run.variantLabel(variant))}</small></h2>
         <button data-action="csv-runs">Runs CSV</button><button data-action="csv-maps">Maps CSV</button></header>
       <div class="zones"><div class="stat-cards">
         ${card("Completed runs", complete.length)}${card("Resets", runs.length - complete.length)}
@@ -637,7 +664,7 @@
     const cols = [...DATA.groups.map(g => ["groups", g.id, g.name]), ...DATA.sections.map(s => ["sections", s.id, s.name]),
       ...Run.ALL.map(o => ["zones", o.zone.id, `${o.zone.id} ${o.zone.name}`])];
     const head = ["run_id", "character", "variant", "complete", "started", "finished", "total_s", ...cols.map(c => c[2] + " (s)")];
-    const lines = c.history.slice().reverse().map(h => [h.id, c.name, h.variant || "normal", h.complete, h.started || "", h.finished,
+    const lines = filteredHistory(c).slice().reverse().map(h => [h.id, c.name, h.variant || "normal", h.complete, h.started || "", h.finished,
       sec(h.total), ...cols.map(([k, id]) => sec((h[k] || {})[id]))]);
     return [head, ...lines].map(r => r.map(csvCell).join(",")).join("\n") + "\n";
   }
@@ -908,6 +935,10 @@
       applyPractice({ kind, id });
     }
     else if (el.id === "statSeg") { statSeg = el.value; renderCampaign(); }
+    else if (el.id === "historyFilter") {
+      historyFilter = ["campaign", "practice", "all"].includes(el.value) ? el.value : "campaign";
+      renderHistory(); renderCampaign();
+    }
     else if (el.id === "charLevel") {
       const raw = el.value.trim();
       const c = char();
