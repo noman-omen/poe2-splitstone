@@ -56,7 +56,7 @@ A browser tab cannot sit on top of fullscreen PoE2. I ship a small always-on-top
 - **Speedrun splits** — Space starts and splits; ticking the last required step of a timed zone also advances. Undo, pause/resume, and new run are one key each.
 - **Separate interludes** — Interlude 2 (parts 1 & 2), 3, and 1 each have their own timers; Interlude 2’s total is both parts combined.
 - **Route variants** — *Normal clear* or *Fastest (speedrun)* from the original guide data; *Required steps only* hides optionals. PBs and bests are tracked per variant.
-- **History & analytics** — Completed and abandoned runs, PB, gold segments, sum of best, SVG trend charts, per-act “avg − best,” CSV export.
+- **History & analytics** — Completed and abandoned runs, PB, gold segments, sum of best, SVG trend charts, per-act “avg − best,” CSV export. Filter history/charts by All / Campaign / Practice (default Campaign).
 - **Map history** — Timed map runs with per-map PB / average and CSV export (separate from the campaign run).
 - **Characters** — Create, switch, rename, delete; one saved campaign per character.
 - **Persistence** — `localStorage` (`splitstone:v1`; older `poe2-campaign-tracker:v1` saves migrate automatically). JSON export / import.
@@ -84,6 +84,8 @@ Skills are **not** class-locked in PoE2 — Uncut gems just highlight class-reco
 ![Gear / gem checkpoints](screenshots/gear-gem-checkpoints.png)
 
 ![Practice mode](screenshots/practice-mode.png)
+
+![Custom shareable routes](screenshots/custom-routes.png)
 
 ## Vision
 

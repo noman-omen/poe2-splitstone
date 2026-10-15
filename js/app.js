@@ -76,9 +76,14 @@
   }
 
   const char = () => state.characters[state.activeId];
-  /** Steps visible under the character's route variant. */
-  const visibleSteps = (c, zone) => zone.steps.filter(s => Run.stepVisible(s, Run.route(c)));
-  const allSteps = c => DATA.sections.flatMap(s => s.zones.flatMap(z => visibleSteps(c, z)));
+  /** Steps visible under the character's route variant (+ custom hide). */
+  const currentCustom = c => Run.getCustom(c, Run.route(c).customId);
+  const visibleSteps = (c, zone) => {
+    const r = Run.route(c), custom = currentCustom(c);
+    const rVis = custom && custom.baseMode ? Object.assign({}, r, { mode: custom.baseMode }) : r;
+    return zone.steps.filter(s => Run.stepVisible(s, rVis, custom));
+  };
+  const allSteps = c => Run.order(c).flatMap(o => visibleSteps(c, o.zone));
 
   function commit() { Storage2.save(state); render(); }
 
@@ -111,6 +116,7 @@
     document.body.classList.toggle("hide-extra", !!s.hideExtra);
     document.body.classList.toggle("focus-mode", !!s.focusMode);
     document.body.classList.toggle("practice-mode", !!Run.route(char()).practice);
+    document.body.classList.toggle("custom-route", !!Run.route(char()).customId);
     $("#hideHints").checked = !!s.hideHints;
     $("#hideExtra").checked = !!s.hideExtra;
     $("#focusMode").checked = !!s.focusMode;
@@ -154,6 +160,8 @@
       ${hints.length ? `<ul class="now-hints"><li>${esc(hints[0])}</li></ul>
         ${more ? `<details class="now-more-tips"><summary>+${more} more tip${more > 1 ? "s" : ""}</summary>
           <ul class="now-hints">${hints.slice(1).map(h => `<li>${esc(h)}</li>`).join("")}</ul></details>` : ""}` : ""}
+      ${(() => { const cr = currentCustom(c); return cr && cr.notes && cr.notes[s.id]
+        ? `<div class="custom-note now-custom">${esc(cr.notes[s.id])}</div>` : ""; })()}
       ${info.length ? `<div class="now-info">${info.map(x => `<div>${x}</div>`).join("")}</div>` : ""}
     </div>`;
   }
@@ -226,8 +234,12 @@
     $("#now").innerHTML = `
       <div class="now-main">
         <div class="now-where"><span data-as-pill>${statusPill()}</span> ${(() => {
-          const pr = Run.route(c).practice;
-          return pr ? `<span class="practice-pill" title="Practice PB is separate from full-campaign PB">Practice · ${esc(Run.practiceLabel(pr.kind, pr.id))}</span> · ` : "";
+          const r = Run.route(c);
+          const bits = [];
+          if (r.practice) bits.push(`<span class="practice-pill" title="Practice PB is separate from full-campaign PB">Practice · ${esc(Run.practiceLabel(r.practice.kind, r.practice.id))}</span>`);
+          const cr = currentCustom(c);
+          if (cr) bits.push(`<span class="custom-pill" title="Custom route — PB is separate per variant">${esc(cr.name)}</span>`);
+          return bits.length ? bits.join(" · ") + " · " : "";
         })()}${esc(cur.section.name)} · zone ${cur.index >= 0 ? cur.index + 1 : "–"}/${Run.order(c).length}${paused ? ' · <span class="behind">PAUSED</span>' : ""}</div>
         <div class="now-zone">${esc(z.name)}</div>
         ${(() => {
@@ -432,6 +444,8 @@
         ${s.level ? `<span class="lvl">· lvl ${esc(s.level)}</span>` : ""}${s.optional ? `<span class="optional">optional</span>` : ""}</label>
       ${stepHints(c, s).length ? `<ul class="hints">${stepHints(c, s).map(h => `<li>${esc(h)}</li>`).join("")}</ul>` : ""}
       ${classNoteHTML(c, s.id)}
+      ${(() => { const cr = currentCustom(c); return cr && cr.notes && cr.notes[s.id]
+        ? `<div class="custom-note">${esc(cr.notes[s.id])}</div>` : ""; })()}
       ${extra.length ? `<ul class="extra">${extra.join("")}</ul>` : ""}
     </div>`;
   }
@@ -465,7 +479,14 @@
       return true;
     };
     const sections = DATA.sections.filter(inScopeSec).map(sec => {
-      const zones = sec.zones.filter(z => Run.zoneActive(z, r) && Run.matchesPractice({ zone: z, section: sec, group: sec.group }, r.practice));
+      const custom = currentCustom(c);
+      const rVis = custom && custom.baseMode ? Object.assign({}, r, { mode: custom.baseMode }) : r;
+      let zones = sec.zones.filter(z => Run.zoneActive(z, rVis, custom) && Run.matchesPractice({ zone: z, section: sec, group: sec.group }, r.practice));
+      // Respect custom zoneOrder within the section.
+      if (custom && custom.zoneOrder && custom.zoneOrder.length) {
+        const rank = id => { const i = custom.zoneOrder.indexOf(id); return i < 0 ? 9999 : i; };
+        zones = zones.slice().sort((a, b) => rank(a.id) - rank(b.id));
+      }
       const steps = zones.flatMap(z => visibleSteps(c, z)), done = steps.filter(s => c.done[s.id]).length;
       const isCur = cur && cur.section.id === sec.id;
       const isCollapsed = collapsed.has(sec.id);
@@ -495,8 +516,19 @@
         `<option value="${esc(k)}"${k === r.mode ? " selected" : ""}>${esc(x.label)}</option>`).join("")}</select></label>
       <label class="switch"><input type="checkbox" id="requiredOnly"${r.requiredOnly ? " checked" : ""}> Required steps only</label>
       ${practiceSelectHTML(c)}
-      <span class="muted small">${r.practice ? `Practice · ${esc(Run.practiceLabel(r.practice.kind, r.practice.id))} ·` : ""} ${esc(v.desc || "")} · ${Run.order(c).length} zones, ${allSteps(c).length} steps</span>
+      ${customSelectHTML(c)}
+      <span class="muted small">${(() => {
+        const bits = [];
+        if (r.practice) bits.push(`Practice · ${esc(Run.practiceLabel(r.practice.kind, r.practice.id))}`);
+        const cr = currentCustom(c);
+        if (cr) bits.push(`Custom · ${esc(cr.name)}`);
+        bits.push(esc(v.desc || ""));
+        bits.push(`${Run.order(c).length} zones, ${allSteps(c).length} steps`);
+        return bits.join(" · ");
+      })()}</span>
       ${r.practice ? `<button type="button" data-action="practice-exit" class="practice-exit">Exit practice</button>` : ""}
+      ${r.customId ? `<button type="button" data-action="custom-clear" class="custom-exit">Default route</button>` : ""}
+      ${customEditorHTML(c)}
       <span class="as-controls">
         <label class="switch" title="Split automatically when you enter the next zone (reads Client.txt via the helper)">
           <input type="checkbox" id="autoSplit"${state.settings.autoSplit.enabled ? " checked" : ""}> Auto-split</label>
@@ -737,6 +769,152 @@
   }
 
 
+  function customSelectHTML(c) {
+    const r = Run.route(c);
+    const routes = Object.values(c.customRoutes || {}).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    const opts = ['<option value="">Default (campaign)</option>'];
+    routes.forEach(cr => {
+      opts.push(`<option value="${esc(cr.id)}"${r.customId === cr.id ? " selected" : ""}>${esc(cr.name || cr.id)}</option>`);
+    });
+    return `<label class="custom-label">Custom <select id="customRoute" title="Player-made route variant — own PB, shareable code">${opts.join("")}</select></label>
+      <button type="button" data-action="custom-new" title="Create a custom route from the current campaign order">New</button>
+      <button type="button" data-action="custom-import" title="Paste an SSR1 share code">Import…</button>`;
+  }
+
+  function customEditorHTML(c) {
+    const cr = currentCustom(c);
+    if (!cr) return "";
+    const open = openDetails.has("custom-editor") ? " open" : "";
+    const r = Run.route(c);
+    const rVis = Object.assign({}, r, { mode: cr.baseMode || r.mode, customId: null, practice: null });
+    // Editor lists zones in campaign order so users can hide / reorder / annotate.
+    const rows = [];
+    Run.ALL.forEach(o => {
+      if (!Run.zoneActive(o.zone, rVis)) return;
+      const z = o.zone;
+      const zOrd = cr.zoneOrder;
+      const hiddenZone = z.steps.every(s => !Run.stepVisible(s, rVis) || cr.hiddenSteps[s.id]);
+      rows.push(`<div class="cr-zone" data-zid="${esc(z.id)}">
+        <div class="cr-zone-head">
+          <button type="button" class="cr-move" data-action="custom-zone-up" data-id="${esc(z.id)}" title="Move zone earlier">↑</button>
+          <button type="button" class="cr-move" data-action="custom-zone-down" data-id="${esc(z.id)}" title="Move zone later">↓</button>
+          <strong>${esc(o.section.name)} · ${esc(z.name)}</strong>
+          <span class="muted small">${hiddenZone ? "all steps hidden" : ""}</span>
+        </div>
+        <ul class="cr-steps">${z.steps.filter(s => Run.stepVisible(s, rVis)).map(s => {
+          const hid = !!cr.hiddenSteps[s.id];
+          const note = cr.notes[s.id] || "";
+          return `<li class="cr-step${hid ? " cr-hidden" : ""}">
+            <label><input type="checkbox" data-action="custom-hide-step" data-id="${esc(s.id)}"${hid ? " checked" : ""}> Hide</label>
+            <span class="cr-obj">${esc(s.objective)}</span>
+            <input type="text" class="cr-note-input" data-action="custom-note" data-id="${esc(s.id)}"
+              maxlength="${CustomRoute.MAX_NOTE}" placeholder="Note" value="${esc(note)}" title="Your note (no URLs)">
+          </li>`;
+        }).join("")}</ul>
+      </div>`);
+    });
+    // Re-order editor rows if zoneOrder set
+    let ordered = rows;
+    if (cr.zoneOrder && cr.zoneOrder.length) {
+      const byZ = {};
+      // rebuild with sort — simpler: sort Run.ALL filtered
+      const list = Run.ALL.filter(o => Run.zoneActive(o.zone, rVis));
+      const rank = id => { const i = cr.zoneOrder.indexOf(id); return i < 0 ? 5000 + list.findIndex(x => x.zone.id === id) : i; };
+      list.sort((a, b) => rank(a.zone.id) - rank(b.zone.id));
+      ordered = list.map(o => {
+        const z = o.zone;
+        const hiddenZone = z.steps.every(s => !Run.stepVisible(s, rVis) || cr.hiddenSteps[s.id]);
+        return `<div class="cr-zone" data-zid="${esc(z.id)}">
+        <div class="cr-zone-head">
+          <button type="button" class="cr-move" data-action="custom-zone-up" data-id="${esc(z.id)}" title="Move zone earlier">↑</button>
+          <button type="button" class="cr-move" data-action="custom-zone-down" data-id="${esc(z.id)}" title="Move zone later">↓</button>
+          <strong>${esc(o.section.name)} · ${esc(z.name)}</strong>
+          <span class="muted small">${hiddenZone ? "all steps hidden" : ""}</span>
+        </div>
+        <ul class="cr-steps">${z.steps.filter(s => Run.stepVisible(s, rVis)).map(s => {
+          const hid = !!cr.hiddenSteps[s.id];
+          const note = cr.notes[s.id] || "";
+          return `<li class="cr-step${hid ? " cr-hidden" : ""}">
+            <label><input type="checkbox" data-action="custom-hide-step" data-id="${esc(s.id)}"${hid ? " checked" : ""}> Hide</label>
+            <span class="cr-obj">${esc(s.objective)}</span>
+            <input type="text" class="cr-note-input" data-action="custom-note" data-id="${esc(s.id)}"
+              maxlength="${CustomRoute.MAX_NOTE}" placeholder="Note" value="${esc(note)}" title="Your note (no URLs)">
+          </li>`;
+        }).join("")}</ul>
+      </div>`;
+      });
+    }
+    return `<details class="custom-editor" data-keep="custom-editor"${open}><summary>Edit custom route · ${esc(cr.name)}</summary>
+      <div class="cr-toolbar">
+        <label>Name <input type="text" id="customName" maxlength="48" value="${esc(cr.name)}"></label>
+        <label>Base <select id="customBaseMode">
+          <option value="normal"${cr.baseMode !== "fast" ? " selected" : ""}>Normal</option>
+          <option value="fast"${cr.baseMode === "fast" ? " selected" : ""}>Fast</option>
+        </select></label>
+        <button type="button" data-action="custom-export">Copy share code</button>
+        <button type="button" data-action="custom-delete" class="danger">Delete</button>
+      </div>
+      <p class="muted small">Hide steps, reorder zones, add notes. Export is a compact <code>SSR1.…</code> code — no settings or URLs. Each custom route keeps its own PB.</p>
+      <div class="cr-list">${ordered.join("")}</div>
+    </details>`;
+  }
+
+  function ensureCustomRoutes(c) {
+    if (!c.customRoutes || typeof c.customRoutes !== "object") c.customRoutes = {};
+  }
+
+  function touchCustom(c, id) {
+    ensureCustomRoutes(c);
+    const raw = c.customRoutes[id];
+    if (!raw) return null;
+    const cr = CustomRoute.normalise(raw);
+    cr.updated = new Date().toISOString();
+    c.customRoutes[id] = cr;
+    Run.invalidateOrderCache();
+    return cr;
+  }
+
+  function applyCustomId(customId, { reset = true } = {}) {
+    const c = char();
+    const id = customId && c.customRoutes && c.customRoutes[customId] ? customId : null;
+    const next = Object.assign({}, Run.route(c), { customId: id });
+    if (Run.isStarted(c) && !Run.isFinished(c)) {
+      if (!confirm("Switch custom route? The current run will be saved as unfinished (other PBs are untouched).")) {
+        render(); return false;
+      }
+      Run.finish(c, false);
+    }
+    c.route = next;
+    if (reset) Run.newRun(c);
+    Run.invalidateOrderCache();
+    commit();
+    const cr = id ? c.customRoutes[id] : null;
+    toast(cr ? `Custom route: ${cr.name}` : "Default campaign route");
+    window.scrollTo({ top: 0 });
+    scrollToCurrent(false);
+    return true;
+  }
+
+  function moveCustomZone(zid, dir) {
+    const c = char(), id = Run.route(c).customId;
+    if (!id) return;
+    const cr = touchCustom(c, id);
+    if (!cr) return;
+    if (!cr.zoneOrder || !cr.zoneOrder.length) {
+      const r = Run.route(c);
+      cr.zoneOrder = Run.ALL.filter(o => Run.zoneActive(o.zone, { mode: cr.baseMode || r.mode, requiredOnly: false, practice: null }))
+        .map(o => o.zone.id);
+    }
+    const i = cr.zoneOrder.indexOf(zid);
+    if (i < 0) return;
+    const j = i + dir;
+    if (j < 0 || j >= cr.zoneOrder.length) return;
+    const tmp = cr.zoneOrder[i]; cr.zoneOrder[i] = cr.zoneOrder[j]; cr.zoneOrder[j] = tmp;
+    c.customRoutes[id] = cr;
+    openDetails.add("custom-editor");
+    commit();
+  }
+
   function practiceSelectHTML(c) {
     const r = Run.route(c), cur = r.practice;
     const val = cur ? cur.kind + ":" + cur.id : "";
@@ -804,6 +982,70 @@
     "practice-exit"() { applyPractice(null); },
     "practice-group"(el) { applyPractice({ kind: "group", id: el.dataset.id }); },
     "practice-zone"(el) { applyPractice({ kind: "zone", id: el.dataset.id }); },
+    "custom-clear"() { applyCustomId(null); },
+    "custom-new"() {
+      const c = char();
+      ensureCustomRoutes(c);
+      const name = prompt("Name for this custom route:", "My route");
+      if (name === null) return;
+      const cr = CustomRoute.blank(name || "My route");
+      const r = Run.route(c);
+      cr.baseMode = r.mode === "fast" ? "fast" : "normal";
+      cr.zoneOrder = Run.ALL.filter(o => Run.zoneActive(o.zone, { mode: cr.baseMode, requiredOnly: false, practice: null }))
+        .map(o => o.zone.id);
+      c.customRoutes[cr.id] = cr;
+      Run.invalidateOrderCache();
+      openDetails.add("custom-editor");
+      applyCustomId(cr.id, { reset: true });
+    },
+    async "custom-export"() {
+      const c = char(), cr = currentCustom(c);
+      if (!cr) return toast("No custom route selected");
+      try {
+        const code = await CustomRoute.encode(cr);
+        await navigator.clipboard.writeText(code);
+        toast("Share code copied (" + code.length + " chars)");
+      } catch (e) { toast(e.message || "Could not export"); }
+    },
+    async "custom-import"() {
+      const raw = prompt("Paste an SSR1 share code:");
+      if (raw === null || !String(raw).trim()) return;
+      try {
+        const cr = await CustomRoute.decode(raw);
+        const c = char();
+        ensureCustomRoutes(c);
+        cr.id = CustomRoute.uid();
+        c.customRoutes[cr.id] = cr;
+        Run.invalidateOrderCache();
+        openDetails.add("custom-editor");
+        applyCustomId(cr.id, { reset: true });
+        toast("Imported: " + cr.name);
+      } catch (e) { toast(e.message || "Could not import"); }
+    },
+    "custom-delete"() {
+      const c = char(), id = Run.route(c).customId;
+      if (!id || !c.customRoutes[id]) return;
+      if (!confirm("Delete this custom route? Its PB history stays but the route definition is removed.")) return;
+      delete c.customRoutes[id];
+      c.route = Object.assign({}, Run.route(c), { customId: null });
+      Run.invalidateOrderCache();
+      Run.newRun(c);
+      commit();
+      toast("Custom route deleted");
+    },
+    "custom-hide-step"(el) {
+      const c = char(), id = Run.route(c).customId;
+      if (!id) return;
+      const cr = touchCustom(c, id);
+      if (!cr) return;
+      if (el.checked) cr.hiddenSteps[el.dataset.id] = true;
+      else delete cr.hiddenSteps[el.dataset.id];
+      c.customRoutes[id] = cr;
+      openDetails.add("custom-editor");
+      commit();
+    },
+    "custom-zone-up"(el) { moveCustomZone(el.dataset.id, -1); },
+    "custom-zone-down"(el) { moveCustomZone(el.dataset.id, 1); },
     "timer-toggle"(el) {
       const c = char(), key = el.dataset.key;
       if (key.startsWith("zone:")) {
@@ -820,7 +1062,7 @@
       // Auto-advance: ticking the last required step of the zone being timed splits it.
       const cur = Run.current(c);
       if (el.checked && cur && Run.runningZone(c) === cur.zone.id && cur.zone.steps.some(s => s.id === id)
-          && Run.requiredSteps(cur.zone, Run.route(c)).every(s => c.done[s.id])) return doSplit();
+          && Run.requiredSteps(cur.zone, Run.route(c), currentCustom(c)).every(s => c.done[s.id])) return doSplit();
       commit();
     },
     collapse(el) {
@@ -909,13 +1151,14 @@
 
   document.addEventListener("click", ev => {
     const el = ev.target.closest("[data-action]");
-    if (!el || el.dataset.action === "step") return;
+    if (!el || el.dataset.action === "step" || el.dataset.action === "custom-hide-step") return;
     const fn = actions[el.dataset.action];
     if (fn) fn(el, ev);
   });
   document.addEventListener("change", ev => {
     const el = ev.target;
     if (el.dataset.action === "step") actions.step(el);
+    else if (el.dataset.action === "custom-hide-step") actions["custom-hide-step"](el);
     else if (["hideHints", "hideExtra", "focusMode"].includes(el.id)) { state.settings[el.id] = el.checked; commit(); }
     else if (el.id === "routeMode" || el.id === "requiredOnly") {
       const c = char(), next = Object.assign({}, Run.route(c),
@@ -933,6 +1176,44 @@
       const i = raw.indexOf(":");
       const kind = raw.slice(0, i), id = raw.slice(i + 1);
       applyPractice({ kind, id });
+    }
+    else if (el.id === "customRoute") {
+      applyCustomId(el.value.trim() || null);
+    }
+    else if (el.id === "customName") {
+      const c = char(), id = Run.route(c).customId;
+      if (!id) return;
+      const cr = touchCustom(c, id);
+      if (!cr) return;
+      cr.name = String(el.value || "My route").slice(0, 48);
+      c.customRoutes[id] = cr;
+      openDetails.add("custom-editor");
+      commit();
+    }
+    else if (el.id === "customBaseMode") {
+      const c = char(), id = Run.route(c).customId;
+      if (!id) return;
+      const cr = touchCustom(c, id);
+      if (!cr) return;
+      cr.baseMode = el.value === "fast" ? "fast" : "normal";
+      // Keep route.mode in sync so mode select matches.
+      c.route = Object.assign({}, Run.route(c), { mode: cr.baseMode });
+      c.customRoutes[id] = cr;
+      openDetails.add("custom-editor");
+      commit();
+    }
+    else if (el.classList.contains("cr-note-input") || el.dataset.action === "custom-note") {
+      const c = char(), id = Run.route(c).customId;
+      if (!id) return;
+      const cr = touchCustom(c, id);
+      if (!cr) return;
+      const cleaned = CustomRoute.cleanNote(el.value);
+      if (cleaned) cr.notes[el.dataset.id] = cleaned;
+      else delete cr.notes[el.dataset.id];
+      c.customRoutes[id] = cr;
+      openDetails.add("custom-editor");
+      // Don't full-re-render on every keystroke via change — change fires on blur.
+      commit();
     }
     else if (el.id === "statSeg") { statSeg = el.value; renderCampaign(); }
     else if (el.id === "historyFilter") {
