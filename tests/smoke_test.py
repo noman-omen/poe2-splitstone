@@ -6,7 +6,7 @@ Uses Playwright's fake clock so full speedruns take milliseconds.
 Covers: toggles, focus mode, per-zone/section/group timers, splits,
 auto-advance, undo, pause, full runs + PB + history + deltas, hotkeys,
 persistence, characters, export/import, PoB2 import, mobile layout.
-Writes screenshots/milestone2.png (+ a phone-sized one in tests/output).
+Writes milestone2.png to test-output/ (+ a phone-sized one in tests/output).
 """
 import json
 import os
@@ -15,6 +15,8 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 from modal_helpers import fill_modal
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from shot_dir import shot_dir  # noqa: E402
 
 
 def accept_if_modal(page, timeout=800):
@@ -429,7 +431,7 @@ with sync_playwright() as p:
     tick(page, 6_000)
     page.keyboard.press("c")
     tick(page, 1_000)
-    page.screenshot(path=str(ROOT / "screenshots" / "milestone2.png"))
+    page.screenshot(path=str(shot_dir() / "milestone2.png"))
 
     # --- Mobile layout ---
     m = ctx.new_page(); m.set_viewport_size({"width": 390, "height": 844}); m.goto(URL)

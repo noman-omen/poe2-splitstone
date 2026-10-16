@@ -7,9 +7,11 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "helper"))
 from overlay_state import lines_for_panel, normalise, key_label
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from shot_dir import shot_dir  # noqa: E402
 
-SHOT = ROOT / "screenshots" / "overlay-corner.png"
-PANEL = ROOT / "screenshots" / "overlay-corner-panel.png"
+SHOT = shot_dir() / "overlay-corner.png"
+PANEL = shot_dir() / "overlay-corner-panel.png"
 
 state = normalise({
     "zone": "Cemetery of the Eternals", "section": "Act 1", "progress": "9/111",

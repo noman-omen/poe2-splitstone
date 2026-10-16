@@ -4,9 +4,11 @@ import json
 import sys
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from shot_dir import shot_dir  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-SHOT = ROOT / "screenshots" / "overlay-minimal.png"
+SHOT = shot_dir() / "overlay-minimal.png"
 STATE = {
     "step": "Activate the waypoint, then enter the Tomb of the Consort",
     "tip": "Hug the walls to find both crypt entrances",

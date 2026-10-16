@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Custom shareable routes: hide/reorder/notes, SSR1 encode/decode, separate PB."""
 import os, sys
+import sys
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 from modal_helpers import fill_modal
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from shot_dir import shot_dir  # noqa: E402
 
 URL = os.environ.get("TRACKER_URL", "http://127.0.0.1:8765/")
 ROOT = Path(__file__).resolve().parent.parent
-SHOT = ROOT / "screenshots" / "custom-routes.png"
+SHOT = shot_dir() / "custom-routes.png"
 results = []
 
 def check(name, cond, info=""):

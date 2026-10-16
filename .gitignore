@@ -12,3 +12,6 @@ tests/output/
 desktop/node_modules/
 desktop/dist/
 desktop/out/
+
+# Test screenshots (set SPLITSTONE_UPDATE_SHOTS=1 to refresh screenshots/)
+test-output/

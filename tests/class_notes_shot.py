@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """screenshots/class-notes.png — Monk class notes on early Act 1 steps."""
+import sys
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from shot_dir import shot_dir  # noqa: E402
 
 URL = "http://127.0.0.1:8765/"
-SHOT = Path(__file__).resolve().parent.parent / "screenshots" / "class-notes.png"
+SHOT = shot_dir() / "class-notes.png"
 
 with sync_playwright() as p:
     b = p.chromium.launch()

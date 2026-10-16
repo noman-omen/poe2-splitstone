@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Screenshot each colour theme + a branded desktop shot for Splitstone."""
+import sys
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 from modal_helpers import auto_accept_modals
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from shot_dir import shot_dir  # noqa: E402
 
 URL = "http://127.0.0.1:8765/"
-SHOTS = Path(__file__).resolve().parent.parent / "screenshots"
+SHOTS = shot_dir()
 THEMES = ["ember", "slate", "crimson", "parchment"]
 
 with sync_playwright() as p:

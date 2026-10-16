@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Screenshot + assertions for level / XP warnings."""
 import os, sys
+import sys
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from shot_dir import shot_dir  # noqa: E402
 
 URL = os.environ.get("TRACKER_URL", "http://127.0.0.1:8765/")
 ROOT = Path(__file__).resolve().parent.parent
-SHOT = ROOT / "screenshots" / "level-xp-warnings.png"
+SHOT = shot_dir() / "level-xp-warnings.png"
 results = []
 
 def check(name, cond, info=""):
