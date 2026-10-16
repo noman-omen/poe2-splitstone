@@ -2,13 +2,14 @@
 """Save safety: unreadable saves and failed migrations never get overwritten.
 
 Simulates QuotaExceededError by wrapping localStorage.setItem in the page.
-Needs the app on http://127.0.0.1:8765.
+Needs the app on TRACKER_URL (default http://127.0.0.1:8765/).
 """
 import json
+import os
 import sys
 from playwright.sync_api import sync_playwright
 
-URL = "http://127.0.0.1:8765/"
+URL = os.environ.get("TRACKER_URL", "http://127.0.0.1:8765/")
 KEY = "splitstone:v1"
 fails, passed = [], 0
 
@@ -86,7 +87,7 @@ with sync_playwright() as p:
     check("main write quota: storage-full warning", "storage full" in page.text_content("#storageWarn"))
     ctx.close()
 
-    # 4) Normal migration: backup kept, restore action works, backup dropped after 50 saves.
+    # 4) Normal migration: backup kept, restore action works, backup dropped 14 days after the first schema-2 save.
     ctx, page, errs = fresh(b, seed=legacy)
     check("migration: backup kept", raw_of(page, KEY + ":backup-schema1") == legacy)
     page.click('[data-action="settings"]')
@@ -98,9 +99,18 @@ with sync_playwright() as p:
     st = json.loads(raw_of(page))
     check("restore brings back the pre-1.1 data", st["characters"]["c1"]["name"] == "Old char" and st["schema"] == 2)
     page.click('[data-action="settings-close"]')
-    for i in range(50):
+    since = raw_of(page, KEY + ":backup-since")
+    check("first schema-2 save records backup start time", bool(since))
+    for i in range(60):
         page.evaluate("() => Storage2.save(Storage2.load())")
-    check("backup dropped after 50 good saves", raw_of(page, KEY + ":backup-schema1") is None)
+    check("backup kept after many saves", raw_of(page, KEY + ":backup-schema1") == legacy)
+    check("backup start time not reset by later saves", raw_of(page, KEY + ":backup-since") == since)
+    page.evaluate(f"() => localStorage.setItem('{KEY}:backup-since', new Date(Date.now() - 13.9*86400000).toISOString())")
+    page.evaluate("() => Storage2.save(Storage2.load())")
+    check("backup kept before 14 days", raw_of(page, KEY + ":backup-schema1") == legacy)
+    page.evaluate(f"() => localStorage.setItem('{KEY}:backup-since', new Date(Date.now() - 14*86400000 - 1000).toISOString())")
+    page.evaluate("() => Storage2.save(Storage2.load())")
+    check("backup dropped after 14 days", raw_of(page, KEY + ":backup-schema1") is None and raw_of(page, KEY + ":backup-since") is None)
     ctx.close()
 
     # 5) Ordinary save hitting quota: warning, no crash.

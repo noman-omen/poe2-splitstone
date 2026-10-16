@@ -88,6 +88,8 @@ const MOD_ORDER = ["Ctrl", "Alt", "Shift"];
 const BLOCKED_ACCELERATORS = new Set([
   "Ctrl+Alt+Delete", "Ctrl+Alt+F4", "Ctrl+Shift+F4", "Ctrl+Alt+Shift+F4", "Ctrl+Shift+Escape",
   "Ctrl+Alt+Tab", "Ctrl+Shift+Tab", "Ctrl+Alt+L", "Ctrl+Alt+T",
+  // Undo/redo, reopen tab, paste plain text and dev tools in browsers and editors.
+  "Ctrl+Shift+Z", "Ctrl+Shift+T", "Ctrl+Shift+V", "Ctrl+Shift+C",
 ]);
 
 /** Normalised key name, or null if it isn't a key we allow (letters, digits, F1-F24, numpad digits). */
@@ -107,8 +109,9 @@ function normaliseKey(k) {
  */
 function validateAccelerator(raw) {
   if (typeof raw !== "string") return { ok: false, error: "Not a key combo" };
-  if (raw.length > ACCEL_MAX_LEN) return { ok: false, error: "Too long" };
-  const parts = raw.trim().split("+").map(s => s.trim());
+  const trimmed = raw.trim();
+  if (trimmed.length > ACCEL_MAX_LEN) return { ok: false, error: "Too long" };
+  const parts = trimmed.split("+").map(s => s.trim());
   if (parts.length < 2 || parts.some(p => !p)) return { ok: false, error: "Use Ctrl+Alt or Ctrl+Shift with a key" };
   const mods = new Set();
   let key = null;

@@ -1,13 +1,13 @@
 # Changelog
 
-## 1.1.0 (unreleased)
+## 1.1.0 (2026-10-16)
 
 - New Endgame tab: log map runs with tier, waystone mods, deaths, notes and loot; start, pause and finish each map; mark runs completed or failed.
 - Sessions with maps per hour, average map time, totals and a history of past sessions. Maps CSV export.
 - Atlas progress checklist for patch 0.5.5 (Fortress, pinnacle bosses, atlas masters, atlas points). Items not yet confirmed in patch notes or poe2db are marked.
 - Desktop: optional auto-detect that starts and finishes map runs from the zone changes the app already reads for auto-split. No new Client.txt parsing.
 - New Tools tab with links to the trade site, poe2db, the PoE2 wiki, Path of Building 2, poe.ninja, Craft of Exile and Maxroll.
-- Saves move to schema 2. Map timers from 1.0 are migrated to endgame runs, and the old save is kept as a backup until 50 later saves succeed. Settings has a "Restore pre-1.1 backup" button while it exists.
+- Saves move to schema 2. Map timers from 1.0 are migrated to endgame runs, and the old save is kept as a backup for 14 days after the first successful 1.1 save. Settings has a "Restore pre-1.1 backup" button while it exists.
 - Save safety: if the browser's storage is full, a banner says changes aren't being saved and offers Export JSON. A save that can't be read is never overwritten; the banner offers an export and a "Start saving anyway" button. If the backup can't be written, the migration isn't saved.
 - Endgame history is capped at 5000 runs (oldest dropped, with a notice). Dates and atlas values in saves and imports are validated.
 - Maps CSV: cells that start with `=`, `+`, `-`, `@`, tab or carriage return are prefixed with `'`, so spreadsheets don't run them as formulas.
@@ -15,6 +15,8 @@
 - Endgame checklist corrected against the 0.5.5 notes and poe2db: King in the Mists, the Aberration and the gateway quests fixed, unconfirmed items marked.
 - Settings and Help open from every tab. The tab bar stays at the top while scrolling, campaign-only toggles hide on other tabs, and on phones the header's rarely used buttons sit behind a ⋯ menu.
 - Endgame: maps per hour shows after 10 minutes of data, clearer empty state, a note that endgame data is per character, and labelled run buttons.
+- Settings and Help are proper modal dialogs: Esc or a click outside closes them, focus returns to where it was, and in-app hotkeys (Space and others) don't fire while any dialog is open.
+- Phone: the tab row stays at the top while scrolling, and the ⋯ menu closes on Esc, an outside tap or after picking an item.
 - The now bar no longer clips the New run button at 1280×720.
 
 ## 1.0.0 (2026-10-16)

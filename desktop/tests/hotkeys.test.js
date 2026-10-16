@@ -20,14 +20,27 @@ test("rejects unsafe or malformed combos", () => {
     "S", "Space", "Alt+S", "Shift+S", "Ctrl+S", "Alt+F4", "Ctrl+Alt+F4", "Alt+Tab", "Ctrl+Alt+Delete",
     "Ctrl+Shift+Escape", "Super+L", "Ctrl+Alt+Super+S", "Meta+Ctrl+Alt+S", "Ctrl+Alt", "Ctrl+Alt+S+D",
     "Ctrl+Ctrl+Alt+S", "Ctrl+Alt+Space", "Ctrl+Alt+Enter", "Ctrl++Alt", "", null, 42,
-    "Ctrl+Alt+S" + " ".repeat(40),
+    "Ctrl+Alt+Shift+" + "F".repeat(40),
   ]) {
     assert.ok(!validateAccelerator(raw).ok, "should reject " + JSON.stringify(raw));
   }
 });
 
-test("length is checked before trimming", () => {
-  assert.ok(!validateAccelerator(" ".repeat(30) + "Ctrl+Alt+S").ok);
+test("whitespace is trimmed before the length check", () => {
+  const r = validateAccelerator(" ".repeat(30) + "Ctrl+Alt+S" + " ".repeat(30));
+  assert.ok(r.ok, r.error);
+  assert.strictEqual(r.accel, "Ctrl+Alt+S");
+  assert.ok(!validateAccelerator("Ctrl+Alt+" + "S".repeat(40)).ok);
+  assert.strictEqual(validateAccelerator("Ctrl+Alt+Shift+" + "x".repeat(30)).error, "Too long");
+});
+
+test("browser and editor Ctrl+Shift combos are reserved", () => {
+  for (const k of ["Z", "T", "V", "C"]) {
+    const r = validateAccelerator("Ctrl+Shift+" + k);
+    assert.ok(!r.ok && /reserved/.test(r.error), k);
+    assert.ok(!validateAccelerator("shift+ctrl+" + k.toLowerCase()).ok, "normalised " + k);
+  }
+  assert.ok(validateAccelerator("Ctrl+Shift+S").ok);
 });
 
 test("stored bad bindings fall back to defaults", () => {

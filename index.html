@@ -92,15 +92,15 @@
   <main id="viewEndgame" class="view-page" role="tabpanel" aria-labelledby="tab-endgame" hidden></main>
   <main id="viewTools" class="view-page" role="tabpanel" aria-labelledby="tab-tools" hidden></main>
 
-  <div id="help" class="help card" hidden>
+  <dialog id="help" class="help card panel-dialog" tabindex="-1" aria-label="Keyboard shortcuts">
     <h2>Keyboard shortcuts</h2>
     <dl class="kv" id="helpKeys"></dl>
     <p class="muted small">Ticking the last required step of the zone you are timing also splits automatically.
       Hotkeys only work while this window has focus (use the helper's global hotkeys while in game).</p>
     <div class="row"><button data-action="settings">Theme &amp; hotkeys…</button></div>
-  </div>
+  </dialog>
 
-  <div id="settings" class="help card" hidden role="dialog" aria-label="Settings">
+  <dialog id="settings" class="help card panel-dialog" tabindex="-1" aria-label="Settings">
     <h2>Colour theme</h2>
     <p class="muted small">Global preference (saved for this browser; included in JSON export).</p>
     <div class="theme-grid" id="themeGrid" role="listbox" aria-label="Colour theme"></div>
@@ -128,7 +128,7 @@
     <table class="keys" id="keyTable"></table>
     <div class="error" id="keyError"></div>
     <div class="row"><button data-action="keys-reset">Reset defaults</button><button data-action="settings-close" class="primary">Done</button></div>
-  </div>
+  </dialog>
 
   <div id="storageWarn" class="storage-warn" role="alert" hidden></div>
   <div id="toast" role="status"></div>

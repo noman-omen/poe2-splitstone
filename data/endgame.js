@@ -4,7 +4,6 @@
  *
  * verified: true  = confirmed in GGG patch notes or poe2db/poe2wiki.
  * verified: false = from community guides only; shown with a "?" in the app.
- * Reviewed by Herald (PoE2 Strategist) on 2026-10-16.
  */
 (function (global) {
   "use strict";

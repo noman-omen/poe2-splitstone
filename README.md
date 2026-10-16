@@ -16,7 +16,7 @@ It's a campaign speedrun tracker and leveling guide for Acts 1–4 plus the Inte
 4. Splitstone finds Path of Exile 2's `Client.txt` automatically. If it can't, click **Client.txt…** and pick it (Steam folder → `Path of Exile 2` → `logs` → `Client.txt`). Only that file, or one in a known PoE2 folder, is read.
 5. Play in **Windowed Fullscreen** so the overlay can sit on top.
 
-Global hotkeys. Change them under Settings → Global hotkeys in the desktop app; they need Ctrl+Alt or Ctrl+Shift, so bare keys are never taken from the game.
+Global hotkeys. Change them under Settings → Desktop → Global hotkeys in the desktop app; they need Ctrl+Alt or Ctrl+Shift, so bare keys are never taken from the game.
 
 | Keys | Action |
 | --- | --- |

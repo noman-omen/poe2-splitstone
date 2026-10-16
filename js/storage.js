@@ -201,8 +201,9 @@
    * because a migration write failed. `status` explains what the app should warn about.
    */
   const BACKUP_KEY = KEY + ":backup-schema1";
-  const BACKUP_SAVES_KEY = KEY + ":backup-saves";
-  const BACKUP_KEEP_SAVES = 50;     // drop the pre-1.1 backup after this many good saves
+  const BACKUP_SINCE_KEY = KEY + ":backup-since";  // time of the first good schema-2 save
+  const LEGACY_SAVES_KEY = KEY + ":backup-saves";   // counter used by early 1.1 builds
+  const BACKUP_KEEP_MS = 14 * 24 * 3600 * 1000;     // keep the pre-1.1 backup for 14 days
   const status = { blocked: null, lastError: null };
   // blocked: null | "unreadable" (existing save can't be parsed) | "migration" (backup could not be written)
 
@@ -224,7 +225,7 @@
         // Keep the pre-migration save, then persist the migrated state.
         try {
           if (!localStorage.getItem(BACKUP_KEY)) localStorage.setItem(BACKUP_KEY, raw);
-          localStorage.setItem(BACKUP_SAVES_KEY, "0");
+          localStorage.removeItem(BACKUP_SINCE_KEY);
         } catch (e) {
           // No room for the backup: keep the migrated state in memory only and leave the old save alone.
           status.blocked = "migration"; status.lastError = isQuota(e) ? "storage full" : String(e.message || e);
@@ -266,9 +267,10 @@
     status.lastError = null;
     try {
       if (localStorage.getItem(BACKUP_KEY) !== null) {
-        const n = (parseInt(localStorage.getItem(BACKUP_SAVES_KEY), 10) || 0) + 1;
-        if (n >= BACKUP_KEEP_SAVES) { localStorage.removeItem(BACKUP_KEY); localStorage.removeItem(BACKUP_SAVES_KEY); }
-        else localStorage.setItem(BACKUP_SAVES_KEY, String(n));
+        localStorage.removeItem(LEGACY_SAVES_KEY);
+        const since = Date.parse(localStorage.getItem(BACKUP_SINCE_KEY) || "");
+        if (!Number.isFinite(since)) localStorage.setItem(BACKUP_SINCE_KEY, new Date().toISOString());
+        else if (Date.now() - since >= BACKUP_KEEP_MS) { localStorage.removeItem(BACKUP_KEY); localStorage.removeItem(BACKUP_SINCE_KEY); }
       }
     } catch (_) { /* counter is best effort */ }
     return true;

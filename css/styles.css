@@ -208,7 +208,6 @@ body.hide-hints .hints-inline { display: none; }
   .now-actions .big-btn { flex: 1; }
   .now-actions kbd { display: none; }
   .now-clock .big { font-size: 30px; }
-  .topbar { position: static; }
 }
 
 .section.current { border-color: var(--gold); }
@@ -583,3 +582,8 @@ body:not(.view-campaign) .topbar .toggles { display: none; }
 input[type=number] { font: inherit; color: var(--text); background: var(--panel-2);
   border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; }
 .eg-runs button.icon { min-width: 32px; min-height: 32px; font-size: 14px; }
+
+/* Settings and Help are modal <dialog>s */
+dialog.panel-dialog { margin: 0; color: var(--text); background: var(--panel); border: 1px solid var(--line); }
+dialog.panel-dialog::backdrop { background: rgba(0, 0, 0, .35); }
+dialog.panel-dialog:focus { outline: none; }

@@ -183,7 +183,14 @@
     const top = $(".topbar"), now = $("#now");
     if (!top || !now) return;
     const root = document.documentElement.style;
-    const topH = getComputedStyle(top).position === "sticky" ? top.offsetHeight : 0;
+    let topH = getComputedStyle(top).position === "sticky" ? top.offsetHeight : 0;
+    const tabs = top.querySelector(".views");
+    if (topH && tabs && matchMedia("(max-width: 860px)").matches) {
+      // Phone: the header scrolls away and the tab row sticks at the top.
+      const tabsH = tabs.offsetHeight;
+      top.style.top = -(topH - tabsH) + "px";
+      topH = tabsH;
+    } else top.style.top = "";
     now.style.top = topH + "px";
     // Measure after density classes apply (focus mode shrinks the now bar).
     root.setProperty("--sticky-top", topH + now.offsetHeight + 12 + "px");
@@ -1084,6 +1091,53 @@
     commit(); window.scrollTo({ top: 0 }); toast(`New run ready. Press ${keyName(bindings().split)} to start.`);
   }
 
+  /* ---------- Settings / Help dialogs ---------- */
+  const panelOpener = new WeakMap();
+  const visible = el => !!(el && el.isConnected && el.getClientRects().length);
+  function openPanel(id) {
+    const d = $("#" + id);
+    if (!d || d.open) return;
+    for (const other of document.querySelectorAll("dialog.panel-dialog[open]")) closePanel(other.id);
+    panelOpener.set(d, document.activeElement);
+    d.showModal();
+    d.focus();   // the panel itself; Tab moves into it, and a stray Space/Enter presses nothing
+  }
+  function closePanel(id) { const d = $("#" + id); if (d && d.open) d.close(); }
+  function anyDialogOpen() { return !!document.querySelector("dialog[open]"); }
+  for (const d of document.querySelectorAll("dialog.panel-dialog")) {
+    d.addEventListener("close", () => {
+      if (d.id === "settings") capturing = null;
+      const back = panelOpener.get(d);
+      const target = visible(back) ? back : (visible($(".more-btn")) ? $(".more-btn") : null);
+      if (target) target.focus();
+    });
+    // Click on the backdrop (outside the panel box) closes it.
+    d.addEventListener("click", ev => {
+      if (ev.target !== d) return;       // clicks on the panel's own content
+      const r = d.getBoundingClientRect();
+      if (ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom) d.close();
+    });
+  }
+
+  /* ---------- Phone header menu ---------- */
+  function setHeaderMenu(open, refocus) {
+    const bar = $(".topbar"), btn = $(".more-btn");
+    if (!bar || bar.classList.contains("menu-open") === open) return;
+    bar.classList.toggle("menu-open", open);
+    if (btn) btn.setAttribute("aria-expanded", String(open));
+    _layoutStickySoon();
+    if (!open && refocus && visible(btn) && !anyDialogOpen()) btn.focus();
+  }
+  document.addEventListener("click", ev => {
+    const bar = $(".topbar");
+    if (!bar || !bar.classList.contains("menu-open")) return;
+    const t = ev.target;
+    if (t.closest(".more-btn") || t.closest("#charSelect")) return;
+    // Outside tap, or an item was picked: close after the item's own handler has run.
+    const picked = !!t.closest(".topbar button, .topbar label, .topbar input");
+    setTimeout(() => setHeaderMenu(false, picked), 0);
+  });
+
   const actions = {
     split: doSplit,
     pause() { const r = Run.togglePause(char()); if (r) { commit(); toast(r === "paused" ? "Paused" : "Resumed"); } },
@@ -1255,12 +1309,8 @@
     },
     "csv-runs"() { download(`splitstone-runs-${fileSafe(char().name)}.csv`, runsCSV(char()), "text/csv"); },
     "eg-csv"() { download(`splitstone-maps-${fileSafe(char().name)}.csv`, Endgame.toCSV(EG(), char().name), "text/csv"); },
-    help() { $("#help").toggleAttribute("hidden"); },
-    "header-menu"(el) {
-      const open = $(".topbar").classList.toggle("menu-open");
-      el.setAttribute("aria-expanded", String(open));
-      _layoutStickySoon();
-    },
+    help() { if ($("#help").open) closePanel("help"); else openPanel("help"); },
+    "header-menu"() { setHeaderMenu(!$(".topbar").classList.contains("menu-open"), true); },
     async "pob-import"() {
       const code = $("#pobCode").value;
       try {
@@ -1529,7 +1579,6 @@
       toast("Overlay position reset");
     },
     settings() {
-      $("#help").setAttribute("hidden", "");
       $("#backupBlock").hidden = !Storage2.hasBackup();
       capturing = null;
       renderHelp();
@@ -1552,9 +1601,9 @@
           else if (ovs) ovs.checked = true;
         }
       }
-      $("#settings").removeAttribute("hidden");
+      openPanel("settings");
     },
-    "settings-close"() { capturing = null; $("#settings").setAttribute("hidden", ""); },
+    "settings-close"() { capturing = null; closePanel("settings"); },
     "key-change"(el) { capturing = capturing === el.dataset.id ? null : el.dataset.id; $("#keyError").textContent = ""; renderHelp(); },
     "keys-reset"() { state.settings.hotkeys = {}; capturing = null; $("#keyError").textContent = ""; commit(); toast("Hotkeys reset"); },
     "set-theme"(el) {
@@ -1576,17 +1625,18 @@
       renderHelp();
       return;
     }
+    if (ev.key === "Escape" && $(".topbar").classList.contains("menu-open")) {
+      ev.preventDefault(); setHeaderMenu(false, true); return;
+    }
+    // Settings, Help or a confirm box is open: keys belong to it, never to the timer.
+    if (anyDialogOpen()) return;
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     const t = ev.target;
     if (t.closest && t.closest("input[type=text], textarea, select, [contenteditable]")) {
       if (ev.key === "Escape") t.blur();  // Esc leaves the field so hotkeys work again
       return;
     }
-    if (ev.key === "Escape") {
-      const mdl = $("#appModal");
-      if (mdl && mdl.open) return; // dialog handles Esc
-      $("#help").setAttribute("hidden", ""); $("#settings").setAttribute("hidden", ""); return;
-    }
+    if (ev.key === "Escape") return;
     const b = bindings(), key = normKey(ev.key);
     const def = HOTKEY_DEFS.find(([id]) => b[id] === key);
     if (!def) return;
