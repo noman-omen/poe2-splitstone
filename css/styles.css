@@ -464,9 +464,9 @@ body:not(.is-desktop) .desktop-only { display: none !important; }
     padding: 6px 16px 8px;
     gap: 8px 16px;
     align-items: center;
-    max-height: 22vh;
-    overflow: hidden;
   }
+  .now-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .now-actions kbd { display: none; }
   .now-where { font-size: 11px; }
   .now-zone { font-size: 20px; margin: 0 0 2px; line-height: 1.15; }
   .now-objective { font-size: 14px; gap: 8px; }
@@ -476,7 +476,7 @@ body:not(.is-desktop) .desktop-only { display: none !important; }
   .now-next { margin-top: 2px; font-size: 12px; }
   .now-clock .big { font-size: 36px; }
   #liveDelta { font-size: 16px; }
-  .now-actions .big-btn { font-size: 14px; padding: 8px 12px; }
+  .now-actions .big-btn { font-size: 13px; padding: 5px 10px; }
   .now-run { font-size: 13px !important; }
 }
 
@@ -555,3 +555,31 @@ abbr.unverified { text-decoration: none; border: 1px solid var(--line); border-r
   .views { padding: 6px 8px 0; }
   .eg-fields label { grid-template-columns: 1fr; }
 }
+
+/* Save warning (unreadable save, failed migration, storage full) */
+.storage-warn { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 30; max-width: min(720px, 94vw);
+  background: #3a1f12; border: 1px solid #c8643a; color: #f5e6d8; border-radius: 8px; padding: 10px 14px; box-shadow: 0 8px 30px #000a;
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; }
+.storage-warn[hidden] { display: none; }
+.help { max-height: calc(100vh - 100px); overflow: auto; }
+
+/* Tabs live in the sticky top bar; campaign-only toggles hide on other tabs */
+.topbar .views { flex-basis: 100%; padding: 0; margin: 0 -20px -10px; padding: 0 20px; max-width: none; border-bottom: 0; }
+.topbar .views button[aria-selected="true"] { margin-bottom: 0; background: var(--bg); }
+body:not(.view-campaign) .topbar .toggles { display: none; }
+.more-btn { display: none; }
+@media (max-width: 860px) {
+  .topbar { gap: 8px 12px; padding: 8px 12px; }
+  .topbar .views { margin: 0 -12px -8px; padding: 0 12px; }
+  .more-btn { display: inline-block; }
+  .char-controls > button:not(.more-btn), .topbar .toggles, .topbar .io { display: none; }
+  .topbar.menu-open .char-controls > button, .topbar.menu-open .io { display: flex; }
+  .topbar.menu-open .char-controls > button { display: inline-block; }
+  body.view-campaign .topbar.menu-open .toggles { display: flex; flex-wrap: wrap; }
+  .topbar .char-controls { flex-wrap: wrap; flex: 1; }
+  .topbar .io { flex-wrap: wrap; }
+  .brand .sub { display: none; }
+}
+input[type=number] { font: inherit; color: var(--text); background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; }
+.eg-runs button.icon { min-width: 32px; min-height: 32px; font-size: 14px; }

@@ -38,7 +38,6 @@ with sync_playwright() as p:
     page.clock.fast_forward(48_000)
     page.keyboard.press("c"); page.clock.fast_forward(500)
     page.screenshot(path=str(SHOTS / "milestone3.png"))
-    page.locator("#now").screenshot(path=str(SHOTS / "milestone3-nowbar.png"))
     # Element shots: unstick the bars so they don't overlay the element.
     page.add_style_tag(content=".topbar, .now { position: static !important; } .sidebar { position: static !important; }")
     page.locator("#stats").screenshot(path=str(SHOTS / "milestone3-stats.png"))

@@ -72,7 +72,7 @@ with sync_playwright() as p:
     check("endgame tab restored after reload", page.locator("#viewEndgame").is_visible())
 
     # Demo session for the screenshot
-    page.click('[data-action="eg-session-start"]')
+    check("empty state explains the flow", "session opens automatically" in page.text_content("#viewEndgame") or page.locator('.eg-runs li').count() > 0)
     demo = [("Burial Bog", 12, 245, 0, "Divine Orb", True), ("Savannah", 12, 198, 0, "", True),
             ("Vaal Factory", 13, 312, 1, "Exalted x3", True), ("Sandspit", 13, 140, 2, "", False),
             ("Crimson Shores", 13, 221, 0, "Perfect Jeweller's Orb", True)]

@@ -6,6 +6,29 @@ It's a campaign speedrun tracker and leveling guide for Acts 1–4 plus the Inte
 
 ![Splitstone](screenshots/splitstone.png)
 
+## Download
+
+**[Download Splitstone for Windows](https://github.com/noman-omen/poe2-splitstone/releases/latest)**
+
+1. Under **Assets**, download **Splitstone-Setup-&lt;version&gt;.exe** (installer, recommended) or **Splitstone-Portable-&lt;version&gt;.exe**. Ignore the `.yml` and `.blockmap` files.
+2. Run it (Windows 10/11 x64). Uninstall from Add/Remove Programs.
+3. Builds are **not code-signed**, so SmartScreen may say "Windows protected your PC". Click **More info**, then **Run anyway**.
+4. Splitstone finds Path of Exile 2's `Client.txt` automatically. If it can't, click **Client.txt…** and pick it (Steam folder → `Path of Exile 2` → `logs` → `Client.txt`). Only that file, or one in a known PoE2 folder, is read.
+5. Play in **Windowed Fullscreen** so the overlay can sit on top.
+
+Global hotkeys. Change them under Settings → Global hotkeys in the desktop app; they need Ctrl+Alt or Ctrl+Shift, so bare keys are never taken from the game.
+
+| Keys | Action |
+| --- | --- |
+| `Ctrl+Alt+S` | Split |
+| `Ctrl+Alt+Z` | Undo |
+| `Ctrl+Alt+P` | Pause / resume |
+| `Ctrl+Alt+R` | New run (press twice within 3 s) |
+| `Ctrl+Alt+H` | Show / hide hints |
+| `Ctrl+Alt+O` | Lock / unlock the overlay (unlocked = drag to move) |
+
+Auto-update is on by default (Settings → Desktop to turn off). Full releases only get full releases; prerelease builds also see prereleases. A build that crashes on launch can't update itself, so reinstall from the link above.
+
 ---
 
 ## What it does
@@ -21,17 +44,17 @@ It's a campaign speedrun tracker and leveling guide for Acts 1–4 plus the Inte
 | **Overlay** | Small top-right panel with the current step, hint and next step |
 | **Endgame** | Map runs with tier, mods, deaths and loot; session stats; atlas progress checklist |
 | **Tools** | One-click links to trade, poe2db, the wiki, PoB2, poe.ninja and more |
-| **PoB2 import, themes** | Paste a Path of Building 2 code; Ember, Slate, Crimson, Parchment |
+| **PoB2 import, themes** | Paste a Path of Building 2 code; Ember, Slate, Crimson and Parchment themes |
 
-![Now bar](screenshots/milestone3-nowbar.png)
+### In-game overlay
 
-| Run analytics | Hotkeys |
-| --- | --- |
-| ![Stats](screenshots/milestone3-stats.png) | ![Hotkeys](screenshots/milestone3-hotkeys.png) |
+A browser tab can't sit on top of a fullscreen game, so the desktop app draws a small always-on-top panel: current step, hint and next step, nothing else. It's 80% opaque by default (slider in Settings), click-through until you unlock it with `Ctrl+Alt+O` or the tray, and it remembers its position per monitor.
+
+![Overlay](screenshots/overlay-minimal.png)
 
 ### Endgame
 
-Log each map with its tier and waystone mods, then mark it completed or failed, count deaths and note any loot worth remembering. Sessions give you maps per hour, average map time and totals, and the atlas checklist tracks the Fortress, pinnacle bosses and atlas masters. In the desktop app you can turn on auto-detect, which starts, pauses and saves map runs from `Client.txt`. Everything stays in local storage and goes into the JSON export. Old map timers from 1.0 are carried over.
+Log each map with its tier and waystone mods, then mark it completed or failed, count deaths and note any loot worth remembering. Sessions give you maps per hour, average map time and totals, and the atlas checklist tracks the Fortress, pinnacle bosses and atlas masters. Endgame data belongs to the selected character. In the desktop app, auto-detect can start and finish map runs from the zone changes it already reads for auto-split; it doesn't read anything new from Client.txt. Everything stays in local storage and goes into the JSON export; map timers from 1.0 are carried over.
 
 ![Endgame](screenshots/endgame.png)
 
@@ -43,45 +66,13 @@ Links to the community sites I keep open while playing. The list is in `data/too
 
 ![Tools](screenshots/tools.png)
 
-### In-game overlay
+### Run analytics and practice
 
-A browser tab can't sit on top of a fullscreen game, so the desktop app draws a small always-on-top panel: current step, hint and next step, nothing else. It's 80% opaque by default (slider in Settings), click-through until you unlock it with `Ctrl+Alt+O` or the tray, and it remembers its position per monitor.
-
-![Overlay](screenshots/overlay-minimal.png)
-
-### Cues and routes
-
-| Class notes | Level / XP warnings |
+| Run analytics | Practice mode |
 | --- | --- |
-| ![Class notes](screenshots/class-notes.png) | ![Level / XP warnings](screenshots/level-xp-warnings.png) |
-| **Gear / gem checkpoints** | **Practice mode** |
-| ![Gear / gem checkpoints](screenshots/gear-gem-checkpoints.png) | ![Practice mode](screenshots/practice-mode.png) |
-
-![Custom shareable routes](screenshots/custom-routes.png)
-
-Themes: Ember, Slate, Crimson and Parchment.
-
-| | |
-| --- | --- |
-| ![Ember](screenshots/theme-ember.png) | ![Slate](screenshots/theme-slate.png) |
-| ![Crimson](screenshots/theme-crimson.png) | ![Parchment](screenshots/theme-parchment.png) |
+| ![Stats](screenshots/milestone3-stats.png) | ![Practice mode](screenshots/practice-mode.png) |
 
 ---
-
-## Download
-
-**[Download Splitstone for Windows](https://github.com/noman-omen/poe2-splitstone/releases/latest)**
-
-1. Under **Assets**, download **Splitstone-Setup-1.0.0.exe** (installer, recommended) or **Splitstone-Portable-1.0.0.exe**. Ignore the `.yml` and `.blockmap` files.
-2. Run it (Windows 10/11 x64). Uninstall from Add/Remove Programs.
-3. Builds are **not code-signed**, so SmartScreen may say "Windows protected your PC". Click **More info**, then **Run anyway**.
-4. Splitstone finds Path of Exile 2's `Client.txt` automatically. If it can't, click **Client.txt…** and pick it (Steam folder → `Path of Exile 2` → `logs` → `Client.txt`). Only that file, or one in a known PoE2 folder, is read.
-5. Play in **Windowed Fullscreen** so the overlay can sit on top.
-
-Global hotkeys (change them under Settings → Global hotkeys in the desktop app; bare keys are never grabbed from the game):
-
-| Keys | Action |
-| ---
 
 ## Roadmap
 

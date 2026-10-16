@@ -112,7 +112,26 @@
   };
   const allSteps = c => Run.order(c).flatMap(o => visibleSteps(c, o.zone));
 
-  function commit() { Storage2.save(state); render(); }
+  /** Save and render; show a persistent warning when the save was not written. */
+  function persist() {
+    const ok = Storage2.save(state);
+    showStorageWarning();
+    return ok;
+  }
+  function commit() { persist(); render(); }
+  function showStorageWarning() {
+    const st = Storage2.status, el = $("#storageWarn");
+    if (!el) return;
+    let msg = "";
+    if (st.blocked === "unreadable")
+      msg = "Your saved data couldn't be read, so Splitstone won't overwrite it. Changes in this window are not being saved.";
+    else if (st.blocked === "migration")
+      msg = "There wasn't room to back up your save before upgrading it, so it hasn't been changed. Changes are not being saved until you free some space or export.";
+    else if (st.lastError)
+      msg = "Couldn't save (" + st.lastError + "). Export your data to keep recent changes.";
+    el.hidden = !msg;
+    el.innerHTML = msg ? `${esc(msg)} <button type="button" data-action="export">Export JSON</button>${st.blocked ? ` <button type="button" class="danger" data-action="storage-overwrite">Start saving anyway</button>` : ""}` : "";
+  }
 
   function toast(msg) {
     const t = $("#toast"); t.textContent = msg; t.classList.add("show");
@@ -597,7 +616,7 @@
     const pm = Endgame.perMap(eg.runs);
     const names = [...new Set(eg.runs.map(r => r.map))].slice(0, 200);
     const card = (label, v) => `<div class="stat"><div class="muted small">${label}</div><div class="mono">${v}</div></div>`;
-    const statCards = st => st ? `<div class="stat-cards">${card("Maps", `${st.completed}/${st.maps}`)}${card("Maps / hour", perHour(st.mapsPerHour))}
+    const statCards = st => st ? `<div class="stat-cards">${card("Completed", `${st.completed} / ${st.maps}`)}${card("Maps / hour", st.mapsPerHour === null ? `<span title="Shown after 10 minutes">–</span>` : perHour(st.mapsPerHour))}
       ${card("Average", st.avgMs === null ? "–" : fmt(st.avgMs))}${card("Total in maps", fmt(st.totalMs))}${card("Deaths", st.deaths)}</div>` : "";
 
     const activeBlock = a ? `<div class="eg-active${Endgame.isRunning(eg) ? " running" : ""}">
@@ -630,9 +649,11 @@
           <span class="mono">${fmt(r.ms)}</span>
           <span>${esc(r.map)} ${r.tier ? `<span class="muted">${tierLabel(r.tier)}</span>` : ""}${isPb ? " · PB" : ""}${r.completed ? "" : " · failed"}${r.deaths ? ` · ${r.deaths} death${r.deaths > 1 ? "s" : ""}` : ""}
             ${r.loot ? `<br><span class="small">${esc(r.loot)}</span>` : ""}${r.mods ? `<br><span class="muted small">${esc(r.mods)}</span>` : ""}${r.notes ? `<br><span class="muted small">${esc(r.notes)}</span>` : ""}</span>
-          <button class="icon" data-action="eg-run-complete" data-id="${esc(r.id)}" title="Toggle completed" aria-label="Toggle completed">${r.completed ? "✓" : "○"}</button>
-          <button class="icon danger" data-action="eg-run-delete" data-id="${esc(r.id)}" aria-label="Delete map run">✕</button></li>`;
-      }).join("")}</ol>` : `<div class="empty">No map runs in this session yet.</div>`;
+          <button class="icon" data-action="eg-run-complete" data-id="${esc(r.id)}" title="${r.completed ? "Mark failed" : "Mark completed"}" aria-label="${r.completed ? "Mark failed" : "Mark completed"}">${r.completed ? "✓" : "○"}</button>
+          <button class="icon danger" data-action="eg-run-delete" data-id="${esc(r.id)}" title="Delete map run" aria-label="Delete map run">✕</button></li>`;
+      }).join("")}</ol>` : `<div class="empty">${eg.sessions.length
+        ? "No map runs in this session yet."
+        : "Type a map and press Start map; a session opens automatically. End the session to see your maps per hour. Map runs and atlas progress are kept per character."}</div>`;
 
     const sessOpts = eg.sessions.slice(0, 50).map(s => {
       const st = Endgame.sessionStats(eg, s.id, now);
@@ -650,8 +671,8 @@
 
     return `<div class="eg-grid">
       <section class="card eg-maps"><header class="card-head"><h2>Map runs</h2>
-          <span class="muted small">${cur ? "Session open" : "No open session"}</span>
-          ${cur ? `<button data-action="eg-session-end">End session</button>` : `<button data-action="eg-session-start">Start session</button>`}
+          <span class="muted small">Endgame for ${esc(c.name)}</span>
+          ${cur ? `<button data-action="eg-session-end">End session</button>` : ""}
           <label class="switch desktop-only" title="Start, pause and finish map runs from Client.txt zone changes"><input type="checkbox" id="egAutoDetect"${state.settings.endgameAutoDetect ? " checked" : ""}> Auto-detect maps</label>
         </header>
         ${activeBlock}
@@ -676,10 +697,12 @@
 
   function renderViews() {
     const v = state.settings.view || "campaign";
+    ["campaign", "endgame", "tools"].forEach(n => document.body.classList.toggle("view-" + n, n === v));
     $("#viewCampaign").hidden = v !== "campaign";
     $("#viewEndgame").hidden = v !== "endgame";
     $("#viewTools").hidden = v !== "tools";
     document.querySelectorAll(".views [data-view]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.view === v)));
+    _layoutStickySoon();
     if (v === "endgame") {
       const f = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.egField;
       if (!f) $("#viewEndgame").innerHTML = endgameHTML(char());
@@ -691,7 +714,8 @@
     if (!state.settings.endgameAutoDetect) return;
     const r = Endgame.onZone(EG(), ev, Date.now(), { tierOffset: ENDGAME.tierOffset });
     if (r.action === "ignore") return;
-    if (r.action === "start") toast(`${r.finished ? `Saved ${r.finished.map} ${fmt(r.finished.ms)}. ` : ""}Map started: ${r.run.map}`);
+    if (r.action === "start") toast(`${r.finished ? `Saved ${r.finished.map} ${fmt(r.finished.ms)}. ` : ""}Map started: ${r.run.map}`
+      + (r.finished && r.finished.trimmed ? ` (history capped at ${Endgame.MAX_RUNS} runs)` : ""));
     commit();
   }
 
@@ -783,12 +807,7 @@
   }
 
   /** CSV helpers: one row per run, times in seconds (spreadsheet friendly). */
-  const csvCell = v => {
-    let s = String(v ?? "");
-    // Neutralise spreadsheet formula injection (Excel/Sheets).
-    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
+  const csvCell = v => Endgame.csvCell(v); // formula-safe (see endgame.js)
   const sec = ms => (ms ? (ms / 1000).toFixed(1) : "");
   function runsCSV(c) {
     const cols = [...DATA.groups.map(g => ["groups", g.id, g.name]), ...DATA.sections.map(s => ["sections", s.id, s.name]),
@@ -1161,6 +1180,21 @@
       collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id);
       render();
     },
+    async "storage-overwrite"() {
+      const msg = Storage2.status.blocked === "unreadable"
+        ? "Replace the unreadable save with what's in this window? Export first if you're unsure."
+        : "Save the upgraded data without a backup of the old save?";
+      if (!(await askConfirm(msg, { okLabel: "Replace" }))) return;
+      Storage2.unblock(); commit();
+    },
+    async "restore-backup"() {
+      let restored;
+      try { restored = Storage2.backupState(); } catch (e) { toast(e.message || "No backup found"); return; }
+      if (!(await askConfirm("Replace all current data with the pre-1.1 backup? Anything changed since the upgrade will be lost.", { okLabel: "Restore" }))) return;
+      state = restored; Storage2.unblock();
+      const ok = persist(); render();
+      toast(ok ? "Pre-1.1 backup restored" : "Restored in this window, but it couldn't be saved");
+    },
     view(el) { state.settings.view = el.dataset.view; commit(); window.scrollTo({ top: 0 }); },
     "eg-toggle"() { const eg = EG(), now = Date.now(); Endgame.isRunning(eg) ? Endgame.pauseMap(eg, now) : Endgame.resumeMap(eg, now); commit(); },
     "eg-death"() { Endgame.addDeath(EG(), 1); commit(); },
@@ -1169,6 +1203,7 @@
       if (!run) return;
       const st = Endgame.perMap(EG().runs)[run.map.toLowerCase()];
       commit();
+      if (run.trimmed) { toast(`Map history is capped at ${Endgame.MAX_RUNS} runs; removed the oldest ${run.trimmed}. Export the CSV to keep them.`); return; }
       toast(run.completed && st && st.pb === run.ms && st.runs > 1 ? `New map PB: ${run.map} ${fmt(run.ms)}` : `${run.map}: ${fmt(run.ms)}`);
     },
     async "eg-discard"() { if (await askConfirm("Discard this map run without saving it?")) { Endgame.discardMap(EG()); commit(); } },
@@ -1221,6 +1256,11 @@
     "csv-runs"() { download(`splitstone-runs-${fileSafe(char().name)}.csv`, runsCSV(char()), "text/csv"); },
     "eg-csv"() { download(`splitstone-maps-${fileSafe(char().name)}.csv`, Endgame.toCSV(EG(), char().name), "text/csv"); },
     help() { $("#help").toggleAttribute("hidden"); },
+    "header-menu"(el) {
+      const open = $(".topbar").classList.toggle("menu-open");
+      el.setAttribute("aria-expanded", String(open));
+      _layoutStickySoon();
+    },
     async "pob-import"() {
       const code = $("#pobCode").value;
       try {
@@ -1345,15 +1385,17 @@
       pushOverlay();
     }
     else if (el.dataset && el.dataset.egMilestone) { Endgame.toggleMilestone(EG(), el.dataset.egMilestone, Date.now()); commit(); }
-    else if (el.dataset && el.dataset.egField) { Endgame.updateActive(EG(), { [el.dataset.egField]: el.value }); Storage2.save(state); }
+    else if (el.dataset && el.dataset.egField) { Endgame.updateActive(EG(), { [el.dataset.egField]: el.value }); persist(); }
     else if (el.id === "egSession") { egShowSession = el.value || null; renderViews(); }
     else if (el.id === "egAutoDetect") { state.settings.endgameAutoDetect = el.checked; commit(); }
     else if (el.dataset && el.dataset.globalKey) {
-      const action = el.dataset.globalKey, want = el.value.trim();
-      window.splitstoneDesktop.setHotkeys({ [action]: want }).then(hk => {
+      const action = el.dataset.globalKey, want = el.value;
+      window.splitstoneDesktop.setHotkeys({ [action]: want }).then(res => {
+        const hk = res && res.hotkeys ? res.hotkeys : res, r = res && res.results && res.results[action];
         renderDesktopHotkeys(hk);
-        toast(hk && hk[action] === want ? `${want} saved` : `${want || "That"} isn't allowed; use Ctrl or Alt with a key`);
-      }).catch(() => {});
+        if (r && r.ok) toast(`${r.accel} saved`);
+        else toast(`Not saved: ${(r && r.error) || "use Ctrl+Alt or Ctrl+Shift with a key"}`);
+      }).catch(() => toast("Not saved: the desktop app didn't respond"));
     }
     else if (el.id === "desktopClickThrough") {
       state.settings.overlay = Object.assign({}, state.settings.overlay || {}, { clickThrough: el.checked });
@@ -1488,6 +1530,7 @@
     },
     settings() {
       $("#help").setAttribute("hidden", "");
+      $("#backupBlock").hidden = !Storage2.hasBackup();
       capturing = null;
       renderHelp();
       const desk = $("#desktopSettingsBlock");
@@ -1702,6 +1745,7 @@
   applyTheme(state.settings.theme || "ember");
 
   render();
+  showStorageWarning();
   scrollToCurrent(false);
   setInterval(tick, 250);
   if (window.splitstoneDesktop) syncDesktopHotkeys();

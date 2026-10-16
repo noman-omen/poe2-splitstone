@@ -286,7 +286,7 @@ with sync_playwright() as p:
     page.click('[data-action="eg-finish"][data-completed="0"]')
     r0 = char(page)["endgame"]["runs"][0]
     check("failed run keeps deaths", r0["map"] == "Savannah" and not r0["completed"] and r0["deaths"] == 2)
-    check("session stats: 2 completed of 3", "2/3" in page.text_content(".eg-maps .stat-cards"))
+    check("session stats: 2 completed of 3", "2 / 3" in page.text_content(".eg-maps .stat-cards"))
     with page.expect_download() as dl:
         page.click('[data-action="eg-csv"]')
     mcsv = Path(dl.value.path()).read_text().splitlines()

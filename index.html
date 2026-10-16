@@ -51,6 +51,7 @@
     <div class="char-controls">
       <label for="charSelect" class="sr-only">Character</label>
       <select id="charSelect" title="Switch character"></select>
+      <button type="button" class="more-btn" data-action="header-menu" aria-expanded="false" aria-label="More options" title="More options">⋯</button>
       <button data-action="char-new" title="Create a new character">New</button>
       <button data-action="char-rename">Rename</button>
       <button data-action="char-delete" class="danger">Delete</button>
@@ -67,16 +68,29 @@
       <button data-action="settings" title="Change hotkeys" aria-label="Settings (theme & hotkeys)">⌨</button>
       <button data-action="help" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
     </div>
+    <nav class="views" role="tablist" aria-label="View">
+      <button role="tab" data-action="view" data-view="campaign" id="tab-campaign">Campaign</button>
+      <button role="tab" data-action="view" data-view="endgame" id="tab-endgame">Endgame</button>
+      <button role="tab" data-action="view" data-view="tools" id="tab-tools">Tools</button>
+    </nav>
   </header>
 
-  <nav class="views" role="tablist" aria-label="View">
-    <button role="tab" data-action="view" data-view="campaign" id="tab-campaign">Campaign</button>
-    <button role="tab" data-action="view" data-view="endgame" id="tab-endgame">Endgame</button>
-    <button role="tab" data-action="view" data-view="tools" id="tab-tools">Tools</button>
-  </nav>
 
   <div id="viewCampaign" role="tabpanel" aria-labelledby="tab-campaign">
   <section id="now" class="now" aria-label="Current zone"></section>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <section class="card" id="totals" aria-label="Totals"></section>
+      <section class="card" id="history" aria-label="Run history"></section>
+      <section class="card" id="character" aria-label="Character"></section>
+    </aside>
+    <main id="campaign" aria-live="polite"></main>
+  </div>
+  </div>
+
+  <main id="viewEndgame" class="view-page" role="tabpanel" aria-labelledby="tab-endgame" hidden></main>
+  <main id="viewTools" class="view-page" role="tabpanel" aria-labelledby="tab-tools" hidden></main>
 
   <div id="help" class="help card" hidden>
     <h2>Keyboard shortcuts</h2>
@@ -100,9 +114,14 @@
       <label class="switch"><input type="checkbox" id="desktopAutoUpdateSettings"> Auto-update from GitHub Releases</label>
       <p class="muted small">Checks for a new version when the app starts. Uncheck to stop automatic checks. Global: Ctrl+Alt+S split · Ctrl+Alt+Z undo · Ctrl+Alt+P pause · Ctrl+Alt+R new run · Ctrl+Alt+H show/hide hints · Ctrl+Alt+O lock/unlock overlay.</p>
       <h3>Global hotkeys</h3>
-      <p class="muted small">Type a combo such as Ctrl+Alt+S, then press Enter. Combos need Ctrl or Alt; bare keys are refused.</p>
+      <p class="muted small">Type a combo such as Ctrl+Alt+S and press Enter. Use Ctrl+Alt or Ctrl+Shift with a letter, digit or F-key.</p>
       <table class="keys" id="desktopHotkeyTable"></table>
       <p class="muted small" id="desktopVersion"></p>
+    </div>
+    <div id="backupBlock" hidden>
+      <h2>Saved data</h2>
+      <p class="muted small">A copy of your save from before 1.1 is kept for a while after the upgrade.</p>
+      <button type="button" data-action="restore-backup">Restore pre-1.1 backup</button>
     </div>
     <h2>Hotkeys</h2>
     <p class="muted small">Click "Change", then press the new key. Esc cancels.</p>
@@ -111,19 +130,7 @@
     <div class="row"><button data-action="keys-reset">Reset defaults</button><button data-action="settings-close" class="primary">Done</button></div>
   </div>
 
-  <div class="layout">
-    <aside class="sidebar">
-      <section class="card" id="totals" aria-label="Totals"></section>
-      <section class="card" id="history" aria-label="Run history"></section>
-      <section class="card" id="character" aria-label="Character"></section>
-    </aside>
-    <main id="campaign" aria-live="polite"></main>
-  </div>
-  </div>
-
-  <main id="viewEndgame" class="view-page" role="tabpanel" aria-labelledby="tab-endgame" hidden></main>
-  <main id="viewTools" class="view-page" role="tabpanel" aria-labelledby="tab-tools" hidden></main>
-
+  <div id="storageWarn" class="storage-warn" role="alert" hidden></div>
   <div id="toast" role="status"></div>
 
   <dialog id="appModal" class="app-modal">
