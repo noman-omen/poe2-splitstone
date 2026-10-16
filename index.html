@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Splitstone — PoE2 campaign timer</title>
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'none'">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -69,6 +69,13 @@
     </div>
   </header>
 
+  <nav class="views" role="tablist" aria-label="View">
+    <button role="tab" data-action="view" data-view="campaign" id="tab-campaign">Campaign</button>
+    <button role="tab" data-action="view" data-view="endgame" id="tab-endgame">Endgame</button>
+    <button role="tab" data-action="view" data-view="tools" id="tab-tools">Tools</button>
+  </nav>
+
+  <div id="viewCampaign" role="tabpanel" aria-labelledby="tab-campaign">
   <section id="now" class="now" aria-label="Current zone"></section>
 
   <div id="help" class="help card" hidden>
@@ -112,6 +119,10 @@
     </aside>
     <main id="campaign" aria-live="polite"></main>
   </div>
+  </div>
+
+  <main id="viewEndgame" class="view-page" role="tabpanel" aria-labelledby="tab-endgame" hidden></main>
+  <main id="viewTools" class="view-page" role="tabpanel" aria-labelledby="tab-tools" hidden></main>
 
   <div id="toast" role="status"></div>
 
@@ -131,6 +142,9 @@
   <script src="data/campaign.js"></script>
   <script src="data/class_notes.js"></script>
   <script src="data/gear_checkpoints.js"></script>
+  <script src="data/endgame.js"></script>
+  <script src="data/tools.js"></script>
+  <script src="js/endgame.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/timers.js"></script>
   <script src="js/run.js"></script>

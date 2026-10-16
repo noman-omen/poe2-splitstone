@@ -153,6 +153,7 @@
       .map(x => `<option value="${esc(x.id)}"${x.id === c.id ? " selected" : ""}>${esc(x.name)}</option>`).join("");
     renderNow(); renderTotals(); renderHistory(); renderCharacter(); renderCampaign();
     renderHelp();
+    renderViews();
     layoutSticky();
     if (state.settings.focusMode) _layoutStickySoon();
     pushOverlay();
@@ -333,8 +334,7 @@
         <td class="mono ${campD === null ? "muted" : deltaClass(campD)}" data-seg-delta="total:">${campD !== null ? fmtDelta(campD) : "–"}</td>
         <td>${p ? fmt(p.total) : "–"}</td><td>${sob ? fmt(sob) : "–"}</td></tr>
       </tbody></table>
-      <div class="muted small">Best = best segment ever (gold) for this route/practice variant.${prac ? " Practice PBs do not replace the full-campaign PB." : " Campaign best = sum of best zones."}</div>
-      <div class="totals-row"><span>Maps total</span><span class="mono" data-sum="maps:">${fmt(Timers.sum(c, "map:"))}</span></div>`;
+      <div class="muted small">Best = best segment ever (gold) for this route/practice variant.${prac ? " Practice PBs do not replace the full-campaign PB." : " Campaign best = sum of best zones."}</div>`;
   }
 
   /** Sidebar + analytics: All / Campaign / Practice (default Campaign). */
@@ -527,7 +527,6 @@
         <div class="zones">${zones.map(z => zoneHTML(z, c, cur)).join("")}</div></section>`;
     }).join("");
 
-    const maps = mapsHTML(c);
 
     const v = DATA.variants[r.mode] || {};
     const routeBar = `<section class="card route-bar" aria-label="Route">
@@ -580,55 +579,120 @@
       </details>
       ${v.tips && v.tips.length ? `<details class="tips" data-keep="tips"${openDetails.has("tips") ? " open" : ""}><summary>Speedrun tips (${v.tips.length})</summary><ul>${v.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul></details>` : ""}
     </section>`;
-    $("#campaign").innerHTML = routeBar + sections + maps + statsHTML(c);
+    $("#campaign").innerHTML = routeBar + sections + statsHTML(c);
   }
 
-  /* ---------- Endgame maps: timers + history / PBs ---------- */
-  const mapKey = name => name.trim().toLowerCase();
-  /** Per-map stats from history, keyed by normalised map name. */
-  function mapStats(c) {
-    const out = {};
-    (c.mapHistory || []).forEach(m => {
-      const k = mapKey(m.name), s = out[k] || (out[k] = { runs: 0, sum: 0, pb: null, last: null });
-      s.runs++; s.sum += m.ms;
-      if (s.pb === null || m.ms < s.pb) s.pb = m.ms;
-      if (!s.last) s.last = m.ms;                  // history is newest first
-    });
-    Object.values(out).forEach(s => { s.avg = s.sum / s.runs; });
-    return out;
+  /* ---------- Endgame view: map runs, sessions, atlas ---------- */
+  const EG = () => char().endgame;
+  const tierLabel = t => (t ? `T${t}` : "");
+  const perHour = v => (v === null ? "–" : v.toFixed(1));
+  let egShowSession = null; // UI-only: session id whose runs are listed (null = current/latest)
+
+  function endgameHTML(c) {
+    const eg = c.endgame, now = Date.now(), a = eg.active;
+    const cur = Endgame.currentSession(eg);
+    const shownId = egShowSession || (cur ? cur.id : (eg.sessions[0] && eg.sessions[0].id));
+    const ss = shownId ? Endgame.sessionStats(eg, shownId, now) : null;
+    const all = Endgame.stats(eg.runs);
+    const pm = Endgame.perMap(eg.runs);
+    const names = [...new Set(eg.runs.map(r => r.map))].slice(0, 200);
+    const card = (label, v) => `<div class="stat"><div class="muted small">${label}</div><div class="mono">${v}</div></div>`;
+    const statCards = st => st ? `<div class="stat-cards">${card("Maps", `${st.completed}/${st.maps}`)}${card("Maps / hour", perHour(st.mapsPerHour))}
+      ${card("Average", st.avgMs === null ? "–" : fmt(st.avgMs))}${card("Total in maps", fmt(st.totalMs))}${card("Deaths", st.deaths)}</div>` : "";
+
+    const activeBlock = a ? `<div class="eg-active${Endgame.isRunning(eg) ? " running" : ""}">
+        <div class="eg-active-head"><strong>${esc(a.map)}</strong> ${a.tier ? `<span class="badge">${tierLabel(a.tier)}</span>` : ""}
+          ${a.auto ? `<span class="muted small">auto</span>` : ""}
+          <span class="timer big mono" data-eg-timer>${fmt(Endgame.activeMs(eg, now))}</span></div>
+        <div class="eg-active-actions">
+          <button class="primary" data-action="eg-toggle">${Endgame.isRunning(eg) ? "Pause" : "Resume"}</button>
+          <button data-action="eg-death">Death (${a.deaths})</button>
+          <button class="primary" data-action="eg-finish" data-completed="1">Completed</button>
+          <button data-action="eg-finish" data-completed="0">Failed / abandoned</button>
+          <button class="danger" data-action="eg-discard">Discard</button>
+        </div>
+        <div class="eg-fields">
+          <label>Waystone mods <input type="text" data-eg-field="mods" value="${esc(a.mods)}" maxlength="300" placeholder="optional"></label>
+          <label>Loot highlights <input type="text" data-eg-field="loot" value="${esc(a.loot)}" maxlength="300" placeholder="optional"></label>
+          <label>Notes <input type="text" data-eg-field="notes" value="${esc(a.notes)}" maxlength="500" placeholder="optional"></label>
+        </div></div>`
+      : `<form class="eg-start" data-form="eg-start">
+          <input type="text" id="egMap" list="egMapNames" placeholder="Map name, e.g. Burial Bog" maxlength="80" required aria-label="Map name">
+          <datalist id="egMapNames">${names.map(n => `<option value="${esc(n)}">`).join("")}</datalist>
+          <input type="number" id="egTier" min="1" max="20" placeholder="Tier" aria-label="Waystone tier">
+          <input type="text" id="egMods" maxlength="300" placeholder="Waystone mods (optional)" aria-label="Waystone mods">
+          <button class="primary" type="submit">Start map</button></form>`;
+
+    const runs = shownId ? eg.runs.filter(r => r.sessionId === shownId) : eg.runs;
+    const runList = runs.length ? `<ol class="runs eg-runs">${runs.slice(0, 50).map(r => {
+        const st = pm[r.map.toLowerCase()], isPb = r.completed && st && st.runs > 1 && st.pb === r.ms;
+        return `<li class="${r.completed ? "" : "abandoned"}${isPb ? " is-pb" : ""}">
+          <span class="mono">${fmt(r.ms)}</span>
+          <span>${esc(r.map)} ${r.tier ? `<span class="muted">${tierLabel(r.tier)}</span>` : ""}${isPb ? " · PB" : ""}${r.completed ? "" : " · failed"}${r.deaths ? ` · ${r.deaths} death${r.deaths > 1 ? "s" : ""}` : ""}
+            ${r.loot ? `<br><span class="small">${esc(r.loot)}</span>` : ""}${r.mods ? `<br><span class="muted small">${esc(r.mods)}</span>` : ""}${r.notes ? `<br><span class="muted small">${esc(r.notes)}</span>` : ""}</span>
+          <button class="icon" data-action="eg-run-complete" data-id="${esc(r.id)}" title="Toggle completed" aria-label="Toggle completed">${r.completed ? "✓" : "○"}</button>
+          <button class="icon danger" data-action="eg-run-delete" data-id="${esc(r.id)}" aria-label="Delete map run">✕</button></li>`;
+      }).join("")}</ol>` : `<div class="empty">No map runs in this session yet.</div>`;
+
+    const sessOpts = eg.sessions.slice(0, 50).map(s => {
+      const st = Endgame.sessionStats(eg, s.id, now);
+      const when = new Date(s.started).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+      return `<option value="${esc(s.id)}"${s.id === shownId ? " selected" : ""}>${esc(when)}${s.ended ? "" : " (open)"} · ${st.completed} maps</option>`;
+    }).join("");
+
+    const groups = ENDGAME.groups.map(g => {
+      const ms = ENDGAME.milestones.filter(m => m.group === g.id);
+      return `<div class="eg-atlas-group"><h3>${esc(g.name)}</h3>${ms.map(m => `<label class="step${eg.atlas[m.id] ? " done" : ""}">
+          <input type="checkbox" data-eg-milestone="${esc(m.id)}"${eg.atlas[m.id] ? " checked" : ""}>
+          <span>${esc(m.name)}${m.verified ? "" : ` <abbr class="unverified" title="From community guides; not yet confirmed in patch notes or poe2db">?</abbr>`}</span></label>`).join("")}</div>`;
+    }).join("");
+    const prog = Endgame.atlasProgress(eg, ENDGAME.milestones);
+
+    return `<div class="eg-grid">
+      <section class="card eg-maps"><header class="card-head"><h2>Map runs</h2>
+          <span class="muted small">${cur ? "Session open" : "No open session"}</span>
+          ${cur ? `<button data-action="eg-session-end">End session</button>` : `<button data-action="eg-session-start">Start session</button>`}
+          <label class="switch desktop-only" title="Start, pause and finish map runs from Client.txt zone changes"><input type="checkbox" id="egAutoDetect"${state.settings.endgameAutoDetect ? " checked" : ""}> Auto-detect maps</label>
+        </header>
+        ${activeBlock}
+        <div class="eg-session-bar"><label>Session <select id="egSession">${sessOpts || `<option value="">none yet</option>`}</select></label>
+          <button data-action="eg-csv"${eg.runs.length ? "" : " disabled"}>Maps CSV</button></div>
+        ${statCards(ss)}
+        ${runList}
+        <h3>All time</h3>${statCards(all)}
+      </section>
+      <section class="card eg-atlas"><header class="card-head"><h2>Atlas progress</h2><span class="badge">${prog.done}/${prog.total}</span></header>
+        <p class="muted small">Patch ${esc(ENDGAME.patch)} data, checked ${esc(ENDGAME.checked)}. Items marked ? are from community guides only.</p>
+        ${groups}
+      </section></div>`;
   }
 
-  function mapsHTML(c) {
-    const stats = mapStats(c), hist = (c.mapHistory || []).slice(0, 12);
-    const statLine = st => st ? `<span class="muted small mono" title="${st.runs} runs">PB ${fmt(st.pb)} · avg ${fmt(st.avg)} · ${st.runs}×</span>` : `<span class="muted small">no runs yet</span>`;
-    return `<section class="section maps" data-section="maps">
-      <header><h2>Endgame maps<small>timed map runs, history and per-map PBs (separate from the campaign run)</small></h2>
-        <span class="badge">${(c.mapHistory || []).length} runs</span></header>
-      <div class="zones">
-        <form class="maps-add" data-form="map-add"><input type="text" id="mapName" list="mapNames" placeholder="Map name, e.g. Burial Bog (T1)" maxlength="80">
-          <datalist id="mapNames">${[...new Set((c.mapHistory || []).map(m => m.name))].map(n => `<option value="${esc(n)}">`).join("")}</datalist>
-          <button class="primary" type="submit">Add map</button></form>
-        ${c.maps.length ? c.maps.map(m => {
-          const st = stats[mapKey(m.name)], key = "map:" + m.id, ms = Timers.value(c, key);
-          const running = Timers.isRunning(c, key);
-          return `<div class="map-row" data-map="${esc(m.id)}"><span class="name">${esc(m.name)} ${statLine(st)}</span>
-          ${st && ms ? `<span class="delta ${deltaClass(ms - st.pb)}" data-map-delta="${esc(m.id)}">${fmtDelta(ms - st.pb)}</span>` : ""}
-          <span class="tw${running ? " running" : ""}" data-key="${esc(key)}">
-            <span class="timer" data-timer="${esc(key)}">${fmt(ms)}</span>
-            <button class="tt primary" data-action="timer-toggle" data-key="${esc(key)}">${running ? "Stop" : "Start"}</button>
-          </span>
-          <button class="primary" data-action="map-finish" data-id="${esc(m.id)}" title="Save this run"${ms ? "" : " disabled"}>Finish</button>
-          <details class="map-more"><summary title="More">⋯</summary>
-            <button data-action="timer-reset" data-key="${esc(key)}">Reset timer</button>
-            <button data-action="map-delete" data-id="${esc(m.id)}" class="danger">Delete map</button>
-          </details></div>`;
-        }).join("") : `<div class="empty">No maps yet. Add one, press Start when you enter it, then Finish.</div>`}
-        ${hist.length ? `<h3 class="chart-title" style="padding:0 16px">Recent map runs</h3><ol class="runs map-runs">${hist.map(m => {
-          const st = stats[mapKey(m.name)], isPb = st && st.pb === m.ms;
-          return `<li class="${isPb ? "is-pb" : ""}"><span class="mono">${fmt(m.ms)}</span><span>${esc(m.name)}${isPb ? " · PB" : ""}</span>
-            <span class="muted small">${new Date(m.finished).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</span>
-            <button class="icon danger" data-action="map-run-delete" data-id="${esc(m.id)}" aria-label="Delete map run">✕</button></li>`; }).join("")}</ol>` : ""}
-      </div></section>`;
+  function toolsHTML() {
+    return `<section class="card"><header class="card-head"><h2>PoE2 tools</h2></header>
+      <p class="muted small">Community sites, opened in your browser. Not affiliated with Splitstone.</p>
+      <div class="tools-grid">${TOOLS.map(t => `<a class="tool" href="${esc(t.url)}" target="_blank" rel="noopener noreferrer" data-tool-url="${esc(t.url)}">
+        <strong>${esc(t.name)}</strong><span class="muted small">${esc(t.desc)}</span><span class="tool-host small">${esc(new URL(t.url).host)}</span></a>`).join("")}</div></section>`;
+  }
+
+  function renderViews() {
+    const v = state.settings.view || "campaign";
+    $("#viewCampaign").hidden = v !== "campaign";
+    $("#viewEndgame").hidden = v !== "endgame";
+    $("#viewTools").hidden = v !== "tools";
+    document.querySelectorAll(".views [data-view]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.view === v)));
+    if (v === "endgame") {
+      const f = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.egField;
+      if (!f) $("#viewEndgame").innerHTML = endgameHTML(char());
+    } else if (v === "tools" && !$("#viewTools").innerHTML) $("#viewTools").innerHTML = toolsHTML();
+  }
+
+  /** Client.txt zone event -> endgame auto-detect (behind the toggle). */
+  function endgameZone(ev) {
+    if (!state.settings.endgameAutoDetect) return;
+    const r = Endgame.onZone(EG(), ev, Date.now(), { tierOffset: ENDGAME.tierOffset });
+    if (r.action === "ignore") return;
+    if (r.action === "start") toast(`${r.finished ? `Saved ${r.finished.map} ${fmt(r.finished.ms)}. ` : ""}Map started: ${r.run.map}`);
+    commit();
   }
 
   /* ---------- Run analytics (history charts / trends) ---------- */
@@ -696,7 +760,7 @@
     const filterNote = historyFilter === "all" ? "All runs" : historyFilter === "practice" ? "Practice runs" : "Campaign runs";
     return `<section class="section stats" data-section="stats" id="stats">
       <header><h2>Run analytics<small>${esc(filterNote)} · ${esc(Run.variantLabel(variant))}</small></h2>
-        <button data-action="csv-runs">Runs CSV</button><button data-action="csv-maps">Maps CSV</button></header>
+        <button data-action="csv-runs">Runs CSV</button></header>
       <div class="zones"><div class="stat-cards">
         ${card("Completed runs", complete.length)}${card("Resets", runs.length - complete.length)}
         ${card("PB", p ? fmt(p.total) : "–")}${card("Average", totals.length ? fmt(avg(totals)) : "–")}
@@ -734,10 +798,6 @@
       sec(h.total), ...cols.map(([k, id]) => sec((h[k] || {})[id]))]);
     return [head, ...lines].map(r => r.map(csvCell).join(",")).join("\n") + "\n";
   }
-  function mapsCSV(c) {
-    const lines = (c.mapHistory || []).slice().reverse().map(m => [m.id, c.name, m.name, m.finished, sec(m.ms)]);
-    return [["run_id", "character", "map", "finished", "time_s"], ...lines].map(r => r.map(csvCell).join(",")).join("\n") + "\n";
-  }
   function download(name, text, type) {
     const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([text], { type })), download: name });
     document.body.appendChild(a); a.click(); a.remove();
@@ -754,17 +814,13 @@
     document.querySelectorAll("[data-sum]").forEach(el => {
       const [kind, id] = el.dataset.sum.split(":");
       let ms;
-      if (kind === "maps") ms = Timers.sum(c, "map:", now);
-      else if (kind === "acts" || kind === "interludes")
+      if (kind === "acts" || kind === "interludes")
         ms = DATA.groups.filter(g => g.kind === (kind === "acts" ? "act" : "interlude")).reduce((a, g) => a + Run.groupMs(c, g.id, now), 0);
       else ms = sumValue(c, kind, id, now);
       el.textContent = fmt(ms);
     });
-    const ms = mapStats(c);
-    document.querySelectorAll("[data-map-delta]").forEach(el => {
-      const m = c.maps.find(x => x.id === el.dataset.mapDelta), st = m && ms[mapKey(m.name)];
-      if (st) { const v = Timers.value(c, "map:" + m.id, now) - st.pb; el.textContent = fmtDelta(v); el.className = "delta " + deltaClass(v); }
-    });
+    const egT = document.querySelector("[data-eg-timer]");
+    if (egT) egT.textContent = fmt(Endgame.activeMs(c.endgame, now));
     const d = $("#liveDelta");
     if (d && Run.pb(c)) { const v = Run.deltaVsPb(c, now); d.textContent = fmtDelta(v); d.className = deltaClass(v); }
     if (Run.pb(c)) {
@@ -1105,29 +1161,23 @@
       collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id);
       render();
     },
-    async "map-delete"(el) {
-      if (!(await askConfirm("Remove this map from the list? History is kept."))) return;
-      const c = char();
-      c.maps = c.maps.filter(m => m.id !== el.dataset.id);
-      Timers.reset(c, "map:" + el.dataset.id);
+    view(el) { state.settings.view = el.dataset.view; commit(); window.scrollTo({ top: 0 }); },
+    "eg-toggle"() { const eg = EG(), now = Date.now(); Endgame.isRunning(eg) ? Endgame.pauseMap(eg, now) : Endgame.resumeMap(eg, now); commit(); },
+    "eg-death"() { Endgame.addDeath(EG(), 1); commit(); },
+    "eg-finish"(el) {
+      const run = Endgame.finishMap(EG(), { completed: el.dataset.completed === "1" }, Date.now());
+      if (!run) return;
+      const st = Endgame.perMap(EG().runs)[run.map.toLowerCase()];
       commit();
+      toast(run.completed && st && st.pb === run.ms && st.runs > 1 ? `New map PB: ${run.map} ${fmt(run.ms)}` : `${run.map}: ${fmt(run.ms)}`);
     },
-    "map-finish"(el) {
-      const c = char(), m = c.maps.find(x => x.id === el.dataset.id), key = "map:" + el.dataset.id;
-      Timers.stop(c, key);
-      const ms = Timers.value(c, key);
-      if (!m || !ms) return;
-      const prev = mapStats(c)[mapKey(m.name)];
-      c.mapHistory = c.mapHistory || [];
-      c.mapHistory.unshift({ id: Storage2.uid(), name: m.name, ms, finished: new Date().toISOString() });
-      Timers.reset(c, key);
-      commit();
-      toast(!prev || ms < prev.pb ? `New map PB: ${m.name} ${fmt(ms)}` : `${m.name}: ${fmt(ms)} (${fmtDelta(ms - prev.pb)} vs PB)`);
-    },
-    "map-run-delete"(el) {
-      const c = char();
-      c.mapHistory = (c.mapHistory || []).filter(m => m.id !== el.dataset.id);
-      commit();
+    async "eg-discard"() { if (await askConfirm("Discard this map run without saving it?")) { Endgame.discardMap(EG()); commit(); } },
+    "eg-session-start"() { Endgame.startSession(EG(), Date.now()); egShowSession = null; commit(); },
+    "eg-session-end"() { const s = Endgame.endSession(EG(), Date.now()); egShowSession = s ? s.id : null; commit(); },
+    "eg-run-complete"(el) { const r = EG().runs.find(x => x.id === el.dataset.id); if (r) { r.completed = !r.completed; commit(); } },
+    async "eg-run-delete"(el) {
+      if (!(await askConfirm("Delete this map run?"))) return;
+      EG().runs = EG().runs.filter(r => r.id !== el.dataset.id); commit();
     },
     async "run-delete"(el) {
       if (!(await askConfirm("Delete this run from history? (Best segments are kept.)"))) return;
@@ -1169,7 +1219,7 @@
       catch (e) { if (e.name !== "AbortError") toast(e.message); }
     },
     "csv-runs"() { download(`splitstone-runs-${fileSafe(char().name)}.csv`, runsCSV(char()), "text/csv"); },
-    "csv-maps"() { download(`splitstone-maps-${fileSafe(char().name)}.csv`, mapsCSV(char()), "text/csv"); },
+    "eg-csv"() { download(`splitstone-maps-${fileSafe(char().name)}.csv`, Endgame.toCSV(EG(), char().name), "text/csv"); },
     help() { $("#help").toggleAttribute("hidden"); },
     async "pob-import"() {
       const code = $("#pobCode").value;
@@ -1294,6 +1344,10 @@
       commit();
       pushOverlay();
     }
+    else if (el.dataset && el.dataset.egMilestone) { Endgame.toggleMilestone(EG(), el.dataset.egMilestone, Date.now()); commit(); }
+    else if (el.dataset && el.dataset.egField) { Endgame.updateActive(EG(), { [el.dataset.egField]: el.value }); Storage2.save(state); }
+    else if (el.id === "egSession") { egShowSession = el.value || null; renderViews(); }
+    else if (el.id === "egAutoDetect") { state.settings.endgameAutoDetect = el.checked; commit(); }
     else if (el.dataset && el.dataset.globalKey) {
       const action = el.dataset.globalKey, want = el.value.trim();
       window.splitstoneDesktop.setHotkeys({ [action]: want }).then(hk => {
@@ -1371,13 +1425,12 @@
     }
   });
   document.addEventListener("submit", ev => {
-    if (ev.target.dataset.form !== "map-add") return;
+    if (ev.target.dataset.form !== "eg-start") return;
     ev.preventDefault();
-    const name = $("#mapName").value.trim();
-    if (!name) return;
-    char().maps.push({ id: Storage2.uid(), name });
+    const map = $("#egMap").value.trim();
+    if (!map) return;
+    Endgame.startMap(EG(), { map, tier: $("#egTier").value, mods: $("#egMods").value }, Date.now());
     commit();
-    $("#mapName").focus();
   });
 
   /* ---------- Hotkeys (rebindable, ignored while typing) ---------- */
@@ -1512,6 +1565,7 @@
       document.querySelectorAll("[data-as-pill]").forEach(el => { el.innerHTML = statusPill(); });
     },
     onZone(ev) {
+      endgameZone(ev);
       const c = char(), m = AutoSplit.match(c, ev);
       const where = ev.name || ev.area;
       lastAuto = `Last: ${where} → ${m.action}${m.reason ? " (" + m.reason + ")" : ""}`;

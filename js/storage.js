@@ -6,7 +6,8 @@
 
   const KEY = "splitstone:v1";
   const LEGACY_KEYS = ["poe2-campaign-tracker:v1"];  // migrate one-time on first load
-  const SCHEMA = 1;
+  // 2: endgame tracking replaced maps/mapHistory (migrated on load).
+  const SCHEMA = 2;
 
   const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
@@ -17,8 +18,7 @@
       created: new Date().toISOString(),
       done: {},     // stepId -> true
       timers: {},   // timerKey -> { elapsed: ms, startedAt: epoch ms | null }
-      maps: [],     // [{ id, name }] maps currently in the list (each has a "map:<id>" timer)
-      mapHistory: [], // finished map runs, newest first: [{ id, name, ms, finished }]
+      endgame: global.Endgame ? Endgame.blank() : { runs: [], active: null, sessions: [], sessionId: null, atlas: {} }, // see endgame.js
       classId: null, // basic class id (warrior|…|witch) or null — see data/class_notes.js
       build: null,  // parsed PoB2 summary (see pob.js)
       // Speedrun bookkeeping (see run.js)
@@ -42,10 +42,12 @@
              theme: "ember",  // global UI theme (see css/styles.css data-theme)
              autoSplit: { enabled: false, url: "http://127.0.0.1:8766", token: "" },
              overlay: { opacity: 0.8, clickThrough: true },
+             endgameAutoDetect: false, // desktop: start/stop map runs from Client.txt
+             view: "campaign",         // campaign | endgame | tools
              hotkeys: {} };  // action -> key overrides; defaults live in app.js (HOTKEY_DEFS)
   }
 
-  const SETTINGS_KEYS = ["hideHints", "hideExtra", "focusMode", "theme", "autoSplit", "overlay", "hotkeys"];
+  const SETTINGS_KEYS = ["hideHints", "hideExtra", "focusMode", "theme", "autoSplit", "overlay", "endgameAutoDetect", "view", "hotkeys"];
 
   /** Local helper hosts: 127.0.0.1, localhost, [::1]. No path/search/hash/userinfo. */
   function isLocalHelperHost(hostname) {
@@ -97,6 +99,13 @@
     const out = { id: asString(id, base.id) };
     for (const k of CHAR_KEYS) {
       if (k === "id") continue;
+      if (k === "endgame") {
+        // Schema 1 kept finished map runs in mapHistory; carry them over.
+        if (src.endgame) out[k] = Endgame.normalise(src.endgame);
+        else if (Array.isArray(src.mapHistory) && src.mapHistory.length) out[k] = Endgame.fromLegacyMapHistory(src.mapHistory);
+        else out[k] = Endgame.blank();
+        continue;
+      }
       if (!(k in src)) { out[k] = base[k]; continue; }
       const v = src[k];
       if (k === "name") out[k] = asString(v, base.name).slice(0, 80);
@@ -137,7 +146,7 @@
           } catch (_) { /* drop bad route */ }
         });
       }
-      else if (k === "maps" || k === "mapHistory" || k === "undo" || k === "history") out[k] = asArray(v);
+      else if (k === "undo" || k === "history") out[k] = asArray(v);
       else out[k] = base[k];
     }
     return out;
@@ -157,6 +166,8 @@
     let opacity = Number(ov.opacity);
     if (!Number.isFinite(opacity)) opacity = 0.8;
     opacity = Math.min(1, Math.max(0.3, opacity));
+    out.endgameAutoDetect = asBool(src.endgameAutoDetect);
+    out.view = ["campaign", "endgame", "tools"].includes(src.view) ? src.view : "campaign";
     out.overlay = {
       opacity,
       clickThrough: ov.clickThrough === undefined ? true : !!ov.clickThrough,
@@ -188,7 +199,16 @@
   function load() {
     try {
       let raw = localStorage.getItem(KEY);
-      if (raw) return normalise(JSON.parse(raw));
+      if (raw) {
+        const parsed = JSON.parse(raw), state = normalise(parsed);
+        if (parsed.schema !== SCHEMA) {
+          // Keep the pre-migration save once, then persist the migrated state.
+          const backup = KEY + ":backup-schema" + (parsed.schema || 0);
+          if (!localStorage.getItem(backup)) localStorage.setItem(backup, raw);
+          localStorage.setItem(KEY, JSON.stringify(state));
+        }
+        return state;
+      }
       // One-time migration from the pre-rebrand key: parse+normalise first;
       // on failure leave the old key untouched so the user can recover.
       for (const old of LEGACY_KEYS) {

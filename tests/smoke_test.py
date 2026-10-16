@@ -75,7 +75,7 @@ with sync_playwright() as p:
 
     # --- Structure: interludes split into their own sections/groups ---
     names = page.locator(".section h2").all_text_contents()
-    check("8 campaign sections + maps + analytics", len(names) == 10, names)
+    check("8 campaign sections + analytics", len(names) == 9, names)
     check("interludes split (1, 2 part 1/2, 3)",
           all(any(n.startswith(x) for n in names) for x in ("Interlude 1", "Interlude 2 · part 1", "Interlude 2 · part 2", "Interlude 3")))
     seg = page.text_content("#totals")
@@ -123,17 +123,17 @@ with sync_playwright() as p:
     check("resume restarts the zone", char(page)["timers"]["zone:act1-z03"]["startedAt"])
 
     # Hotkeys must not fire while typing
-    page.fill("#mapName", "")
-    page.type("#mapName", "p u r")
+    page.fill("#pobCode", "")
+    page.type("#pobCode", "p u r")
     check("hotkeys ignored in text inputs", char(page)["timers"]["zone:act1-z03"]["startedAt"]
-          and page.input_value("#mapName") == "p u r")
-    page.fill("#mapName", "")
+          and page.input_value("#pobCode") == "p u r")
+    page.fill("#pobCode", "")
     page.keyboard.press("Escape")  # leave the field: hotkeys active again
 
     # Focus mode
     page.keyboard.press("f")
     vis = [s for s in page.locator(".section").all() if s.is_visible()]
-    check("focus mode shows only current act (+maps, analytics)", len(vis) == 3)
+    check("focus mode shows only current act (+analytics)", len(vis) == 2)
     page.keyboard.press("f")
 
     # --- Complete run 1: every zone 10s ---
@@ -245,11 +245,7 @@ with sync_playwright() as p:
     check("settings persisted", page.is_checked("#hideExtra"))
     page.uncheck("#hideExtra")
 
-    # Manual zone/map timers still work
-    page.fill("#mapName", "Burial Bog")
-    page.click("form.maps-add button")
-    page.click('.map-row button.tt'); tick(page, 3_000); page.click('.map-row button.tt')
-    check("map timer counts", char(page)["timers"][[k for k in char(page)["timers"] if k.startswith("map:")][0]]["elapsed"] >= 3000)
+    # Manual zone timers still work
     page.click('.zone[data-zone="act2-z01"] button.tt')
     c = char(page)
     check("manual zone start stops other zones", c["timers"]["zone:act2-z01"]["startedAt"] and not c["timers"]["zone:act1-z01"]["startedAt"])
@@ -275,22 +271,29 @@ with sync_playwright() as p:
     check("runs CSV has header + one row per run", csv[0].startswith("run_id,character,variant") and len(csv) == 1 + len(char(page)["history"]), len(csv))
     check("runs CSV has interlude + zone columns", "Interlude 2 (s)" in csv[0] and "act1-z01" in csv[0])
 
-    # --- Map history + PBs ---
+    # --- Endgame tab: map runs, PBs, sessions, CSV ---
+    page.click("#tab-endgame")
+    check("endgame view shown, campaign hidden", page.locator("#viewEndgame").is_visible() and not page.locator("#viewCampaign").is_visible())
     for t in (30_000, 20_000):
-        page.click('.map-row button.tt'); tick(page, t)
-        page.click('[data-action="map-finish"]')
-    mh = char(page)["mapHistory"]
-    check("map runs saved to history", len(mh) == 2 and 20_000 <= mh[0]["ms"] < 21_000 and mh[1]["ms"] >= 30_000, [m["ms"] for m in mh])
-    row = page.text_content(".map-row")
-    check("per-map PB + average + count shown", "PB 0:00:20" in row and "2×" in row, row)
-    check("map timer reset after finish", not any(k.startswith("map:") for k in char(page)["timers"]))
-    page.click('.map-row button.tt'); tick(page, 25_000)
-    check("live map delta vs PB", "+0:05" in page.text_content(".map-row"))
-    page.click('.map-row button.tt')
+        page.fill("#egMap", "Burial Bog"); page.fill("#egTier", "5")
+        page.click(".eg-start button"); tick(page, t)
+        page.click('[data-action="eg-finish"][data-completed="1"]')
+    runs = char(page)["endgame"]["runs"]
+    check("map runs saved", len(runs) == 2 and 20_000 <= runs[0]["ms"] < 21_000 and runs[1]["ms"] >= 30_000 and runs[0]["tier"] == 5, [r["ms"] for r in runs])
+    check("map PB marked", "PB" in page.text_content(".eg-runs li >> nth=0"))
+    page.fill("#egMap", "Savannah"); page.click(".eg-start button"); tick(page, 5_000)
+    page.click('[data-action="eg-death"]'); page.click('[data-action="eg-death"]')
+    page.click('[data-action="eg-finish"][data-completed="0"]')
+    r0 = char(page)["endgame"]["runs"][0]
+    check("failed run keeps deaths", r0["map"] == "Savannah" and not r0["completed"] and r0["deaths"] == 2)
+    check("session stats: 2 completed of 3", "2/3" in page.text_content(".eg-maps .stat-cards"))
     with page.expect_download() as dl:
-        page.click('[data-action="csv-maps"]')
+        page.click('[data-action="eg-csv"]')
     mcsv = Path(dl.value.path()).read_text().splitlines()
-    check("maps CSV exported", len(mcsv) == 3 and "Burial Bog" in mcsv[1])
+    check("maps CSV exported", len(mcsv) == 4 and "Burial Bog" in mcsv[1] and mcsv[0].startswith("run_id,character,map,tier"))
+    page.check('[data-eg-milestone="first-map"]')
+    check("atlas milestone saved", "first-map" in char(page)["endgame"]["atlas"])
+    page.click("#tab-campaign")
 
     # --- PoB ---
     page.fill("#pobCode", "this is not a build!!")
@@ -312,7 +315,7 @@ with sync_playwright() as p:
     dl.value.save_as(export_path)
     exported = json.loads(export_path.read_text())
     ec = list(exported["characters"].values())[0]
-    check("export includes history + bests + map history", len(ec["history"]) == 4 and ec["bests"] and len(ec["mapHistory"]) == 2)
+    check("export includes history + bests + endgame runs", len(ec["history"]) == 4 and ec["bests"] and len(ec["endgame"]["runs"]) == 3)
 
     page.click('[data-action="char-new"]')
     fill_modal(page, "Second char")

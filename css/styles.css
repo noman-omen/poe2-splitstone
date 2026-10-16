@@ -510,3 +510,48 @@ body:not(.is-desktop) .desktop-only { display: none !important; }
   .now-more, .now-more-tips, .now-lvl, .now-class { display: none !important; }
   .zone .tw button, .practice-btn, .practice-pill { display: none !important; }
 }
+
+/* ---------- View tabs (Campaign / Endgame / Tools) ---------- */
+.views { display: flex; gap: 4px; padding: 6px 20px 0; max-width: 1400px; margin: 0 auto; border-bottom: 1px solid var(--line); }
+.views button { border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0; background: transparent; padding: 8px 16px; }
+.views button[aria-selected="true"] { border-color: var(--line); background: var(--panel); color: var(--gold-2); margin-bottom: -1px; }
+.view-page { padding: 20px; max-width: 1400px; margin: 0 auto; }
+.card-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.card-head h2 { margin: 0; font-size: 16px; color: var(--gold-2); flex: 1; }
+.view-page h3 { font-size: 13px; color: var(--muted); margin: 16px 0 6px; text-transform: uppercase; letter-spacing: .5px; }
+
+/* ---------- Endgame ---------- */
+.eg-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr); gap: 20px; align-items: start; }
+.eg-start { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.eg-start #egMap { flex: 2 1 200px; }
+.eg-start #egTier { width: 72px; }
+.eg-start #egMods { flex: 2 1 200px; }
+.eg-active { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; background: var(--panel-2); }
+.eg-active.running { border-color: var(--gold); }
+.eg-active-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.eg-active-head strong { font-size: 18px; color: var(--gold-2); }
+.eg-active-head .timer { margin-left: auto; font-size: 28px; }
+.eg-active-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.eg-fields { display: grid; gap: 6px; }
+.eg-fields label { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 8px; font-size: 13px; }
+.eg-session-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+ol.runs.eg-runs li.abandoned { opacity: .7; }
+ol.runs.eg-runs li { grid-template-columns: 64px 1fr auto auto; align-items: start; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.eg-atlas-group .step { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; cursor: pointer; }
+.eg-atlas-group .step.done span { color: var(--muted); text-decoration: line-through; }
+abbr.unverified { text-decoration: none; border: 1px solid var(--line); border-radius: 50%; padding: 0 5px; font-size: 11px; color: var(--muted); cursor: help; }
+
+/* ---------- Tools ---------- */
+.tools-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.tool { display: flex; flex-direction: column; gap: 4px; padding: 14px; min-height: 44px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel-2); color: inherit; text-decoration: none; }
+.tool:hover, .tool:focus-visible { border-color: var(--gold); }
+.tool strong { color: var(--gold-2); }
+.tool-host { color: var(--muted); margin-top: auto; font-family: ui-monospace, monospace; }
+
+@media (max-width: 860px) {
+  .eg-grid { grid-template-columns: 1fr; }
+  .view-page { padding: 12px; }
+  .views { padding: 6px 8px 0; }
+  .eg-fields label { grid-template-columns: 1fr; }
+}
