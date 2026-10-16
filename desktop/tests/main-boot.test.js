@@ -13,7 +13,7 @@ describe("main.js boot (stubbed electron)", () => {
   const listeners = {};
   const stubApp = {
     isPackaged: false,
-    getVersion: () => "1.0.0",
+    getVersion: () => require("../package.json").version,
     getPath: () => path.join(require("os").tmpdir(), "splitstone-test-userdata"),
     whenReady: () => Promise.resolve(),
     on: (ev, fn) => { listeners[ev] = fn; },

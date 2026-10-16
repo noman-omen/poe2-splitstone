@@ -13,9 +13,9 @@ const {
 const { pathToFileURL } = require("url");
 const { findClientLog, watchClientLog, isClientTxtPath, isAllowedLogPath } = require("./client-log");
 const { normalise, EMPTY } = require("./overlay-state");
-const { registerAll, unregisterAll } = require("./hotkeys");
+const { registerAll, unregisterAll, ACTIONS: HOTKEY_ACTIONS } = require("./hotkeys");
 const {
-  merge: mergeDesktopSettings, shouldCheckForUpdates, isSafeGlobalAccelerator, isPrereleaseVersion,
+  merge: mergeDesktopSettings, shouldCheckForUpdates, validateAccelerator, isPrereleaseVersion,
 } = require("./desktop-settings");
 
 let autoUpdater = null;
@@ -121,11 +121,45 @@ function setClickThrough(on, { toast } = {}) {
   return settings.clickThrough;
 }
 
+/**
+ * Apply requested global hotkeys. Invalid or duplicate combos are refused; a
+ * combo that fails to register (taken by another app) is reverted. Returns
+ * { hotkeys, results: { action: { ok, accel?, error? } } } for the requested actions.
+ */
+function setHotkeys(bindings) {
+  const results = {};
+  const prev = { ...settings.hotkeys };
+  const next = { ...settings.hotkeys };
+  const req = bindings && typeof bindings === "object" ? bindings : {};
+  for (const k of HOTKEY_ACTIONS) {
+    if (!(k in req)) continue;
+    const v = validateAccelerator(req[k]);
+    if (!v.ok) { results[k] = { ok: false, error: v.error }; continue; }
+    const clash = HOTKEY_ACTIONS.find(o => o !== k && next[o] === v.accel);
+    if (clash) { results[k] = { ok: false, accel: v.accel, error: `Already used for ${clash}` }; continue; }
+    next[k] = v.accel;
+    results[k] = { ok: true, accel: v.accel };
+  }
+  settings.hotkeys = next;
+  const reg = applyHotkeys();
+  let reverted = false;
+  for (const k of Object.keys(results)) {
+    if (results[k].ok && reg[k] && !reg[k].ok) {
+      results[k] = { ok: false, accel: next[k], error: reg[k].error };
+      settings.hotkeys[k] = prev[k];
+      reverted = true;
+    }
+  }
+  if (reverted) applyHotkeys();
+  saveSettings();
+  return { hotkeys: { ...settings.hotkeys }, results };
+}
+
 const NEW_RUN_CONFIRM_MS = 3000;
 let newRunArmedAt = 0;
 
 function applyHotkeys() {
-  registerAll(settings.hotkeys, (action) => {
+  return registerAll(settings.hotkeys, (action) => {
     if (action === "clickThrough") {
       setClickThrough(!(settings.clickThrough !== false), { toast: true });
       return;
@@ -405,17 +439,8 @@ function wireIpc() {
     return { ok: true, path: settings.clientLogPath };
   });
   ipcMain.handle("desktop:set-hotkeys", (e, bindings) => {
-    if (!senderIsMain(e)) return settings.hotkeys;
-    // Global hotkeys are desktop-owned modifier combos — ignore plain web keys.
-    if (bindings && typeof bindings === "object") {
-      for (const k of ["split", "pause", "undo", "newRun", "clickThrough", "toggleHint"]) {
-        if (typeof bindings[k] === "string" && isSafeGlobalAccelerator(bindings[k]))
-          settings.hotkeys[k] = bindings[k].trim().slice(0, 32);
-      }
-      saveSettings();
-      applyHotkeys();
-    }
-    return settings.hotkeys;
+    if (!senderIsMain(e)) return { hotkeys: settings.hotkeys, results: {} };
+    return setHotkeys(bindings);
   });
   ipcMain.handle("desktop:set-overlay", (e, on) => {
     if (!senderIsMain(e)) return settings.overlayEnabled;
@@ -578,4 +603,4 @@ process.on("uncaughtException", (err) => {
   app.exit(1);
 });
 
-module.exports = { isAppPageUrl, statusPayload, isClientTxtPath, findClientLog, setClickThrough };
+module.exports = { setHotkeys, isAppPageUrl, statusPayload, isClientTxtPath, findClientLog, setClickThrough };

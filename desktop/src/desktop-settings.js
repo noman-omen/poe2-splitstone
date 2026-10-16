@@ -53,11 +53,9 @@ function merge(raw) {
     out.overlayOpacity = Math.min(1, Math.max(0.3, raw.overlayOpacity));
   if (raw.hotkeys && typeof raw.hotkeys === "object") {
     for (const k of Object.keys(DEFAULT_GLOBAL_HOTKEYS)) {
-      if (typeof raw.hotkeys[k] === "string" && raw.hotkeys[k].trim()) {
-        const a = raw.hotkeys[k].trim().slice(0, 32);
-        // Drop bare Space/letters left over from v0.6.0 — keep defaults instead.
-        out.hotkeys[k] = isSafeGlobalAccelerator(a) ? a : DEFAULT_GLOBAL_HOTKEYS[k];
-      }
+      const v = validateAccelerator(raw.hotkeys[k]);
+      // Unsafe or stale bindings (e.g. bare keys from 0.6) fall back to the default.
+      out.hotkeys[k] = v.ok ? v.accel : DEFAULT_GLOBAL_HOTKEYS[k];
     }
   }
   if (raw.firstRunDone) out.firstRunDone = true;
@@ -83,20 +81,58 @@ function shouldCheckForUpdates(settings, opts = {}) {
 }
 
 /** Reject plain single-key globals that would steal gaming keys. */
-function isSafeGlobalAccelerator(accel) {
-  if (!accel || typeof accel !== "string") return false;
-  const a = accel.trim();
-  if (!a) return false;
-  // Must include a modifier
-  if (!/(CommandOrControl|CmdOrCtrl|Ctrl|Alt|Super|Meta|Shift)\+/i.test(a)) return false;
-  // Ban bare Space / single letter even with only Shift
-  const parts = a.split("+").map(s => s.trim().toLowerCase());
-  const key = parts[parts.length - 1];
-  const mods = parts.slice(0, -1);
-  if (mods.length === 1 && mods[0] === "shift" && (key === "space" || key.length === 1))
-    return false;
-  return true;
+const ACCEL_MAX_LEN = 32;
+const MOD_ALIASES = { ctrl: "Ctrl", control: "Ctrl", commandorcontrol: "Ctrl", cmdorctrl: "Ctrl", alt: "Alt", shift: "Shift" };
+const MOD_ORDER = ["Ctrl", "Alt", "Shift"];
+// Combos the OS or common apps own; never take them globally.
+const BLOCKED_ACCELERATORS = new Set([
+  "Ctrl+Alt+Delete", "Ctrl+Alt+F4", "Ctrl+Shift+F4", "Ctrl+Alt+Shift+F4", "Ctrl+Shift+Escape",
+  "Ctrl+Alt+Tab", "Ctrl+Shift+Tab", "Ctrl+Alt+L", "Ctrl+Alt+T",
+]);
+
+/** Normalised key name, or null if it isn't a key we allow (letters, digits, F1-F24, numpad digits). */
+function normaliseKey(k) {
+  if (/^[a-z0-9]$/i.test(k)) return k.toUpperCase();
+  let m = /^f([1-9]|1[0-9]|2[0-4])$/i.exec(k);
+  if (m) return "F" + m[1];
+  m = /^num([0-9])$/i.exec(k);
+  if (m) return "num" + m[1];
+  return null;
 }
+
+/**
+ * Validate a global hotkey. Must be Ctrl+Alt or Ctrl+Shift (optionally both)
+ * plus exactly one allowed key; Super/Meta and OS-reserved combos are refused.
+ * Returns { ok, accel, error } where accel is the normalised accelerator.
+ */
+function validateAccelerator(raw) {
+  if (typeof raw !== "string") return { ok: false, error: "Not a key combo" };
+  if (raw.length > ACCEL_MAX_LEN) return { ok: false, error: "Too long" };
+  const parts = raw.trim().split("+").map(s => s.trim());
+  if (parts.length < 2 || parts.some(p => !p)) return { ok: false, error: "Use Ctrl+Alt or Ctrl+Shift with a key" };
+  const mods = new Set();
+  let key = null;
+  for (const part of parts) {
+    const mod = MOD_ALIASES[part.toLowerCase()];
+    if (mod) {
+      if (mods.has(mod)) return { ok: false, error: "Repeated modifier" };
+      mods.add(mod);
+      continue;
+    }
+    if (/^(super|meta|cmd|command|win|windows)$/i.test(part)) return { ok: false, error: "Windows/Super key combos aren't allowed" };
+    if (key !== null) return { ok: false, error: "Only one key besides the modifiers" };
+    key = normaliseKey(part);
+    if (!key) return { ok: false, error: `"${part}" isn't allowed; use a letter, digit or F-key` };
+  }
+  if (!key) return { ok: false, error: "Add a key after the modifiers" };
+  if (!mods.has("Ctrl") || !(mods.has("Alt") || mods.has("Shift")))
+    return { ok: false, error: "Use Ctrl+Alt or Ctrl+Shift with a key" };
+  const accel = MOD_ORDER.filter(m => mods.has(m)).concat(key).join("+");
+  if (BLOCKED_ACCELERATORS.has(accel)) return { ok: false, error: `${accel} is reserved by the system` };
+  return { ok: true, accel };
+}
+
+function isSafeGlobalAccelerator(accel) { return validateAccelerator(accel).ok; }
 
 /** True for semver prereleases such as 1.1.0-beta.1. */
 function isPrereleaseVersion(v) {
@@ -104,5 +140,5 @@ function isPrereleaseVersion(v) {
 }
 
 module.exports = {
-  DEFAULTS, DEFAULT_GLOBAL_HOTKEYS, blank, merge, shouldCheckForUpdates, isSafeGlobalAccelerator, isPrereleaseVersion,
+  DEFAULTS, DEFAULT_GLOBAL_HOTKEYS, blank, merge, shouldCheckForUpdates, isSafeGlobalAccelerator, validateAccelerator, isPrereleaseVersion,
 };

@@ -4,41 +4,43 @@
  * Defaults are modifier combos (never bare Space/letters) so PoE2 keeps its keys.
  */
 const { globalShortcut } = require("electron");
-const { isSafeGlobalAccelerator } = require("./desktop-settings");
+const { validateAccelerator } = require("./desktop-settings");
 
 /** Normalize to an Electron accelerator, or null if unsafe/invalid. */
+/** Normalised Electron accelerator, or null if unsafe/invalid. Plain keys are never registered globally. */
 function toAccelerator(key) {
-  if (!key || typeof key !== "string") return null;
-  const raw = key.trim();
-  if (!raw) return null;
-  // Already an accelerator with modifiers
-  if (/(CommandOrControl|CmdOrCtrl|Ctrl|Alt|Super|Meta|Shift)\+/i.test(raw)) {
-    return isSafeGlobalAccelerator(raw) ? raw.replace(/CmdOrCtrl/gi, "CommandOrControl") : null;
-  }
-  // Plain keys are NOT registered globally (would steal from the game).
-  return null;
+  const v = validateAccelerator(key);
+  return v.ok ? v.accel : null;
 }
 
+const ACTIONS = ["split", "pause", "undo", "newRun", "clickThrough", "toggleHint"];
+
+/**
+ * Register every binding. Returns { action: { ok, accel, error } } so the UI can
+ * show a failure (e.g. the combo is taken by another app) instead of "saved".
+ */
 function registerAll(bindings, onAction) {
   unregisterAll();
-  const registered = [];
+  const results = {};
   const map = bindings || {};
-  for (const action of ["split", "pause", "undo", "newRun", "clickThrough", "toggleHint"]) {
+  const seen = new Map();
+  for (const action of ACTIONS) {
     const accel = toAccelerator(map[action]);
-    if (!accel) continue;
+    if (!accel) { results[action] = { ok: false, error: "Invalid combo" }; continue; }
+    if (seen.has(accel)) { results[action] = { ok: false, accel, error: `Already used for ${seen.get(accel)}` }; continue; }
+    seen.set(accel, action);
     try {
       const ok = globalShortcut.register(accel, () => onAction(action));
-      if (ok) registered.push({ action, accel });
-      else console.warn("hotkey busy:", accel, action);
+      results[action] = ok ? { ok: true, accel } : { ok: false, accel, error: "In use by another app" };
     } catch (e) {
-      console.warn("hotkey failed:", accel, e.message);
+      results[action] = { ok: false, accel, error: e.message };
     }
   }
-  return registered;
+  return results;
 }
 
 function unregisterAll() {
   try { globalShortcut.unregisterAll(); } catch (_) { /* */ }
 }
 
-module.exports = { toAccelerator, registerAll, unregisterAll };
+module.exports = { ACTIONS, toAccelerator, registerAll, unregisterAll };
