@@ -14,6 +14,23 @@ import sys
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
+from modal_helpers import fill_modal
+
+
+def accept_if_modal(page, timeout=800):
+    try:
+        fill_modal(page, timeout=timeout)
+    except Exception:
+        pass
+
+
+def new_run(page):
+    """Press R and accept the in-app confirm when one is shown."""
+    page.keyboard.press("r")
+    try:
+        fill_modal(page, timeout=800)
+    except Exception:
+        pass  # nothing to confirm (fresh run)
 
 URL = os.environ.get("TRACKER_URL", "http://127.0.0.1:8765/")
 ROOT = Path(__file__).resolve().parent.parent
@@ -48,8 +65,7 @@ with sync_playwright() as p:
     page.clock.install()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
-    answer = {"text": None}  # what the next prompt() should receive
-    page.on("dialog", lambda d: d.accept(answer["text"]) if d.type == "prompt" else d.accept())
+    # In-app modals replace window.prompt/confirm; use fill_modal() where needed.
     page.add_init_script("window.state_c = () => { const s = JSON.parse(localStorage.getItem('splitstone:v1')); return s.characters[s.activeId]; }")
     page.goto(URL)
     js(page, "localStorage.clear()")
@@ -138,7 +154,7 @@ with sync_playwright() as p:
     check("PB shown in history", "PB" in page.text_content("#history"))
 
     # --- Run 2: faster, live delta vs PB, new PB ---
-    page.keyboard.press("r")
+    new_run(page)
     check("R starts a new run (steps reset)", not char(page)["done"])
     page.keyboard.press("Space")
     tick(page, 5_000)
@@ -184,15 +200,15 @@ with sync_playwright() as p:
     check("older run shows +delta in history", "+" in page.text_content("#history"))
 
     # --- Abandoned run is kept as an attempt ---
-    page.keyboard.press("r")
+    new_run(page)
     page.keyboard.press("Space"); tick(page, 3_000); page.keyboard.press("Space"); tick(page, 3_000)
-    page.keyboard.press("r")
+    new_run(page)
     c = char(page)
     check("reset mid-run stores unfinished attempt", len(c["history"]) == 3 and not c["history"][0]["complete"])
     check("unfinished attempt does not become PB", js(page, "Run.pb(JSON.parse(localStorage.getItem('splitstone:v1')).characters[JSON.parse(localStorage.getItem('splitstone:v1')).activeId]).complete"))
 
     # --- Route variants (per character) ---
-    page.keyboard.press("r")
+    new_run(page)
     n_normal = js(page, "Run.order(state_c()).length")
     page.select_option("#routeMode", "fast")
     c = char(page)
@@ -214,7 +230,7 @@ with sync_playwright() as p:
     check("fast run saved with its variant", c["history"][0]["variant"] == "fast" and c["history"][0]["complete"])
     check("fast run has its own PB (not compared with normal)", c["bests"]["fast"]["total"] == c["history"][0]["total"]
           and c["bests"]["normal"]["total"] != c["history"][0]["total"])
-    page.keyboard.press("r")
+    new_run(page)
     page.select_option("#routeMode", "normal")
 
     # --- Persistence ---
@@ -237,8 +253,17 @@ with sync_playwright() as p:
     check("manual zone start stops other zones", c["timers"]["zone:act2-z01"]["startedAt"] and not c["timers"]["zone:act1-z01"]["startedAt"])
 
     # --- Run analytics + CSV ---
-    n_complete = len([h for h in char(page)["history"] if h.get("variant", "normal") == "normal" and h["complete"]])
+    # Chart points follow the history filter (Campaign / Practice / All), like the app.
+    hfilter = page.eval_on_selector("#historyFilter", "e => e.value") if page.locator("#historyFilter").count() else "campaign"
+    is_practice = lambda h: bool(h.get("practice") or "+p:" in str(h.get("variant", "")))
+    keep = {"all": lambda h: True, "practice": is_practice}.get(hfilter, lambda h: not is_practice(h))
+    n_complete = len([h for h in char(page)["history"] if h["complete"] and keep(h)])
     check("trend chart: one point per completed run", page.locator("#stats svg.chart").first.locator("circle").count() == n_complete)
+    if page.locator("#historyFilter").count():
+        page.select_option("#historyFilter", "all")
+        n_all = len([h for h in char(page)["history"] if h["complete"]])
+        check("trend chart follows history filter (All)", page.locator("#stats svg.chart").first.locator("circle").count() == n_all)
+        page.select_option("#historyFilter", hfilter)
     check("stat cards show average + sum of best", "Average" in page.text_content("#stats") and "Sum of best" in page.text_content("#stats"))
     page.select_option("#statSeg", "group:interlude2")
     check("segment trend selectable (Interlude 2)", page.locator("#stats svg.chart").nth(1).locator("circle").count() >= 2)
@@ -287,22 +312,27 @@ with sync_playwright() as p:
     ec = list(exported["characters"].values())[0]
     check("export includes history + bests + map history", len(ec["history"]) == 4 and ec["bests"] and len(ec["mapHistory"]) == 2)
 
-    answer["text"] = "Second char"
     page.click('[data-action="char-new"]')
+    fill_modal(page, "Second char")
     check("new character created, separate history", page.locator("#charSelect option").count() == 2 and not char(page)["history"])
-    answer["text"] = "Renamed char"
     page.click('[data-action="char-rename"]')
+    fill_modal(page, "Renamed char")
     check("rename works", "Renamed char" in page.text_content("#charSelect"))
     page.select_option("#charSelect", index=0)
     check("switch character restores its history", len(char(page)["history"]) == 4)
     page.select_option("#charSelect", index=1)
     page.click('[data-action="char-delete"]')
+    fill_modal(page)  # confirm delete
     check("delete works", page.locator("#charSelect option").count() == 1)
 
     js(page, "localStorage.clear()")
     page.reload()
     check("cleared state is fresh", not char(page)["history"] if js(page, "!!localStorage.getItem('splitstone:v1')") else True)
     page.set_input_files("#importFile", str(export_path))
+    try:
+        fill_modal(page, timeout=1500)  # optional "apply helper URL?" confirm
+    except Exception:
+        pass
     page.wait_for_timeout(300)
     check("import restores history + build", len(char(page)["history"]) == 4 and "Infernalist" in page.text_content("#character"))
     page.set_input_files("#importFile", {"name": "bad.json", "mimeType": "application/json", "buffer": b"{\"x\":1}"})
@@ -311,6 +341,7 @@ with sync_playwright() as p:
 
     # --- Class-aware campaign notes ---
     page.select_option("#routeClass", "monk")
+    accept_if_modal(page)
     check("class persisted on character", char(page).get("classId") == "monk")
     check("monk gem tip on Renly step", page.locator(".step .class-note", has_text="Glacial Cascade").count() >= 1)
     check("recommended reward callout for Finn charm", page.locator(".class-rec", has_text="Sapphire").count() >= 1)
@@ -318,14 +349,18 @@ with sync_playwright() as p:
     check("hide-hints hides class notes", not page.locator(".class-note").first.is_visible())
     page.uncheck("#hideHints")
     page.select_option("#routeClass", "mercenary")
+    accept_if_modal(page)
     check("mercenary Renly tip is Explosive Grenade", page.locator(".class-note", has_text="Explosive Grenade").count() >= 1)
     page.select_option("#routeClass", "warrior")
+    accept_if_modal(page)
     check("warrior Rolling Slam tip shown", page.locator(".class-note", has_text="Rolling Slam").count() >= 1)
     with page.expect_download() as dl:
         page.click('[data-action="export"]')
     exp = json.loads(Path(dl.value.path()).read_text())
     check("classId in JSON export", any(c.get("classId") == "warrior" for c in exp["characters"].values()))
+    check("JSON export never carries the helper token", "token" not in exp["settings"].get("autoSplit", {}))
     page.select_option("#routeClass", "")
+    accept_if_modal(page)
     check("class can be cleared to None", char(page).get("classId") in (None, ""))
 
     # --- Colour themes (global) ---
@@ -377,7 +412,7 @@ with sync_playwright() as p:
     with page.expect_download() as dl:
         page.click('[data-action="export"]')
     check("hotkeys in JSON export", json.loads(Path(dl.value.path()).read_text())["settings"]["hotkeys"]["split"] == "s")
-    page.keyboard.press("r")
+    new_run(page)
     page.keyboard.press("s")
     check("new key starts/splits", js(page, "!!Run.runningZone(state_c())"))
     page.keyboard.press("Space")
@@ -388,7 +423,7 @@ with sync_playwright() as p:
     check("reset defaults", js(page, "JSON.stringify(JSON.parse(localStorage.getItem('splitstone:v1')).settings.hotkeys)") == "{}")
 
     # --- Screenshot (desktop): mid-run with a PB to compare against ---
-    page.keyboard.press("r")
+    new_run(page)
     for _ in range(25):
         tick(page, 9_000); page.keyboard.press("Space")
     tick(page, 6_000)

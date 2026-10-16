@@ -5,6 +5,7 @@ import random
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
+from modal_helpers import auto_accept_modals
 
 URL = "http://127.0.0.1:8765/"
 SHOTS = Path(__file__).resolve().parent.parent / "screenshots"
@@ -15,10 +16,11 @@ with sync_playwright() as p:
     ctx = b.new_context(viewport={"width": 1600, "height": 1000})
     page = ctx.new_page()
     page.clock.install()
-    page.on("dialog", lambda d: d.accept())
+    # native dialogs gone; auto-OK in-app confirms (e.g. New run)
     page.goto(URL)
     page.evaluate("localStorage.clear()")
     page.reload()
+    auto_accept_modals(page)
     done = "() => document.querySelector('#now .now-zone')?.textContent.includes('🏁')"
     for run in range(5):
         page.keyboard.press("r")

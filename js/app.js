@@ -28,6 +28,33 @@
     return sign + (h ? `${h}:${p(m)}:${p(x)}` : `${m}:${p(x)}`);
   }
   const deltaClass = ms => (ms === null || ms === undefined ? "" : ms > 0 ? "behind" : "ahead");
+
+  /** In-app modal for confirm/prompt. Electron has no window.prompt. */
+  function openModal(message, { input = null, okLabel = "OK", cancelLabel = "Cancel" } = {}) {
+    return new Promise(resolve => {
+      const dlg = $("#appModal"), inp = $("#appModalInput"), form = $("#appModalForm");
+      $("#appModalMsg").textContent = message;
+      $("#appModalOk").textContent = okLabel;
+      $("#appModalCancel").textContent = cancelLabel;
+      inp.hidden = input === null;
+      inp.value = input === null ? "" : String(input);
+      const done = v => { form.onsubmit = null; dlg.oncancel = null; if (dlg.open) dlg.close(); resolve(v); };
+      form.onsubmit = ev => {
+        ev.preventDefault();
+        const ok = ev.submitter && ev.submitter.value === "ok";
+        done(input === null ? ok : (ok ? inp.value : null));
+      };
+      dlg.oncancel = ev => { ev.preventDefault(); done(input === null ? false : null); };
+      // Desktop: bring the window in front of the game before asking.
+      if (window.splitstoneDesktop && window.splitstoneDesktop.focusMain) window.splitstoneDesktop.focusMain();
+      dlg.showModal();
+      if (input === null) $("#appModalOk").focus(); else { inp.focus(); inp.select(); }
+    });
+  }
+  const askConfirm = (message, opts) => openModal(message, Object.assign({}, opts, { input: null }));
+  const askPrompt = (message, def = "") => openModal(message, { input: def == null ? "" : def });
+
+
   /** Sidebar/campaign Δ vs PB at the same split point (not full PB vs partial Now). */
   function segDeltaVsPb(c, kind, id, now) {
     if (kind === "total") return Run.deltaVsPb(c, now);
@@ -169,44 +196,41 @@
 
   /** Snapshot for the helper overlay (POST /state). Keep it tiny and stable. */
   function buildOverlayState() {
-    const c = char(), cur = Run.current(c), p = Run.pb(c);
+    const c = char(), cur = Run.current(c);
+    const ov = (state.settings && state.settings.overlay) || { opacity: 0.8, clickThrough: true };
+    const showTip = !(state.settings && state.settings.hideHints);
     if (!cur) {
       const last = c.history[0];
-      const hk = bindings();
-      return { v: 1, zone: "Campaign complete", section: "", step: last ? `Final ${Timers.format(last.total)}` : "Finished",
-        tip: "", nextStep: "", nextZone: "", zoneMs: 0, runMs: Run.totalMs(c), deltaMs: null,
-        running: false, paused: false, finished: true, progress: `${Run.order(c).length}/${Run.order(c).length}`,
-        hotkeys: { split: hk.split, pause: hk.pause, undo: hk.undo } };
+      return {
+        v: 1,
+        step: last ? `Finished · ${Timers.format(last.total)}` : "Campaign complete",
+        tip: "", nextStep: "", showTip: false,
+        opacity: ov.opacity,
+      };
     }
-    const z = cur.zone, r = Run.route(c);
+    const z = cur.zone;
     const vis = visibleSteps(c, z), todo = vis.filter(st => !c.done[st.id]);
     const step = todo[0] || vis[vis.length - 1];
     const next = Run.order(c)[cur.index + 1];
     const nextVis = next ? visibleSteps(c, next.zone) : [];
     const nextStep = todo[1] || nextVis[0];
     const tips = step ? stepHints(c, step) : [];
-    const hk = bindings();
     return {
       v: 1,
-      zone: z.name,
-      section: cur.section.name,
       step: step ? step.objective : "",
-      tip: (tips[0] || "").slice(0, 100),
+      tip: showTip ? (tips[0] || "").slice(0, 100) : "",
       nextStep: nextStep ? nextStep.objective : "",
-      nextZone: next ? next.zone.name : "",
-      zoneMs: Run.zoneMs(c, z.id),
-      runMs: Run.totalMs(c),
-      deltaMs: Run.deltaVsPb(c),
-      running: !!Run.runningZone(c),
-      paused: Run.isPaused(c),
-      finished: false,
-      progress: `${cur.index + 1}/${Run.order(c).length}`,
-      hotkeys: { split: hk.split, pause: hk.pause, undo: hk.undo },
+      showTip,
+      opacity: ov.opacity,
     };
   }
 
   const autoSplitOpts = () => ({ token: state.settings.autoSplit.token || "" });
   function pushOverlay() {
+    if (window.splitstoneDesktop && window.splitstoneDesktop.isDesktop) {
+      AutoSplit.pushState(buildOverlayState());
+      return;
+    }
     if (AutoSplit.status().state === "off") return;
     AutoSplit.pushState(buildOverlayState(), state.settings.autoSplit.url, autoSplitOpts());
   }
@@ -884,12 +908,12 @@
     return cr;
   }
 
-  function applyCustomId(customId, { reset = true } = {}) {
+  async function applyCustomId(customId, { reset = true } = {}) {
     const c = char();
     const id = customId && c.customRoutes && c.customRoutes[customId] ? customId : null;
     const next = Object.assign({}, Run.route(c), { customId: id });
     if (Run.isStarted(c) && !Run.isFinished(c)) {
-      if (!confirm("Switch custom route? The current run will be saved as unfinished (other PBs are untouched).")) {
+      if (!(await askConfirm("Switch custom route? The current run will be saved as unfinished (other PBs are untouched)."))) {
         render(); return false;
       }
       Run.finish(c, false);
@@ -953,11 +977,11 @@
     return `<label class="practice-label">Practice <select id="practiceScope" title="Practice one act, interlude, or zone — PB is kept separate from the full campaign">${opts.join("")}</select></label>`;
   }
 
-  function applyPractice(practice, { reset = true } = {}) {
+  async function applyPractice(practice, { reset = true } = {}) {
     const c = char();
     const next = Object.assign({}, Run.route(c), { practice: Run.normalisePractice(practice) });
     if (Run.isStarted(c) && !Run.isFinished(c)) {
-      if (!confirm("Switch practice scope? The current run will be saved as unfinished (full-campaign PB is untouched).")) {
+      if (!(await askConfirm("Switch practice scope? The current run will be saved as unfinished (full-campaign PB is untouched)."))) {
         render(); return false;
       }
       Run.finish(c, false);
@@ -974,12 +998,13 @@
     return true;
   }
 
-  function doNewRun() {
+  async function doNewRun(opts) {
     const c = char();
+    const confirmed = !!(opts && opts.confirmed); // overlay double-press already confirmed
     if (Run.isStarted(c) && !Run.isFinished(c)) {
-      if (!confirm("Reset the current run? It will be saved in history as an unfinished attempt.")) return;
+      if (!confirmed && !(await askConfirm("Reset the current run? It will be saved in history as an unfinished attempt."))) return;
       Run.finish(c, false);
-    } else if (Run.isStarted(c) && !confirm("Start a new run?")) return;
+    } else if (Run.isStarted(c) && !confirmed && !(await askConfirm("Start a new run?"))) return;
     Run.newRun(c);
     commit(); window.scrollTo({ top: 0 }); toast(`New run ready. Press ${keyName(bindings().split)} to start.`);
   }
@@ -993,10 +1018,10 @@
     "practice-group"(el) { applyPractice({ kind: "group", id: el.dataset.id }); },
     "practice-zone"(el) { applyPractice({ kind: "zone", id: el.dataset.id }); },
     "custom-clear"() { applyCustomId(null); },
-    "custom-new"() {
+    async "custom-new"() {
       const c = char();
       ensureCustomRoutes(c);
-      const name = prompt("Name for this custom route:", "My route");
+      const name = await askPrompt("Name for this custom route:", "My route");
       if (name === null) return;
       const cr = CustomRoute.blank(name || "My route");
       const r = Run.route(c);
@@ -1018,7 +1043,7 @@
       } catch (e) { toast(e.message || "Could not export"); }
     },
     async "custom-import"() {
-      const raw = prompt("Paste an SSR1 share code:");
+      const raw = await askPrompt("Paste an SSR1 share code:", "");
       if (raw === null || !String(raw).trim()) return;
       try {
         const cr = await CustomRoute.decode(raw);
@@ -1032,10 +1057,10 @@
         toast("Imported: " + cr.name);
       } catch (e) { toast(e.message || "Could not import"); }
     },
-    "custom-delete"() {
+    async "custom-delete"() {
       const c = char(), id = Run.route(c).customId;
       if (!id || !c.customRoutes[id]) return;
-      if (!confirm("Delete this custom route? Its PB history stays but the route definition is removed.")) return;
+      if (!(await askConfirm("Delete this custom route? Its PB history stays but the route definition is removed."))) return;
       delete c.customRoutes[id];
       c.route = Object.assign({}, Run.route(c), { customId: null });
       Run.invalidateOrderCache();
@@ -1063,8 +1088,8 @@
       } else Timers.toggle(c, key);
       commit();
     },
-    "timer-reset"(el) {
-      if (confirm("Reset this timer to 0?")) { Timers.reset(char(), el.dataset.key); commit(); }
+    async "timer-reset"(el) {
+      if (await askConfirm("Reset this timer to 0?")) { Timers.reset(char(), el.dataset.key); commit(); }
     },
     step(el) {
       const c = char(), id = el.dataset.id;
@@ -1080,8 +1105,8 @@
       collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id);
       render();
     },
-    "map-delete"(el) {
-      if (!confirm("Remove this map from the list? History is kept.")) return;
+    async "map-delete"(el) {
+      if (!(await askConfirm("Remove this map from the list? History is kept."))) return;
       const c = char();
       c.maps = c.maps.filter(m => m.id !== el.dataset.id);
       Timers.reset(c, "map:" + el.dataset.id);
@@ -1104,26 +1129,26 @@
       c.mapHistory = (c.mapHistory || []).filter(m => m.id !== el.dataset.id);
       commit();
     },
-    "run-delete"(el) {
-      if (!confirm("Delete this run from history? (Best segments are kept.)")) return;
+    async "run-delete"(el) {
+      if (!(await askConfirm("Delete this run from history? (Best segments are kept.)"))) return;
       const c = char();
       c.history = c.history.filter(h => h.id !== el.dataset.id);
       commit();
     },
-    "char-new"() {
-      const name = prompt("Character name:", "New character");
+    async "char-new"() {
+      const name = await askPrompt("Character name:", "New character");
       if (!name || !name.trim()) return;
       const c = Storage2.newCharacter(name.trim());
       state.characters[c.id] = c; state.activeId = c.id; pobError = "";
       commit(); toast(`Created ${c.name}`);
     },
-    "char-rename"() {
-      const name = prompt("Rename character:", char().name);
+    async "char-rename"() {
+      const name = await askPrompt("Rename character:", char().name);
       if (name && name.trim()) { char().name = name.trim(); commit(); }
     },
-    "char-delete"() {
+    async "char-delete"() {
       if (Object.keys(state.characters).length === 1) return toast("You need at least one character.");
-      if (!confirm(`Delete "${char().name}" and all its progress and run history?`)) return;
+      if (!(await askConfirm(`Delete "${char().name}" and all its progress and run history?`))) return;
       delete state.characters[state.activeId];
       state.activeId = Object.keys(state.characters)[0];
       commit();
@@ -1163,7 +1188,10 @@
     const el = ev.target.closest("[data-action]");
     if (!el || el.dataset.action === "step" || el.dataset.action === "custom-hide-step") return;
     const fn = actions[el.dataset.action];
-    if (fn) fn(el, ev);
+    if (fn) {
+      const r = fn(el, ev);
+      if (r && typeof r.then === "function") r.catch(e => console.warn(e));
+    }
   });
   document.addEventListener("change", ev => {
     const el = ev.target;
@@ -1171,14 +1199,16 @@
     else if (el.dataset.action === "custom-hide-step") actions["custom-hide-step"](el);
     else if (["hideHints", "hideExtra", "focusMode"].includes(el.id)) { state.settings[el.id] = el.checked; commit(); }
     else if (el.id === "routeMode" || el.id === "requiredOnly") {
-      const c = char(), next = Object.assign({}, Run.route(c),
-        el.id === "routeMode" ? { mode: el.value } : { requiredOnly: el.checked });
-      if (Run.isStarted(c) && !Run.isFinished(c) &&
-          !confirm("Change the route during a run? Times will be compared with that route's PB from now on.")) return render();
-      const running = Run.runningZone(c);
-      c.route = next;
-      if (running && !Run.inOrder(c, running)) Run.stopAllZones(c);
-      commit();
+      (async () => {
+        const c = char(), next = Object.assign({}, Run.route(c),
+          el.id === "routeMode" ? { mode: el.value } : { requiredOnly: el.checked });
+        if (Run.isStarted(c) && !Run.isFinished(c) &&
+            !(await askConfirm("Change the route during a run? Times will be compared with that route's PB from now on."))) return render();
+        const running = Run.runningZone(c);
+        c.route = next;
+        if (running && !Run.inOrder(c, running)) Run.stopAllZones(c);
+        commit();
+      })();
     }
     else if (el.id === "practiceScope") {
       const raw = el.value.trim();
@@ -1254,6 +1284,28 @@
         });
       }
     }
+    else if (el.id === "overlayOpacity") {
+      const pct = Math.min(100, Math.max(30, Number(el.value) || 80));
+      const v = pct / 100;
+      state.settings.overlay = Object.assign({}, state.settings.overlay || {}, { opacity: v });
+      const lab = $("#overlayOpacityVal");
+      if (lab) lab.textContent = pct + "%";
+      if (window.splitstoneDesktop) window.splitstoneDesktop.setOverlayOpacity(v);
+      commit();
+      pushOverlay();
+    }
+    else if (el.id === "desktopClickThrough") {
+      state.settings.overlay = Object.assign({}, state.settings.overlay || {}, { clickThrough: el.checked });
+      if (window.splitstoneDesktop) window.splitstoneDesktop.setClickThrough(el.checked);
+      commit();
+      pushOverlay();
+    }
+    else if (el.id === "desktopOverlaySettings") {
+      window.__desktopOverlayEnabled = el.checked;
+      if (window.splitstoneDesktop) window.splitstoneDesktop.setOverlayEnabled(el.checked);
+      const bar = $("#desktopOverlay");
+      if (bar) bar.checked = el.checked;
+    }
     else if (el.id === "autoSplit") {
       state.settings.autoSplit.enabled = el.checked;
       if (el.checked) AutoSplit.connect(state.settings.autoSplit.url, autoSplitOpts());
@@ -1278,24 +1330,26 @@
       commit();
     }
     else if (el.id === "classSelect" || el.id === "routeClass") {
-      const c = char(), next = el.value || null;
-      if (c.classId && next !== c.classId && Run.isStarted(c) && !Run.isFinished(c) &&
-          !confirm("Change class notes mid-run? Tips update immediately; timers are unchanged.")) {
-        render(); return;
-      }
-      c.classId = next;
-      commit();
-      toast(next ? `Class: ${(classMeta(next) || {}).name}` : "Class notes cleared");
+      (async () => {
+        const c = char(), next = el.value || null;
+        if (c.classId && next !== c.classId && Run.isStarted(c) && !Run.isFinished(c) &&
+            !(await askConfirm("Change class notes mid-run? Tips update immediately; timers are unchanged."))) {
+          render(); return;
+        }
+        c.classId = next;
+        commit();
+        toast(next ? `Class: ${(classMeta(next) || {}).name}` : "Class notes cleared");
+      })();
     }
     else if (el.id === "charSelect") { state.activeId = el.value; pobError = ""; commit(); scrollToCurrent(false); }
     else if (el.id === "importFile" && el.files[0]) {
-      el.files[0].text().then(text => {
+      el.files[0].text().then(async text => {
         try {
           let keepHelper = false;
           try {
             const peek = JSON.parse(text);
             if (peek && peek.settings && peek.settings.autoSplit) {
-              keepHelper = confirm(
+              keepHelper = await askConfirm(
                 "This file includes Auto-split / helper URL settings.\n\n" +
                 "Apply the helper URL? (enabled stays off — import never connects.)");
             }
@@ -1367,6 +1421,11 @@
   }
 
   Object.assign(actions, {
+    async "overlay-reset-pos"() {
+      if (window.splitstoneDesktop && window.splitstoneDesktop.resetOverlayPosition)
+        await window.splitstoneDesktop.resetOverlayPosition();
+      toast("Overlay position reset");
+    },
     settings() {
       $("#help").setAttribute("hidden", "");
       capturing = null;
@@ -1378,6 +1437,16 @@
         if (isDesk) {
           const box = $("#desktopAutoUpdateSettings");
           if (box) box.checked = window.__desktopAutoUpdate !== false;
+          const ov = (state.settings && state.settings.overlay) || {};
+          const op = $("#overlayOpacity"), ovl = $("#overlayOpacityVal");
+          const pct = Math.round((Number(ov.opacity) || 0.8) * 100);
+          if (op) op.value = String(pct);
+          if (ovl) ovl.textContent = pct + "%";
+          const ct = $("#desktopClickThrough");
+          if (ct) ct.checked = ov.clickThrough !== false;
+          const ovs = $("#desktopOverlaySettings");
+          if (ovs && window.__desktopOverlayEnabled != null) ovs.checked = !!window.__desktopOverlayEnabled;
+          else if (ovs) ovs.checked = true;
         }
       }
       $("#settings").removeAttribute("hidden");
@@ -1410,7 +1479,11 @@
       if (ev.key === "Escape") t.blur();  // Esc leaves the field so hotkeys work again
       return;
     }
-    if (ev.key === "Escape") { $("#help").setAttribute("hidden", ""); $("#settings").setAttribute("hidden", ""); return; }
+    if (ev.key === "Escape") {
+      const mdl = $("#appModal");
+      if (mdl && mdl.open) return; // dialog handles Esc
+      $("#help").setAttribute("hidden", ""); $("#settings").setAttribute("hidden", ""); return;
+    }
     const b = bindings(), key = normKey(ev.key);
     const def = HOTKEY_DEFS.find(([id]) => b[id] === key);
     if (!def) return;
@@ -1444,14 +1517,19 @@
       else document.querySelectorAll("[data-as-last]").forEach(el => { el.textContent = lastAuto; });
     },
     onHotkey(action) {
-      const map = { split: doSplit, undo: actions.undo, pause: actions.pause, newrun: doNewRun, newRun: doNewRun };
+      const map = {
+        split: doSplit, undo: actions.undo, pause: actions.pause,
+        newrun: () => doNewRun({ confirmed: true }),
+        togglehint: () => { state.settings.hideHints = !state.settings.hideHints; commit(); },
+      };
       const fn = map[String(action).toLowerCase().replace(/[^a-z]/g, "")];
       if (fn) fn();
     },
   });
   function syncDesktopHotkeys() {
+    // Global shortcuts stay as desktop modifier combos (Ctrl+Alt+…).
+    // Do not push in-window Space/P/U/R bindings into globalShortcut.
     if (!window.splitstoneDesktop) return;
-    try { window.splitstoneDesktop.setHotkeys(bindings()); } catch (_) {}
   }
 
   function showDesktopSetup(info) {
@@ -1488,7 +1566,21 @@
       asStatus = AutoSplit.status();
       document.querySelectorAll("[data-as-pill]").forEach(el => { el.innerHTML = statusPill(); });
       if (st && st.watching && st.logExists) hideDesktopSetup();
+      if (st && typeof st.overlayEnabled === "boolean") {
+        window.__desktopOverlayEnabled = st.overlayEnabled;
+        const a = $("#desktopOverlay"), b = $("#desktopOverlaySettings");
+        if (a) a.checked = st.overlayEnabled;
+        if (b) b.checked = st.overlayEnabled;
+      }
+      if (st && typeof st.clickThrough === "boolean") {
+        state.settings.overlay = Object.assign({}, state.settings.overlay || {}, { clickThrough: st.clickThrough });
+        const ct = $("#desktopClickThrough");
+        if (ct) ct.checked = st.clickThrough;
+      }
     });
+    if (window.splitstoneDesktop.onToast) {
+      window.splitstoneDesktop.onToast(msg => { if (msg) toast(msg); });
+    }
     // Overlay gets live snapshots whenever the helper path would have pushed.
     const _push = pushOverlay;
     // pushOverlay already calls AutoSplit.pushState which routes to IPC on desktop.

@@ -435,3 +435,78 @@ body.custom-route .now { box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--acc
 .desktop-setup-inner p { margin: 6px 0; }
 .desktop-setup-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 body:not(.is-desktop) .desktop-only { display: none !important; }
+
+/* ---------- In-app modal (replaces prompt/confirm; works in Electron) ---------- */
+.app-modal {
+  border: 1px solid var(--gold, #c8a45a);
+  border-radius: 10px;
+  padding: 18px 20px;
+  background: var(--panel, #1a1815);
+  color: var(--text, #e8e0d0);
+  max-width: min(420px, 92vw);
+  box-shadow: 0 12px 40px #000a;
+}
+.app-modal::backdrop { background: rgba(0,0,0,.55); }
+.app-modal-msg { margin: 0 0 12px; white-space: pre-wrap; line-height: 1.4; }
+.app-modal-input {
+  width: 100%; box-sizing: border-box; margin: 0 0 14px;
+  padding: 10px 12px; font-size: 15px; min-height: 44px;
+  background: var(--bg, #0f0e0c); color: var(--text); border: 1px solid var(--line, #3a342a);
+  border-radius: 6px;
+}
+.app-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin: 0; }
+.app-modal-actions button { min-height: 40px; min-width: 72px; }
+
+/* Compact now-bar on short viewports (~800px tall laptop / second monitor).
+   Hints and gear cues stay visible; only secondary chrome is dropped. */
+@media (max-height: 820px) and (min-width: 861px) {
+  .now {
+    padding: 6px 16px 8px;
+    gap: 8px 16px;
+    align-items: center;
+    max-height: 22vh;
+    overflow: hidden;
+  }
+  .now-where { font-size: 11px; }
+  .now-zone { font-size: 20px; margin: 0 0 2px; line-height: 1.15; }
+  .now-objective { font-size: 14px; gap: 8px; }
+  .now-objective input { width: 16px; height: 16px; margin-top: 2px; }
+  .now-hints { font-size: 12px; max-height: 3.2em; overflow: hidden; }
+  .now-more, .now-more-tips, .now-lvl { display: none !important; }
+  .now-next { margin-top: 2px; font-size: 12px; }
+  .now-clock .big { font-size: 36px; }
+  #liveDelta { font-size: 16px; }
+  .now-actions .big-btn { font-size: 14px; padding: 8px 12px; }
+  .now-run { font-size: 13px !important; }
+}
+
+/* Phone: ≥44px touch targets, bigger checkboxes */
+@media (max-width: 860px) {
+  button, select, summary, .big-btn, .tt, .as-controls button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .zone label.step, .now-objective, .cr-step label {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 6px 0;
+    box-sizing: border-box;
+  }
+  input[type=checkbox] {
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px;
+    min-height: 24px;
+  }
+  .switch { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; }
+  .topbar button, .topbar select { min-height: 44px; }
+  .collapse { min-height: 44px; min-width: 44px; }
+  /* Compact now-bar on phones; per-zone timers and Practice chips live in the list on desktop only */
+  .now { padding: 8px 12px; gap: 6px 10px; max-height: 26vh; overflow: hidden; }
+  .now-zone { font-size: 18px; margin: 0; }
+  .now-objective { font-size: 14px; }
+  .now-clock .big { font-size: 30px; }
+  .now-more, .now-more-tips, .now-lvl, .now-class { display: none !important; }
+  .zone .tw button, .practice-btn, .practice-pill { display: none !important; }
+}

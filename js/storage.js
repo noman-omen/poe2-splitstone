@@ -41,10 +41,11 @@
     return { hideHints: false, hideExtra: false, focusMode: false,
              theme: "ember",  // global UI theme (see css/styles.css data-theme)
              autoSplit: { enabled: false, url: "http://127.0.0.1:8766", token: "" },
+             overlay: { opacity: 0.8, clickThrough: true },
              hotkeys: {} };  // action -> key overrides; defaults live in app.js (HOTKEY_DEFS)
   }
 
-  const SETTINGS_KEYS = ["hideHints", "hideExtra", "focusMode", "theme", "autoSplit", "hotkeys"];
+  const SETTINGS_KEYS = ["hideHints", "hideExtra", "focusMode", "theme", "autoSplit", "overlay", "hotkeys"];
 
   /** Local helper hosts: 127.0.0.1, localhost, [::1]. No path/search/hash/userinfo. */
   function isLocalHelperHost(hostname) {
@@ -152,6 +153,14 @@
     out.theme = typeof src.theme === "string" ? src.theme : d.theme;
     out.hotkeys = asObject(src.hotkeys);
     out.autoSplit = sanitizeAutoSplit(src.autoSplit, { allowEnabled: true });
+    const ov = asObject(src.overlay);
+    let opacity = Number(ov.opacity);
+    if (!Number.isFinite(opacity)) opacity = 0.8;
+    opacity = Math.min(1, Math.max(0.3, opacity));
+    out.overlay = {
+      opacity,
+      clickThrough: ov.clickThrough === undefined ? true : !!ov.clickThrough,
+    };
     return out;
   }
 
@@ -204,11 +213,18 @@
   function save(state) { localStorage.setItem(KEY, JSON.stringify(state)); }
 
   /** Export: whole state, or a single character when `onlyId` is given. */
+  /** Exports never carry the helper token (E6). */
+  function settingsForExport(settings) {
+    const s = JSON.parse(JSON.stringify(settings || {}));
+    if (s.autoSplit) delete s.autoSplit.token;
+    return s;
+  }
+
   function exportJSON(state, onlyId) {
     const chars = onlyId ? { [onlyId]: state.characters[onlyId] } : state.characters;
     return JSON.stringify({ app: "splitstone", schema: SCHEMA,
       exported: new Date().toISOString(), activeId: onlyId || state.activeId,
-      settings: state.settings, characters: chars }, null, 2);
+      settings: settingsForExport(state.settings), characters: chars }, null, 2);
   }
 
   /**

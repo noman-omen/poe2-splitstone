@@ -3,6 +3,7 @@
 import os, sys
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from modal_helpers import fill_modal
 
 URL = os.environ.get("TRACKER_URL", "http://127.0.0.1:8765/")
 ROOT = Path(__file__).resolve().parent.parent
@@ -37,9 +38,9 @@ with sync_playwright() as p:
     cleaned = js(page, "CustomRoute.cleanNote('see https://evil.example/x for tips')")
     check("cleanNote strips URLs", "[link removed]" in cleaned and "https://" not in cleaned, cleaned)
 
-    # Create custom route via UI
-    page.once("dialog", lambda d: d.accept("Skip Miller route"))
+    # Create custom route via UI (in-app modal)
     page.click('[data-action="custom-new"]')
+    fill_modal(page, "Skip Miller route")
     page.wait_for_timeout(200)
     st = js(page, """() => {
       const c = state_c(), r = Run.route(c), cr = Run.getCustom(c, r.customId);
