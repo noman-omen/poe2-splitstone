@@ -133,3 +133,52 @@ test("tools are https with a description", () => {
     assert.ok(t.name && t.desc);
   }
 });
+
+test("runs are capped at MAX_RUNS when added, and on the legacy path", () => {
+  const eg = E.blank();
+  eg.runs = Array.from({ length: E.MAX_RUNS }, (_, i) => E.normaliseRun({ id: "r" + i, map: "M", ms: 1 }));
+  E.startMap(eg, { map: "Newest" }, T0);
+  const run = E.finishMap(eg, {}, T0 + 1000);
+  assert.strictEqual(eg.runs.length, E.MAX_RUNS);
+  assert.strictEqual(eg.runs[0].map, "Newest");
+  assert.strictEqual(run.trimmed, 1);
+  assert.ok(!("trimmed" in JSON.parse(JSON.stringify(run))), "trim flag is not saved");
+  const legacy = Array.from({ length: E.MAX_RUNS + 10 }, (_, i) => ({ id: "h" + i, name: "Bog", ms: 1, finished: "2026-10-01T00:00:00Z" }));
+  assert.strictEqual(E.fromLegacyMapHistory(legacy).runs.length, E.MAX_RUNS);
+});
+
+test("dates are validated and atlas values bounded", () => {
+  const eg = E.normalise({
+    runs: [{ map: "A", started: "not a date" }, { map: "B", started: "2026-10-01T00:00:00.000Z" }],
+    sessions: [{ id: "s", started: "junk" }, { id: "t", started: "2026-10-01T00:00:00.000Z", ended: "x".repeat(500) }],
+    atlas: { a: "2026-10-01T00:00:00.000Z", b: "x".repeat(10000), c: "yesterday" },
+  });
+  assert.strictEqual(eg.runs[0].started, null);
+  assert.strictEqual(eg.runs[1].started, "2026-10-01T00:00:00.000Z");
+  assert.deepStrictEqual(eg.sessions.map(s => s.id), ["t"]);
+  assert.strictEqual(eg.sessions[0].ended, null);
+  assert.deepStrictEqual(Object.keys(eg.atlas), ["a"]);
+});
+
+test("CSV cells can't start a spreadsheet formula", () => {
+  for (const bad of ["=HYPERLINK(\"x\")", "+1+1", "-2+3", "@SUM(A1)", "\tcmd", "\rcmd"]) {
+    const c = E.csvCell(bad);
+    assert.ok(/^"?'/.test(c), JSON.stringify(bad) + " -> " + c);
+  }
+  assert.strictEqual(E.csvCell("Burial Bog"), "Burial Bog");
+  assert.strictEqual(E.csvCell(12.5), "12.5");
+  const eg = E.blank();
+  E.startMap(eg, { map: "=cmd|' /C calc'!A0", mods: "@evil" }, T0);
+  E.finishMap(eg, {}, T0 + 1000);
+  const row = E.toCSV(eg, "+Char").split("\n")[1];
+  assert.ok(row.includes("'=cmd") && row.includes("'+Char") && row.includes("'@evil"), row);
+});
+
+test("maps/hour waits for 10 minutes of data", () => {
+  const eg = E.blank();
+  E.startMap(eg, { map: "Quick" }, T0);
+  E.finishMap(eg, {}, T0 + 1000);
+  assert.strictEqual(E.stats(eg.runs).mapsPerHour, null);
+  assert.strictEqual(E.sessionStats(eg, eg.sessions[0].id, T0 + 60000).mapsPerHour, null);
+  assert.ok(E.sessionStats(eg, eg.sessions[0].id, T0 + 10 * 60000).mapsPerHour > 0);
+});

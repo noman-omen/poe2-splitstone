@@ -196,41 +196,97 @@
     return out;
   }
 
+  /*
+   * Save safety: never replace a save we could not read, and never drop data
+   * because a migration write failed. `status` explains what the app should warn about.
+   */
+  const BACKUP_KEY = KEY + ":backup-schema1";
+  const BACKUP_SAVES_KEY = KEY + ":backup-saves";
+  const BACKUP_KEEP_SAVES = 50;     // drop the pre-1.1 backup after this many good saves
+  const status = { blocked: null, lastError: null };
+  // blocked: null | "unreadable" (existing save can't be parsed) | "migration" (backup could not be written)
+
+  const isQuota = e => !!e && (e.name === "QuotaExceededError" || e.code === 22 || e.code === 1014 || /quota/i.test(e.message || ""));
+
   function load() {
-    try {
-      let raw = localStorage.getItem(KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw), state = normalise(parsed);
-        if (parsed.schema !== SCHEMA) {
-          // Keep the pre-migration save once, then persist the migrated state.
-          const backup = KEY + ":backup-schema" + (parsed.schema || 0);
-          if (!localStorage.getItem(backup)) localStorage.setItem(backup, raw);
-          localStorage.setItem(KEY, JSON.stringify(state));
-        }
-        return state;
+    status.blocked = null; status.lastError = null;
+    let raw = null;
+    try { raw = localStorage.getItem(KEY); } catch (e) { status.blocked = "unreadable"; status.lastError = String(e.message || e); return defaultState(); }
+    if (raw) {
+      let parsed, state;
+      try { parsed = JSON.parse(raw); state = normalise(parsed); }
+      catch (e) {
+        console.warn("Saved state unreadable; not overwriting it", e);
+        status.blocked = "unreadable"; status.lastError = String(e.message || e);
+        return defaultState();
       }
-      // One-time migration from the pre-rebrand key: parse+normalise first;
-      // on failure leave the old key untouched so the user can recover.
-      for (const old of LEGACY_KEYS) {
-        const legacy = localStorage.getItem(old);
-        if (!legacy) continue;
+      if (parsed.schema !== SCHEMA) {
+        // Keep the pre-migration save, then persist the migrated state.
         try {
-          const state = normalise(JSON.parse(legacy));
-          localStorage.setItem(KEY, JSON.stringify(state));
-          localStorage.removeItem(old);
-          return state;
+          if (!localStorage.getItem(BACKUP_KEY)) localStorage.setItem(BACKUP_KEY, raw);
+          localStorage.setItem(BACKUP_SAVES_KEY, "0");
         } catch (e) {
-          console.warn("Legacy state unreadable, leaving", old, e);
+          // No room for the backup: keep the migrated state in memory only and leave the old save alone.
+          status.blocked = "migration"; status.lastError = isQuota(e) ? "storage full" : String(e.message || e);
+          return state;
         }
+        try { localStorage.setItem(KEY, JSON.stringify(state)); }
+        catch (e) { status.lastError = isQuota(e) ? "storage full" : String(e.message || e); }
       }
-      return defaultState();
-    } catch (e) {
-      console.warn("Saved state unreadable, starting fresh", e);
-      return defaultState();
+      return state;
     }
+    // One-time migration from the pre-rebrand key: parse+normalise first;
+    // on failure leave the old key untouched so the user can recover.
+    for (const old of LEGACY_KEYS) {
+      const legacy = localStorage.getItem(old);
+      if (!legacy) continue;
+      try {
+        const state = normalise(JSON.parse(legacy));
+        localStorage.setItem(KEY, JSON.stringify(state));
+        localStorage.removeItem(old);
+        return state;
+      } catch (e) {
+        console.warn("Legacy state unreadable, leaving", old, e);
+        status.blocked = "unreadable"; status.lastError = String(e.message || e);
+        return defaultState();
+      }
+    }
+    return defaultState();
   }
 
-  function save(state) { localStorage.setItem(KEY, JSON.stringify(state)); }
+  /** Returns true when written. Refuses while blocked; reports quota errors in status. */
+  function save(state) {
+    if (status.blocked) return false;
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+    } catch (e) {
+      status.lastError = isQuota(e) ? "storage full" : String(e.message || e);
+      return false;
+    }
+    status.lastError = null;
+    try {
+      if (localStorage.getItem(BACKUP_KEY) !== null) {
+        const n = (parseInt(localStorage.getItem(BACKUP_SAVES_KEY), 10) || 0) + 1;
+        if (n >= BACKUP_KEEP_SAVES) { localStorage.removeItem(BACKUP_KEY); localStorage.removeItem(BACKUP_SAVES_KEY); }
+        else localStorage.setItem(BACKUP_SAVES_KEY, String(n));
+      }
+    } catch (_) { /* counter is best effort */ }
+    return true;
+  }
+
+  const hasBackup = () => { try { return localStorage.getItem(BACKUP_KEY) !== null; } catch (_) { return false; } };
+
+  /** State from the pre-1.1 backup (migrated in memory). Throws if missing or unreadable. */
+  function backupState() {
+    const raw = localStorage.getItem(BACKUP_KEY);
+    if (!raw) throw new Error("No pre-1.1 backup");
+    return normalise(JSON.parse(raw));
+  }
+
+  /** User chose to overwrite a blocked save (after exporting, or to restore the backup). */
+  function unblock() { status.blocked = null; }
+
+
 
   /** Export: whole state, or a single character when `onlyId` is given. */
   /** Exports never carry the helper token (E6). */
@@ -271,7 +327,7 @@
   }
 
   global.Storage2 = {
-    KEY, LEGACY_KEYS, load, save, exportJSON, importJSON, newCharacter, uid,
+    KEY, LEGACY_KEYS, BACKUP_KEY, status, load, save, hasBackup, backupState, unblock, exportJSON, importJSON, newCharacter, uid,
     isLocalHelperUrl, isLocalHelperHost, canonicalHelperUrl, sanitizeAutoSplit, normalise, defaultSettings,
   };
 })(window);

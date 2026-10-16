@@ -13,6 +13,8 @@
 (function (global) {
   "use strict";
 
+  const MAX_RUNS = 5000;
+  const isoOrNull = v => (typeof v === "string" && v.length <= 40 && Number.isFinite(Date.parse(v)) ? v : null);
   const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
   const iso = ms => new Date(ms).toISOString();
   const clampInt = (v, lo, hi) => { if (v === null || v === undefined || v === "") return null; const n = Math.floor(Number(v)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : null; };
@@ -30,7 +32,7 @@
       map: str(src.map, 80) || "Unknown map",
       tier: clampInt(src.tier, 1, 20),
       mods: str(src.mods, 300),
-      started: typeof src.started === "string" ? src.started : null,
+      started: isoOrNull(src.started),
       ms: Number.isFinite(ms) && ms >= 0 ? Math.round(ms) : 0,
       completed: src.completed !== false,
       deaths: clampInt(src.deaths, 0, 99) || 0,
@@ -45,7 +47,7 @@
   function normalise(raw) {
     const src = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
     const out = blank();
-    out.runs = (Array.isArray(src.runs) ? src.runs : []).slice(0, 5000).map(normaliseRun);
+    out.runs = (Array.isArray(src.runs) ? src.runs : []).slice(0, MAX_RUNS).map(normaliseRun);
     if (src.active && typeof src.active === "object") {
       const a = normaliseRun(src.active);
       const el = Number(src.active.elapsed);
@@ -58,11 +60,11 @@
       delete out.active.ms; delete out.active.completed;
     }
     out.sessions = (Array.isArray(src.sessions) ? src.sessions : []).slice(0, 1000)
-      .filter(s => s && typeof s.id === "string" && typeof s.started === "string")
-      .map(s => ({ id: s.id.slice(0, 40), started: s.started, ended: typeof s.ended === "string" ? s.ended : null }));
+      .filter(s => s && typeof s.id === "string" && isoOrNull(s.started))
+      .map(s => ({ id: s.id.slice(0, 40), started: s.started, ended: isoOrNull(s.ended) }));
     out.sessionId = typeof src.sessionId === "string" && out.sessions.some(s => s.id === src.sessionId) ? src.sessionId : null;
     const atlas = src.atlas && typeof src.atlas === "object" ? src.atlas : {};
-    Object.keys(atlas).slice(0, 200).forEach(k => { if (typeof atlas[k] === "string") out.atlas[k.slice(0, 64)] = atlas[k]; });
+    Object.keys(atlas).slice(0, 200).forEach(k => { const d = isoOrNull(atlas[k]); if (d) out.atlas[k.slice(0, 64)] = d; });
     return out;
   }
 
@@ -76,7 +78,7 @@
   /** Old schema stored finished map runs as mapHistory [{ id, name, ms, finished }]. */
   function fromLegacyMapHistory(mapHistory) {
     const eg = blank();
-    eg.runs = (Array.isArray(mapHistory) ? mapHistory : []).map(h => {
+    eg.runs = (Array.isArray(mapHistory) ? mapHistory : []).slice(0, MAX_RUNS).map(h => {
       const p = parseLegacyName(h && h.name);
       const ms = Number(h && h.ms) || 0;
       const finished = h && typeof h.finished === "string" ? Date.parse(h.finished) : NaN;
@@ -162,12 +164,16 @@
       completed: !(opts && opts.completed === false),
     }));
     eg.runs.unshift(run);
+    // Keep storage bounded: drop the oldest runs past the cap and flag it for the UI.
+    const trimmed = eg.runs.length > MAX_RUNS ? eg.runs.splice(MAX_RUNS).length : 0;
+    Object.defineProperty(run, "trimmed", { value: trimmed, enumerable: false }); // not saved
     eg.active = null;
     return run;
   }
   function discardMap(eg) { const had = !!eg.active; eg.active = null; return had; }
 
   /* ---------- Stats ---------- */
+  const MIN_RATE_MS = 10 * 60000;
   function stats(runs, opts) {
     const list = runs || [];
     const done = list.filter(r => r.completed);
@@ -182,7 +188,8 @@
       avgMs: done.length ? done.reduce((a, r) => a + r.ms, 0) / done.length : null,
       bestMs: done.length ? Math.min(...done.map(r => r.ms)) : null,
       deaths,
-      mapsPerHour: hours > 0 ? done.length / hours : null,
+      // Under 10 minutes the rate is noise (one 30 s test map reads as 120/hour), so show none.
+      mapsPerHour: hours >= MIN_RATE_MS / 3600000 ? done.length / hours : null,
     };
   }
 
@@ -249,8 +256,15 @@
     return { action: "ignore" };
   }
 
+  /** CSV cell, with spreadsheet formula injection neutralised (= + - @ tab CR). */
+  function csvCell(v) {
+    let s = v == null ? "" : String(v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+
   function toCSV(eg, charName) {
-    const cell = v => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const cell = csvCell;
     const head = ["run_id", "character", "map", "tier", "started", "time_s", "completed", "deaths", "mods", "loot", "notes", "session"];
     const rows = eg.runs.slice().reverse().map(r => [r.id, charName, r.map, r.tier, r.started, (r.ms / 1000).toFixed(1),
       r.completed, r.deaths, r.mods, r.loot, r.notes, r.sessionId]);
@@ -262,7 +276,7 @@
     currentSession, startSession, endSession,
     activeMs, isRunning, startMap, pauseMap, resumeMap, addDeath, updateActive, finishMap, discardMap,
     stats, sessionStats, perMap, toggleMilestone, atlasProgress,
-    isMapArea, tierFromLevel, onZone, toCSV,
+    isMapArea, tierFromLevel, onZone, toCSV, csvCell, MAX_RUNS,
   };
   global.Endgame = Endgame;
   if (typeof module !== "undefined" && module.exports) module.exports = Endgame;
