@@ -65,6 +65,7 @@ function statusPayload() {
     overlayEnabled: settings.overlayEnabled,
     overlayOpacity: settings.overlayOpacity,
     hotkeys: { ...settings.hotkeys },
+    version: app.getVersion(),
     firstRunDone: settings.firstRunDone,
     autoUpdate: settings.autoUpdate !== false,
     clickThrough: settings.clickThrough !== false,
@@ -326,6 +327,8 @@ function updateTrayMenu() {
   if (!tray) return;
   const ct = settings.clickThrough !== false;
   const menu = Menu.buildFromTemplate([
+    { label: `Splitstone ${app.getVersion()}`, enabled: false },
+    { type: "separator" },
     { label: "Show Splitstone", click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } } },
     { type: "separator" },
     {
@@ -405,7 +408,7 @@ function wireIpc() {
     if (!senderIsMain(e)) return settings.hotkeys;
     // Global hotkeys are desktop-owned modifier combos — ignore plain web keys.
     if (bindings && typeof bindings === "object") {
-      for (const k of ["split", "pause", "undo", "newRun", "clickThrough"]) {
+      for (const k of ["split", "pause", "undo", "newRun", "clickThrough", "toggleHint"]) {
         if (typeof bindings[k] === "string" && isSafeGlobalAccelerator(bindings[k]))
           settings.hotkeys[k] = bindings[k].trim().slice(0, 32);
       }
