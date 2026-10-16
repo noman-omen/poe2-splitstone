@@ -1,7 +1,7 @@
 {
   "name": "splitstone",
   "productName": "Splitstone",
-  "version": "0.6.0",
+  "version": "1.0.0",
   "description": "Path of Exile 2 campaign speedrun tracker — install and play, no setup.",
   "author": "Splitstone <noman-omen@users.noreply.github.com>",
   "license": "MIT",
@@ -13,6 +13,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test tests/",
+    "smoke": "electron . --smoke",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
@@ -47,8 +48,18 @@
     },
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.ico",
       "artifactName": "Splitstone-Setup-${version}.${ext}"
@@ -68,7 +79,9 @@
       "artifactName": "Splitstone-Portable-${version}.${ext}"
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "category": "Game",
       "icon": "build/icon.png",
       "artifactName": "Splitstone-${version}.${ext}"

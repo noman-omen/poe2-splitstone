@@ -44,28 +44,35 @@ My goal is to make Splitstone the one-stop-shop tool for the PoE2 campaign, and 
 
 ### In-game overlay (top-right corner)
 
-A browser tab cannot sit on top of fullscreen PoE2. I ship a small always-on-top panel in the helper instead — current zone, step + tip, next, and timer — with opacity and click-through.
+A browser tab cannot sit on top of fullscreen PoE2. The desktop app (and optional Python helper) show a **minimal** always-on-top panel: **current step**, optional hint, and **next step** only — no timer or Δ. Default ~80% opacity (slider in Settings), click-through on by default (`Ctrl+Alt+O` / tray to unlock and drag). Position is remembered per display.
 
-![Overlay](screenshots/overlay-corner.png)
+![Overlay](screenshots/overlay-minimal.png)
 
 ---
 
 
 ## Download
 
-**[Download Splitstone for Windows](https://github.com/noman-omen/poe2-splitstone/releases/latest)** — get the installer from the latest Release, run it, done.
+**[Download Splitstone for Windows](https://github.com/noman-omen/poe2-splitstone/releases/latest)**
 
-1. Open the [latest Release](https://github.com/noman-omen/poe2-splitstone/releases/latest).
-2. Download **Splitstone-Setup-…exe** (recommended) or the portable **Splitstone-Portable-…exe**.
-3. Run the installer. It adds Start menu and desktop shortcuts. Use Add/Remove Programs to uninstall.
-4. If Windows SmartScreen says “Windows protected your PC”:
-   - Click **More info**
-   - Click **Run anyway**
-   - (The app is not code-signed yet; this warning is expected for new open-source builds.)
-5. Start Splitstone. It looks for Path of Exile 2’s `Client.txt` automatically. If it can’t find it, click **Browse for Client.txt…** once (usually under your Steam folder → `Path of Exile 2` → `logs` → `Client.txt`).
-6. Play. Auto-split, global hotkeys, and the top-right overlay work with no Python or terminal.
+1. Under **Assets**, download **Splitstone-Setup-1.0.0.exe** (installer, recommended) or **Splitstone-Portable-1.0.0.exe**. Ignore the `.yml` and `.blockmap` files.
+2. Run it (Windows 10/11 x64). Uninstall from Add/Remove Programs.
+3. Builds are **not code-signed**, so SmartScreen may say "Windows protected your PC". Click **More info**, then **Run anyway**.
+4. Splitstone finds Path of Exile 2's `Client.txt` automatically. If it can't, click **Client.txt…** and pick it (Steam folder → `Path of Exile 2` → `logs` → `Client.txt`). Only that file, or one in a known PoE2 folder, is read.
+5. Play in **Windowed Fullscreen** so the overlay can sit on top.
 
-**Auto-update is on by default.** When you’re online, Splitstone checks GitHub Releases at launch and can download a newer installer for you. To turn that off: in the desktop app, uncheck **Auto-update** next to Overlay (under the route bar). You can always download a new build by hand from the Releases page.
+Global hotkeys (rebindable in Settings → Desktop; bare keys are never grabbed from the game):
+
+| Keys | Action |
+| --- | --- |
+| `Ctrl+Alt+S` | Split |
+| `Ctrl+Alt+Z` | Undo |
+| `Ctrl+Alt+P` | Pause / resume |
+| `Ctrl+Alt+R` | New run (press twice within 3 s) |
+| `Ctrl+Alt+H` | Show / hide hints |
+| `Ctrl+Alt+O` | Lock / unlock the overlay (unlocked = drag to move) |
+
+Auto-update is on by default (Settings → Desktop to turn off). Full releases only get full releases; prerelease builds also see prereleases. A build that crashes on launch can't update itself, so reinstall from the link above.
 
 ---
 
@@ -87,7 +94,7 @@ A browser tab cannot sit on top of fullscreen PoE2. I ship a small always-on-top
 - **PoB2 import** — Decode a build code in-browser (base64url + zlib → XML); bad codes fail gracefully.
 - **Themes** — Ember, Slate, Crimson, Parchment (global preference, in settings and export).
 - **Class-aware notes** — Pick a basic class per character for campaign gem cuts and reward callouts (not ascendancy-specific yet). Tips hide with *Hide hints*.
-- **In-game overlay** — Optional helper `--overlay` opens a compact top-right corner panel (zone, step + tip, next, timer) with opacity and click-through. The browser alone cannot draw over fullscreen games.
+- **In-game overlay** — The desktop app (or the Python helper with `--overlay`) shows the current step, its hint and the next step in a small top-right panel. The browser alone cannot draw over fullscreen games.
 - **Focus mode & phone layout** — Second-monitor focus; compact sticky bar on small screens.
 
 ---
@@ -186,7 +193,7 @@ A normal browser window **cannot** draw over fullscreen PoE2. Use the helper for
 
 Overlay buttons publish the same hotkey actions over the helper’s event stream, so Split / Pause / Undo work without focusing the browser.
 
-**Helper security (local only):** the helper binds `127.0.0.1` only. CORS reflects an Origin allowlist (`http://127.0.0.1`, `http://localhost`, `http://[::1]`, and `null` for `file://`). Optional `--token` / `$SPLITSTONE_TOKEN`: paste the same token under **Auto-split settings**. Fetch uses the `X-Splitstone-Token` header only; EventSource cannot set headers, so SSE uses `?token=` only. `GET /status` stays open and reports `auth: true|false`. Helper URLs must not include `?query` or `#hash`. Import never auto-connects.
+**Helper security (local only):** the helper binds `127.0.0.1` only. CORS reflects an Origin allowlist (`http://127.0.0.1`, `http://localhost`, `http://[::1]`, and `null` for `file://`). Optional `--token` / `$SPLITSTONE_TOKEN`: paste the same token under **Auto-split settings**. Fetch uses the `X-Splitstone-Token` header only; EventSource cannot set headers, so SSE uses `?token=` only. `GET /status` stays open and reports `auth: true|false`; with a token set it omits the log path. JSON exports never include the token. Helper URLs must not include `?query` or `#hash`. Import never auto-connects.
 
 
 ---
