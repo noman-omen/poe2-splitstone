@@ -25,7 +25,7 @@ class StateProtocolTest(unittest.TestCase):
         self.assertEqual(s["zoneMs"], 45000)
         self.assertEqual(s["deltaMs"], -3000)
         self.assertTrue(s["running"])
-        self.assertLessEqual(len(s["tip"]), 240)
+        self.assertLessEqual(len(s["tip"]), 100)
 
     def test_normalise_rejects_non_object(self):
         with self.assertRaises(ValueError):
@@ -44,15 +44,17 @@ class StateProtocolTest(unittest.TestCase):
             "step": "Activate waypoint", "tip": "Hug the walls",
             "nextStep": "Kill Asinia", "nextZone": "Tomb of the Consort",
             "zoneMs": 30000, "runMs": 390000, "deltaMs": 5000, "running": True,
+            "showTip": True,
         }))
         roles = [r for r, _ in rows]
-        self.assertEqual(roles[:4], ["zone", "step", "tip", "next"])
-        self.assertIn("seg", roles)
-        self.assertIn("run", roles)
-        self.assertIn("delta", roles)
-        self.assertIn("Cemetery", rows[0][1])
-        self.assertTrue(rows[2][1].startswith("➤ "))
-        self.assertTrue(any("+0:05" in t for r, t in rows if r == "delta"))
+        self.assertEqual(roles, ["step", "tip", "next"])
+        self.assertNotIn("zone", roles)
+        self.assertNotIn("seg", roles)
+        self.assertNotIn("run", roles)
+        self.assertNotIn("delta", roles)
+        self.assertIn("Activate waypoint", rows[0][1])
+        self.assertIn("Hug the walls", rows[1][1])
+        self.assertTrue(rows[2][1].startswith("Next · "))
         # Tip hard-cap
         long = normalise({"tip": "x" * 200})
         self.assertLessEqual(len(long["tip"]), 100)

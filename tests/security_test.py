@@ -100,7 +100,9 @@ class HelperSecurityTest(unittest.TestCase):
         c.request("GET", "/status")
         r = c.getresponse(); body = r.read(); c.close()
         self.assertEqual(r.status, 200, body)
-        self.assertTrue(json.loads(body)["auth"])
+        data = json.loads(body)
+        self.assertTrue(data["auth"])
+        self.assertIsNone(data["log"], "log path must be hidden when a token is set")
 
     def test_token_required_on_state(self):
         c = self._conn(self.token_port)

@@ -1,16 +1,17 @@
 """Shared state protocol between the Splitstone browser app and the helper overlay.
 
 Browser POSTs JSON to http://127.0.0.1:8766/state. Overlay paints a compact
-top-right race panel.
+top-right race panel showing only: current step, optional hint, next step.
 
-Schema (version 1 + optional hotkeys):
+Schema (version 1):
 {
   "v": 1,
-  "zone": "...", "section": "...", "step": "...", "tip": "...",
-  "nextStep": "...", "nextZone": "...",
-  "zoneMs": 0, "runMs": 0, "deltaMs": null,
-  "running": true, "paused": false, "finished": false, "progress": "9/111",
-  "hotkeys": { "split": " ", "pause": "p", "undo": "u" }
+  "step": "...", "tip": "...", "nextStep": "...",
+  "showTip": true,
+  "opacity": 0.8, "clickThrough": true,
+  # legacy fields still accepted but ignored by the minimal panel:
+  "zone", "section", "nextZone", "zoneMs", "runMs", "deltaMs",
+  "running", "paused", "finished", "progress", "hotkeys"
 }
 """
 from __future__ import annotations
@@ -20,12 +21,16 @@ from typing import Any, Optional
 
 SCHEMA_VERSION = 1
 TIP_MAX = 100
+STEP_MAX = 120
+NEXT_MAX = 100
+DEFAULT_OPACITY = 0.80
+
 
 EMPTY: dict[str, Any] = {
     "v": SCHEMA_VERSION,
     "zone": "—",
     "section": "",
-    "step": "Open Splitstone in a browser and enable Auto-split",
+    "step": "Open Splitstone and enable Auto-split",
     "tip": "",
     "nextStep": "",
     "nextZone": "",
@@ -36,6 +41,9 @@ EMPTY: dict[str, Any] = {
     "paused": False,
     "finished": False,
     "progress": "",
+    "showTip": True,
+    "opacity": DEFAULT_OPACITY,
+    "clickThrough": True,
     "hotkeys": {"split": " ", "pause": "p", "undo": "u"},
 }
 
@@ -81,6 +89,8 @@ def normalise(raw: Any) -> dict[str, Any]:
             out[key] = str(raw[key])[:240]
     if raw.get("tip") is not None:
         out["tip"] = ellipsis(str(raw["tip"]), TIP_MAX)
+    out["step"] = ellipsis(out.get("step") or "", STEP_MAX)
+    out["nextStep"] = ellipsis(out.get("nextStep") or "", NEXT_MAX)
     for key in ("zoneMs", "runMs"):
         if key in raw and raw[key] is not None:
             out[key] = max(0, int(raw[key]))
@@ -89,6 +99,15 @@ def normalise(raw: Any) -> dict[str, Any]:
     for key in ("running", "paused", "finished"):
         if key in raw:
             out[key] = bool(raw[key])
+    if "showTip" in raw:
+        out["showTip"] = bool(raw["showTip"])
+    if "opacity" in raw and raw["opacity"] is not None:
+        try:
+            out["opacity"] = max(0.30, min(1.0, float(raw["opacity"])))
+        except (TypeError, ValueError):
+            pass
+    if "clickThrough" in raw:
+        out["clickThrough"] = bool(raw["clickThrough"])
     hk = raw.get("hotkeys")
     if isinstance(hk, dict):
         for k in ("split", "pause", "undo"):
@@ -98,32 +117,15 @@ def normalise(raw: Any) -> dict[str, Any]:
 
 
 def lines_for_panel(state: dict[str, Any]) -> list[tuple[str, str]]:
-    """Return (role, text) rows. Roles: zone, step, tip, next, seg, run, delta, status."""
+    """Minimal rows: step, optional tip, next. No timers/delta/zone chrome."""
     rows: list[tuple[str, str]] = []
-    head = state.get("zone") or "—"
-    if state.get("section"):
-        head = f"{state['section']} · {head}"
-    if state.get("progress"):
-        head = f"{head}  ({state['progress']})"
-    rows.append(("zone", head))
-    rows.append(("step", state.get("step") or "—"))
-    tip = ellipsis(state.get("tip") or "", TIP_MAX)
-    if tip:
-        rows.append(("tip", "➤ " + tip))
-    nxt = []
-    if state.get("nextStep"):
-        nxt.append(state["nextStep"])
-    if state.get("nextZone"):
-        nxt.append(state["nextZone"])
+    step = ellipsis(state.get("step") or "—", STEP_MAX)
+    rows.append(("step", step))
+    if state.get("showTip", True):
+        tip = ellipsis(state.get("tip") or "", TIP_MAX)
+        if tip:
+            rows.append(("tip", tip))
+    nxt = ellipsis(state.get("nextStep") or "", NEXT_MAX)
     if nxt:
-        rows.append(("next", "Next · " + " · ".join(nxt)))
-    rows.append(("seg", "seg  " + format_ms(state.get("zoneMs"))))
-    rows.append(("run", "run  " + format_ms(state.get("runMs"))))
-    d = state.get("deltaMs")
-    if d is not None:
-        rows.append(("delta", "Δ  " + format_delta(d)))
-    if state.get("paused"):
-        rows.append(("status", "PAUSED"))
-    elif state.get("finished"):
-        rows.append(("status", "DONE"))
+        rows.append(("next", "Next · " + nxt))
     return rows

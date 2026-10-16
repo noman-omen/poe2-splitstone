@@ -236,7 +236,9 @@ def make_handler(hub, log_path, token=None):
             if path == "/status":
                 # Unauthenticated on purpose: exposes auth:true so the browser can
                 # prompt for a token. Other endpoints still require the token.
-                self._json(200, {"ok": True, "version": VERSION, "log": str(log_path),
+                # With a token set, don't reveal the local log path (E8).
+                self._json(200, {"ok": True, "version": VERSION,
+                                 "log": None if token else str(log_path),
                                  "log_exists": Path(log_path).exists(), "last": hub.last,
                                  "overlay": hub.state is not None,
                                  "auth": bool(token)})
