@@ -1,7 +1,10 @@
 "use strict";
-/** Overlay snapshot normaliser (ported from helper/overlay_state.py). */
+/** Overlay snapshot normaliser — minimal panel (step / tip / next). */
 const SCHEMA_VERSION = 1;
 const TIP_MAX = 100;
+const STEP_MAX = 120;
+const NEXT_MAX = 100;
+const DEFAULT_OPACITY = 0.80;
 
 const EMPTY = Object.freeze({
   v: SCHEMA_VERSION,
@@ -18,6 +21,9 @@ const EMPTY = Object.freeze({
   paused: false,
   finished: false,
   progress: "",
+  showTip: true,
+  opacity: DEFAULT_OPACITY,
+  clickThrough: true,
   hotkeys: Object.freeze({ split: " ", pause: "p", undo: "u" }),
 });
 
@@ -67,6 +73,9 @@ function normalise(raw) {
     paused: false,
     finished: false,
     progress: "",
+    showTip: true,
+    opacity: DEFAULT_OPACITY,
+    clickThrough: true,
     hotkeys: { split: " ", pause: "p", undo: "u" },
   };
   out.v = parseInt(raw.v || SCHEMA_VERSION, 10) || SCHEMA_VERSION;
@@ -74,12 +83,18 @@ function normalise(raw) {
     if (raw[key] != null) out[key] = String(raw[key]).slice(0, 240);
   }
   if (raw.tip != null) out.tip = ellipsis(String(raw.tip), TIP_MAX);
+  out.step = ellipsis(out.step || "", STEP_MAX);
+  out.nextStep = ellipsis(out.nextStep || "", NEXT_MAX);
   for (const key of ["zoneMs", "runMs"]) {
     if (raw[key] != null) out[key] = Math.max(0, parseInt(raw[key], 10) || 0);
   }
   if ("deltaMs" in raw) out.deltaMs = raw.deltaMs == null ? null : parseInt(raw.deltaMs, 10) || 0;
-  for (const key of ["running", "paused", "finished"]) {
+  for (const key of ["running", "paused", "finished", "showTip", "clickThrough"]) {
     if (key in raw) out[key] = !!raw[key];
+  }
+  if (raw.opacity != null) {
+    const o = Number(raw.opacity);
+    if (Number.isFinite(o)) out.opacity = Math.min(1, Math.max(0.3, o));
   }
   if (raw.hotkeys && typeof raw.hotkeys === "object") {
     for (const k of ["split", "pause", "undo"]) {
@@ -91,23 +106,17 @@ function normalise(raw) {
 
 function linesForPanel(state) {
   const rows = [];
-  let head = state.zone || "—";
-  if (state.section) head = `${state.section} · ${head}`;
-  if (state.progress) head = `${head}  (${state.progress})`;
-  rows.push(["zone", head]);
-  rows.push(["step", state.step || "—"]);
-  const tip = ellipsis(state.tip || "", TIP_MAX);
-  if (tip) rows.push(["tip", "➤ " + tip]);
-  const nxt = [];
-  if (state.nextStep) nxt.push(state.nextStep);
-  if (state.nextZone) nxt.push(state.nextZone);
-  if (nxt.length) rows.push(["next", "Next · " + nxt.join(" · ")]);
-  rows.push(["seg", "seg  " + formatMs(state.zoneMs)]);
-  rows.push(["run", "run  " + formatMs(state.runMs)]);
-  if (state.deltaMs != null) rows.push(["delta", "Δ  " + formatDelta(state.deltaMs)]);
-  if (state.paused) rows.push(["status", "PAUSED"]);
-  else if (state.finished) rows.push(["status", "DONE"]);
+  rows.push(["step", ellipsis(state.step || "—", STEP_MAX)]);
+  if (state.showTip !== false) {
+    const tip = ellipsis(state.tip || "", TIP_MAX);
+    if (tip) rows.push(["tip", tip]);
+  }
+  const nxt = ellipsis(state.nextStep || "", NEXT_MAX);
+  if (nxt) rows.push(["next", "Next · " + nxt]);
   return rows;
 }
 
-module.exports = { EMPTY, SCHEMA_VERSION, formatMs, formatDelta, ellipsis, keyLabel, normalise, linesForPanel };
+module.exports = {
+  EMPTY, SCHEMA_VERSION, DEFAULT_OPACITY, TIP_MAX, STEP_MAX, NEXT_MAX,
+  formatMs, formatDelta, ellipsis, keyLabel, normalise, linesForPanel,
+};

@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld("splitstoneDesktop", {
   setOverlayEnabled: (on) => ipcRenderer.invoke("desktop:set-overlay", !!on),
   setOverlayOpacity: (n) => ipcRenderer.invoke("desktop:set-overlay-opacity", n),
   setAutoUpdate: (on) => ipcRenderer.invoke("desktop:set-auto-update", !!on),
+  setClickThrough: (on) => ipcRenderer.invoke("desktop:set-click-through", !!on),
+  resetOverlayPosition: () => ipcRenderer.invoke("desktop:reset-overlay-position"),
   getAutoUpdate: () => ipcRenderer.invoke("desktop:get-auto-update"),
   pushOverlayState: (snapshot) => ipcRenderer.send("desktop:overlay-state", snapshot),
   onZone: (cb) => {
@@ -32,11 +34,17 @@ contextBridge.exposeInMainWorld("splitstoneDesktop", {
     ipcRenderer.on("desktop:status", handler);
     return () => ipcRenderer.removeListener("desktop:status", handler);
   },
+  onToast: (cb) => {
+    const handler = (_e, msg) => cb(msg);
+    ipcRenderer.on("desktop:toast", handler);
+    return () => ipcRenderer.removeListener("desktop:toast", handler);
+  },
   onFirstRunNeeded: (cb) => {
     const handler = (_e, info) => cb(info);
     ipcRenderer.on("desktop:first-run", handler);
     return () => ipcRenderer.removeListener("desktop:first-run", handler);
   },
+  focusMain: () => ipcRenderer.send("desktop:focus-main"),
   dismissFirstRun: () => ipcRenderer.invoke("desktop:dismiss-first-run"),
   openExternal: (url) => ipcRenderer.invoke("desktop:open-external", url),
 });

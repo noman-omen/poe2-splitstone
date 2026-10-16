@@ -67,10 +67,17 @@ describe("overlay-state", () => {
     assert.deepEqual(Object.keys(st.hotkeys).sort(), ["pause", "split", "undo"]);
   });
 
-  it("linesForPanel builds rows", () => {
-    const rows = linesForPanel(normalise({ zone: "Z", step: "S", zoneMs: 0, runMs: 0, paused: true }));
-    assert.ok(rows.some((r) => r[0] === "zone"));
-    assert.ok(rows.some((r) => r[0] === "status" && r[1] === "PAUSED"));
+  it("linesForPanel builds minimal rows (step / tip / next only)", () => {
+    const rows = linesForPanel(normalise({
+      step: "Do the thing", tip: "A tip", nextStep: "Next thing", showTip: true,
+      zone: "Z", zoneMs: 999, runMs: 999, deltaMs: 5, paused: true,
+    }));
+    assert.ok(rows.some((r) => r[0] === "step" && r[1].includes("Do the thing")));
+    assert.ok(rows.some((r) => r[0] === "tip"));
+    assert.ok(rows.some((r) => r[0] === "next" && r[1].includes("Next")));
+    assert.ok(!rows.some((r) => r[0] === "zone"));
+    assert.ok(!rows.some((r) => r[0] === "status"));
+    assert.ok(!rows.some((r) => r[0] === "delta" || r[0] === "seg" || r[0] === "run"));
   });
 
   it("formatMs", () => {
@@ -93,9 +100,12 @@ describe("client-log paths", () => {
 });
 
 describe("hotkeys", () => {
-  it("maps space and letters", () => {
-    assert.equal(toAccelerator(" "), "Space");
-    assert.equal(toAccelerator("p"), "P");
-    assert.equal(toAccelerator("F5"), "F5");
+  it("rejects bare keys; accepts modifier combos", () => {
+    assert.equal(toAccelerator(" "), null);
+    assert.equal(toAccelerator("p"), null);
+    assert.equal(toAccelerator("Space"), null);
+    assert.equal(toAccelerator("F5"), null); // bare F-key still needs a modifier for globals
+    assert.equal(toAccelerator("Ctrl+Alt+S"), "Ctrl+Alt+S");
+    assert.equal(toAccelerator("Ctrl+Alt+O"), "Ctrl+Alt+O");
   });
 });

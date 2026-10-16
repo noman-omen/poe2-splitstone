@@ -6,26 +6,31 @@
  */
 const path = require("path");
 const fs = require("fs");
-const { app, BrowserWindow, ipcMain, dialog, shell, screen } = require("electron");
+const {
+  app, BrowserWindow, ipcMain, dialog, shell, screen, Tray, Menu, nativeImage,
+} = require("electron");
 
-const { findClientLog, watchClientLog, isClientTxtPath } = require("./client-log");
+const { pathToFileURL } = require("url");
+const { findClientLog, watchClientLog, isClientTxtPath, isAllowedLogPath } = require("./client-log");
 const { normalise, EMPTY } = require("./overlay-state");
 const { registerAll, unregisterAll } = require("./hotkeys");
+const {
+  merge: mergeDesktopSettings, shouldCheckForUpdates, isSafeGlobalAccelerator, isPrereleaseVersion,
+} = require("./desktop-settings");
 
-// Optional auto-update (GitHub Releases). Soft-fail if module missing in dev.
 let autoUpdater = null;
 try { autoUpdater = require("electron-updater").autoUpdater; } catch (_) { /* optional */ }
 
-// Dev: desktop/src → repo root. Packaged: asar has index.html next to src/.
 const DESKTOP = path.join(__dirname, "..");
 const ROOT = fs.existsSync(path.join(DESKTOP, "index.html"))
   ? DESKTOP
   : path.join(DESKTOP, "..");
 const SETTINGS_FILE = () => path.join(app.getPath("userData"), "desktop-settings.json");
+const SMOKE = process.argv.includes("--smoke");
 
 let mainWindow = null;
 let overlayWindow = null;
-let firstRunWindow = null;
+let tray = null;
 let logWatcher = null;
 let overlayState = { ...EMPTY, hotkeys: { ...EMPTY.hotkeys } };
 let settings = mergeDesktopSettings(null);
@@ -44,6 +49,12 @@ function saveSettings() {
   } catch (e) { console.warn("settings save", e.message); }
 }
 
+let saveTimer = null;
+function saveSettingsSoon() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveSettings, 500);
+}
+
 function statusPayload() {
   const p = settings.clientLogPath || findClientLog(null);
   return {
@@ -56,6 +67,7 @@ function statusPayload() {
     hotkeys: { ...settings.hotkeys },
     firstRunDone: settings.firstRunDone,
     autoUpdate: settings.autoUpdate !== false,
+    clickThrough: settings.clickThrough !== false,
   };
 }
 
@@ -64,15 +76,21 @@ function broadcastStatus() {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("desktop:status", st);
 }
 
+/** Feedback for hotkeys is shown on the overlay itself, never by focusing the tracker. */
+function toastOverlay(msg) {
+  if (!overlayWindow || overlayWindow.isDestroyed()) return;
+  if (!overlayWindow.isVisible()) overlayWindow.showInactive();
+  overlayWindow.webContents.send("overlay:toast", String(msg || ""));
+}
+
 function startLogWatch(explicitPath) {
   if (logWatcher) { logWatcher.stop(); logWatcher = null; }
   const p = explicitPath || settings.clientLogPath || findClientLog(null);
-  if (!p || !fs.existsSync(p)) {
+  if (!p || !fs.existsSync(p) || !isAllowedLogPath(p, settings.pickedLogPath)) {
     broadcastStatus();
     return null;
   }
-  if (!isClientTxtPath(p)) return null;
-  settings.clientLogPath = path.resolve(p);
+  settings.clientLogPath = fs.realpathSync.native(path.resolve(p));
   saveSettings();
   logWatcher = watchClientLog(settings.clientLogPath, (ev) => {
     if (mainWindow && !mainWindow.isDestroyed())
@@ -84,27 +102,113 @@ function startLogWatch(explicitPath) {
   return logWatcher;
 }
 
+function setClickThrough(on, { toast } = {}) {
+  settings.clickThrough = !!on;
+  saveSettings();
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.setIgnoreMouseEvents(!!settings.clickThrough, { forward: true });
+    overlayWindow.setFocusable(!settings.clickThrough);
+    overlayWindow.webContents.send("overlay:lock", !!settings.clickThrough);
+  }
+  broadcastStatus();
+  updateTrayMenu();
+  if (toast) {
+    toastOverlay(settings.clickThrough
+      ? "Overlay locked"
+      : "Unlocked: drag to move, Ctrl+Alt+O to lock");
+  }
+  return settings.clickThrough;
+}
+
+const NEW_RUN_CONFIRM_MS = 3000;
+let newRunArmedAt = 0;
+
 function applyHotkeys() {
   registerAll(settings.hotkeys, (action) => {
-    if (mainWindow && !mainWindow.isDestroyed())
-      mainWindow.webContents.send("desktop:hotkey", action);
+    if (action === "clickThrough") {
+      setClickThrough(!(settings.clickThrough !== false), { toast: true });
+      return;
+    }
+    if (action === "newRun") {
+      // Confirm on the overlay with a second press instead of stealing focus from the game.
+      const now = Date.now();
+      if (now - newRunArmedAt > NEW_RUN_CONFIRM_MS) {
+        newRunArmedAt = now;
+        toastOverlay("Press " + (settings.hotkeys.newRun || "again") + " again for a new run");
+        return;
+      }
+      newRunArmedAt = 0;
+      toastOverlay("New run");
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("desktop:hotkey", action);
   });
+}
+
+const OVERLAY = Object.freeze({ minW: 200, maxW: 320, minH: 48, maxH: 160, defW: 300, defH: 72 });
+const clampW = w => Math.min(OVERLAY.maxW, Math.max(OVERLAY.minW, parseInt(w, 10) || OVERLAY.defW));
+const clampH = h => Math.min(OVERLAY.maxH, Math.max(OVERLAY.minH, parseInt(h, 10) || OVERLAY.defH));
+
+function overlayDefaultBounds(display) {
+  const wa = display.workArea;
+  const w = OVERLAY.defW, h = OVERLAY.defH;
+  return {
+    x: wa.x + wa.width - w - 16,
+    y: wa.y + 20,
+    width: w,
+    height: h,
+  };
+}
+
+function resolveOverlayBounds() {
+  const displays = screen.getAllDisplays();
+  const saved = settings.overlayBounds;
+  let display = screen.getPrimaryDisplay();
+  if (saved && saved.displayId != null) {
+    const found = displays.find(d => String(d.id) === String(saved.displayId));
+    if (found) display = found;
+  }
+  if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+    const wa = display.workArea;
+    const w = clampW(saved.width), h = clampH(saved.height);
+    // saved x/y are relative to work area
+    let x = wa.x + (saved.x || 0);
+    let y = wa.y + (saved.y || 0);
+    // Clamp on-screen
+    x = Math.min(Math.max(x, wa.x), wa.x + wa.width - w);
+    y = Math.min(Math.max(y, wa.y), wa.y + wa.height - h);
+    return { display, bounds: { x, y, width: w, height: h } };
+  }
+  return { display, bounds: overlayDefaultBounds(display) };
+}
+
+function persistOverlayBounds() {
+  if (!overlayWindow || overlayWindow.isDestroyed()) return;
+  try {
+    const b = overlayWindow.getBounds();
+    const display = screen.getDisplayMatching(b);
+    const wa = display.workArea;
+    settings.overlayBounds = {
+      displayId: String(display.id),
+      x: b.x - wa.x,
+      y: b.y - wa.y,
+      width: b.width,
+      height: b.height,
+    };
+    saveSettings();
+  } catch (_) { /* */ }
 }
 
 function createOverlay() {
   if (overlayWindow && !overlayWindow.isDestroyed()) return overlayWindow;
-  const { width } = screen.getPrimaryDisplay().workAreaSize;
+  const { bounds } = resolveOverlayBounds();
   overlayWindow = new BrowserWindow({
-    width: 360,
-    height: 220,
-    x: width - 380,
-    y: 20,
+    ...bounds,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
-    focusable: false,
+    focusable: settings.clickThrough === false,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload-overlay.js"),
@@ -113,8 +217,9 @@ function createOverlay() {
       sandbox: true,
     },
   });
-  overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+  overlayWindow.setIgnoreMouseEvents(settings.clickThrough !== false, { forward: true });
   overlayWindow.setAlwaysOnTop(true, "screen-saver");
+  attachNavGuard(overlayWindow);
   overlayWindow.loadFile(path.join(DESKTOP, "overlay", "overlay.html"));
   overlayWindow.once("ready-to-show", () => {
     if (settings.overlayEnabled) {
@@ -122,6 +227,7 @@ function createOverlay() {
       overlayWindow.setOpacity(settings.overlayOpacity);
     }
   });
+  overlayWindow.on("moved", () => persistOverlayBounds());
   overlayWindow.on("closed", () => { overlayWindow = null; });
   return overlayWindow;
 }
@@ -140,6 +246,41 @@ function setOverlayEnabled(on) {
     overlayWindow.hide();
   }
   broadcastStatus();
+  updateTrayMenu();
+}
+
+function resetOverlayPosition() {
+  settings.overlayBounds = null;
+  saveSettings();
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    const { bounds } = resolveOverlayBounds();
+    overlayWindow.setBounds(bounds);
+  }
+}
+
+/** E2: deny navigation away from the app's file: origin. */
+/** Only the two bundled pages may ever be loaded (hash/query ignored). */
+function isAppPageUrl(raw) {
+  let u;
+  try { u = new URL(String(raw)); } catch (_) { return false; }
+  if (u.protocol !== "file:") return false;
+  u.hash = ""; u.search = "";
+  const allowed = [path.join(ROOT, "index.html"), path.join(DESKTOP, "overlay", "overlay.html")]
+    .map(f => pathToFileURL(f).href);
+  return allowed.includes(u.href);
+}
+
+function attachNavGuard(win) {
+  const wc = win.webContents;
+  const guard = (e, url) => { if (!isAppPageUrl(url)) e.preventDefault(); };
+  wc.on("will-navigate", guard);
+  wc.on("will-redirect", guard);
+  wc.setWindowOpenHandler(({ url }) => {
+    if (/^https:\/\//i.test(url)) {
+      shell.openExternal(url);
+    }
+    return { action: "deny" };
+  });
 }
 
 function createMainWindow() {
@@ -158,6 +299,7 @@ function createMainWindow() {
     },
     icon: path.join(DESKTOP, "build", "icon.png"),
   });
+  attachNavGuard(mainWindow);
   mainWindow.loadFile(path.join(ROOT, "index.html"));
   mainWindow.on("closed", () => { mainWindow = null; });
   mainWindow.webContents.on("did-finish-load", () => {
@@ -173,26 +315,78 @@ function createMainWindow() {
     }
     applyHotkeys();
     if (settings.overlayEnabled) createOverlay();
+    if (SMOKE) {
+      console.log("SMOKE_OK");
+      setTimeout(() => app.quit(), 500);
+    }
   });
 }
 
-function createFirstRunIfNeeded() {
-  // First-run UI lives in the renderer (injected banner); main only signals.
+function updateTrayMenu() {
+  if (!tray) return;
+  const ct = settings.clickThrough !== false;
+  const menu = Menu.buildFromTemplate([
+    { label: "Show Splitstone", click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } } },
+    { type: "separator" },
+    {
+      label: ct ? "Unlock overlay (move)" : "Lock overlay (click-through)",
+      click: () => setClickThrough(!ct, { toast: true }),
+    },
+    {
+      label: settings.overlayEnabled ? "Hide overlay" : "Show overlay",
+      click: () => setOverlayEnabled(!settings.overlayEnabled),
+    },
+    { type: "separator" },
+    { label: "Quit", click: () => app.quit() },
+  ]);
+  tray.setContextMenu(menu);
 }
 
-/* ---------- IPC ---------- */
+function createTray() {
+  try {
+    const iconPath = path.join(DESKTOP, "build", "icon.png");
+    const img = nativeImage.createFromPath(iconPath);
+    tray = new Tray(img.isEmpty() ? nativeImage.createEmpty() : img.resize({ width: 16, height: 16 }));
+    tray.setToolTip("Splitstone");
+    updateTrayMenu();
+    tray.on("click", () => {
+      if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
+    });
+  } catch (e) {
+    console.warn("tray", e.message);
+  }
+}
+
+function senderIsMain(event) {
+  return !!(mainWindow && !mainWindow.isDestroyed() && event.sender === mainWindow.webContents);
+}
+
+function senderIsOverlay(event) {
+  return !!(overlayWindow && !overlayWindow.isDestroyed() && event.sender === overlayWindow.webContents);
+}
+
 function wireIpc() {
-  ipcMain.handle("desktop:get-status", () => statusPayload());
-  ipcMain.handle("desktop:find-client-log", () => findClientLog(settings.clientLogPath));
-  ipcMain.handle("desktop:set-client-log", (_e, filePath) => {
+  ipcMain.handle("desktop:get-status", (e) => {
+    if (!senderIsMain(e)) return null;
+    return statusPayload();
+  });
+  ipcMain.handle("desktop:find-client-log", (e) => {
+    if (!senderIsMain(e)) return null;
+    return findClientLog(settings.clientLogPath);
+  });
+  ipcMain.handle("desktop:set-client-log", (e, filePath) => {
+    if (!senderIsMain(e)) return { ok: false, error: "denied" };
     if (!isClientTxtPath(filePath)) return { ok: false, error: "Pick Client.txt only" };
     if (!fs.existsSync(filePath)) return { ok: false, error: "File not found" };
+    if (!isAllowedLogPath(filePath, settings.pickedLogPath))
+      return { ok: false, error: "Use Browse to pick Client.txt" };
     startLogWatch(filePath);
     settings.firstRunDone = true;
     saveSettings();
     return { ok: true, path: settings.clientLogPath };
   });
-  ipcMain.handle("desktop:browse-client-log", async () => {
+  ipcMain.handle("desktop:browse-client-log", async (e) => {
+    if (!senderIsMain(e)) return { ok: false, error: "denied" };
     const res = await dialog.showOpenDialog(mainWindow, {
       title: "Find Path of Exile 2 Client.txt",
       filters: [{ name: "Client.txt", extensions: ["txt"] }],
@@ -201,49 +395,107 @@ function wireIpc() {
     if (res.canceled || !res.filePaths[0]) return { ok: false, cancelled: true };
     const fp = res.filePaths[0];
     if (!isClientTxtPath(fp)) return { ok: false, error: "Please choose the file named Client.txt" };
+    settings.pickedLogPath = path.resolve(fp);
     startLogWatch(fp);
     settings.firstRunDone = true;
     saveSettings();
     return { ok: true, path: settings.clientLogPath };
   });
-  ipcMain.handle("desktop:set-hotkeys", (_e, bindings) => {
+  ipcMain.handle("desktop:set-hotkeys", (e, bindings) => {
+    if (!senderIsMain(e)) return settings.hotkeys;
+    // Global hotkeys are desktop-owned modifier combos — ignore plain web keys.
     if (bindings && typeof bindings === "object") {
-      for (const k of ["split", "pause", "undo", "newRun"]) {
-        if (typeof bindings[k] === "string") settings.hotkeys[k] = bindings[k].slice(0, 16);
+      for (const k of ["split", "pause", "undo", "newRun", "clickThrough"]) {
+        if (typeof bindings[k] === "string" && isSafeGlobalAccelerator(bindings[k]))
+          settings.hotkeys[k] = bindings[k].trim().slice(0, 32);
       }
       saveSettings();
       applyHotkeys();
     }
     return settings.hotkeys;
   });
-  ipcMain.handle("desktop:set-overlay", (_e, on) => { setOverlayEnabled(on); return settings.overlayEnabled; });
-  ipcMain.handle("desktop:set-auto-update", (_e, on) => setAutoUpdate(!!on));
-  ipcMain.handle("desktop:get-auto-update", () => settings.autoUpdate !== false);
-  ipcMain.handle("desktop:set-overlay-opacity", (_e, n) => {
-    const v = Math.min(1, Math.max(0.3, Number(n) || 0.92));
+  ipcMain.handle("desktop:set-overlay", (e, on) => {
+    if (!senderIsMain(e)) return settings.overlayEnabled;
+    setOverlayEnabled(on);
+    return settings.overlayEnabled;
+  });
+  ipcMain.handle("desktop:set-auto-update", (e, on) => {
+    if (!senderIsMain(e)) return settings.autoUpdate;
+    return setAutoUpdate(!!on);
+  });
+  ipcMain.handle("desktop:get-auto-update", (e) => {
+    if (!senderIsMain(e)) return true;
+    return settings.autoUpdate !== false;
+  });
+  ipcMain.handle("desktop:set-overlay-opacity", (e, n) => {
+    if (!senderIsMain(e)) return settings.overlayOpacity;
+    const v = Math.min(1, Math.max(0.3, Number(n) || 0.8));
     settings.overlayOpacity = v;
     saveSettings();
     if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.setOpacity(v);
     return v;
   });
-  ipcMain.on("desktop:overlay-state", (_e, snapshot) => {
-    try {
-      overlayState = normalise(snapshot);
-      if (overlayWindow && !overlayWindow.isDestroyed() && settings.overlayEnabled)
-        overlayWindow.webContents.send("overlay:state", overlayState);
-    } catch (_) { /* ignore bad snapshots */ }
+  ipcMain.handle("desktop:set-click-through", (e, on) => {
+    if (!senderIsMain(e)) return settings.clickThrough;
+    return setClickThrough(!!on, { toast: true });
   });
-  ipcMain.on("overlay:ready", () => {
+  ipcMain.handle("desktop:reset-overlay-position", (e) => {
+    if (!senderIsMain(e)) return false;
+    resetOverlayPosition();
+    return true;
+  });
+  ipcMain.on("desktop:overlay-state", (e, snapshot) => {
+    if (!senderIsMain(e)) return;
+    try {
+      // clickThrough is owned by the main process; snapshots never change it.
+      const next = normalise(snapshot);
+      const changed = JSON.stringify(next) !== JSON.stringify(overlayState);
+      overlayState = next;
+      if (typeof snapshot.opacity === "number") {
+        const op = Math.min(1, Math.max(0.3, snapshot.opacity));
+        if (op !== settings.overlayOpacity) {
+          settings.overlayOpacity = op;
+          if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.setOpacity(op);
+          saveSettingsSoon();
+        }
+      }
+      if (changed && overlayWindow && !overlayWindow.isDestroyed() && settings.overlayEnabled)
+        overlayWindow.webContents.send("overlay:state", overlayState);
+    } catch (_) { /* ignore */ }
+  });
+  ipcMain.on("overlay:resize", (e, size) => {
+    if (!senderIsOverlay(e)) return;
+    if (!overlayWindow || overlayWindow.isDestroyed() || !size) return;
+    // Fixed height preferred for race mode — only bump if content needs it slightly
+    const w = clampW(size.w), h = clampH(size.h);
+    try {
+      const b = overlayWindow.getBounds();
+      if (b.width === w && b.height === h) return;
+      overlayWindow.setBounds({ x: b.x, y: b.y, width: w, height: h });
+      persistOverlayBounds();
+    } catch (_) { /* */ }
+  });
+  ipcMain.on("overlay:ready", (e) => {
+    if (!senderIsOverlay(e)) return;
     if (overlayWindow && !overlayWindow.isDestroyed())
       overlayWindow.webContents.send("overlay:state", overlayState);
   });
-  ipcMain.handle("desktop:dismiss-first-run", () => {
+  ipcMain.on("desktop:focus-main", (e) => {
+    if (!senderIsMain(e)) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.moveTop();
+    mainWindow.focus();
+  });
+  ipcMain.handle("desktop:dismiss-first-run", (e) => {
+    if (!senderIsMain(e)) return null;
     settings.firstRunDone = true;
     saveSettings();
     if (!logWatcher) startLogWatch(settings.clientLogPath || findClientLog(null));
     return statusPayload();
   });
-  ipcMain.handle("desktop:open-external", (_e, url) => {
+  ipcMain.handle("desktop:open-external", (e, url) => {
+    if (!senderIsMain(e)) return false;
     const u = String(url || "");
     if (!/^https:\/\//i.test(u)) return false;
     shell.openExternal(u);
@@ -252,10 +504,12 @@ function wireIpc() {
 }
 
 function setupAutoUpdater() {
+  if (SMOKE) return; // launch checks stay offline
   if (!shouldCheckForUpdates(settings, { isPackaged: app.isPackaged, hasUpdater: !!autoUpdater }))
     return;
   try {
     autoUpdater.autoDownload = true;
+    autoUpdater.allowPrerelease = isPrereleaseVersion(app.getVersion());
     autoUpdater.checkForUpdatesAndNotify().catch(() => {});
   } catch (_) { /* */ }
 }
@@ -268,15 +522,41 @@ function setAutoUpdate(on) {
   return settings.autoUpdate;
 }
 
-app.whenReady().then(() => {
-  loadSettings();
-  wireIpc();
-  createMainWindow();
-  setupAutoUpdater();
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+// Single instance
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
   });
-});
+
+  app.whenReady().then(() => {
+    loadSettings();
+    wireIpc();
+    createMainWindow();
+    if (!SMOKE) createTray();
+    setupAutoUpdater();
+    screen.on("display-metrics-changed", (_e, _display, changed) => {
+      if (!changed.some(k => k === "scaleFactor" || k === "workArea" || k === "bounds")) return;
+      if (!overlayWindow || overlayWindow.isDestroyed()) return;
+      overlayWindow.setBounds(resolveOverlayBounds().bounds);
+    });
+    screen.on("display-removed", () => {
+      if (overlayWindow && !overlayWindow.isDestroyed()) {
+        const { bounds } = resolveOverlayBounds();
+        overlayWindow.setBounds(bounds);
+      }
+    });
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+    });
+  });
+}
 
 app.on("will-quit", () => {
   unregisterAll();
@@ -287,5 +567,12 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-// Export for tests
-module.exports = { statusPayload, isClientTxtPath, findClientLog };
+process.on("uncaughtException", (err) => {
+  console.error("Splitstone crashed:", err);
+  try {
+    dialog.showErrorBox("Splitstone crashed", String(err && err.message || err));
+  } catch (_) { /* */ }
+  app.exit(1);
+});
+
+module.exports = { isAppPageUrl, statusPayload, isClientTxtPath, findClientLog, setClickThrough };

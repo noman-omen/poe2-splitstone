@@ -1,29 +1,21 @@
 "use strict";
 /**
  * Global hotkeys via Electron globalShortcut.
- * Accelerator strings use Electron syntax (Space, CommandOrControl+…, etc.).
+ * Defaults are modifier combos (never bare Space/letters) so PoE2 keeps its keys.
  */
 const { globalShortcut } = require("electron");
+const { isSafeGlobalAccelerator } = require("./desktop-settings");
 
-/** Map app key binding (KeyboardEvent.key style) → Electron accelerator. */
+/** Normalize to an Electron accelerator, or null if unsafe/invalid. */
 function toAccelerator(key) {
-  if (!key) return null;
-  if (key === " ") return "Space";
-  const lower = String(key);
-  // Already an accelerator?
-  if (/^(CommandOrControl|Ctrl|Alt|Shift|Super)\+/i.test(lower)) return lower;
-  if (lower.length === 1) {
-    const ch = lower.toUpperCase();
-    if (/[A-Z0-9]/.test(ch)) return ch;
+  if (!key || typeof key !== "string") return null;
+  const raw = key.trim();
+  if (!raw) return null;
+  // Already an accelerator with modifiers
+  if (/(CommandOrControl|CmdOrCtrl|Ctrl|Alt|Super|Meta|Shift)\+/i.test(raw)) {
+    return isSafeGlobalAccelerator(raw) ? raw.replace(/CmdOrCtrl/gi, "CommandOrControl") : null;
   }
-  const map = {
-    ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right",
-    Escape: "Escape", Enter: "Return", Tab: "Tab", Backspace: "Backspace",
-    Delete: "Delete", Home: "Home", End: "End", PageUp: "PageUp", PageDown: "PageDown",
-  };
-  if (map[lower]) return map[lower];
-  // F-keys
-  if (/^F\d{1,2}$/i.test(lower)) return lower.toUpperCase();
+  // Plain keys are NOT registered globally (would steal from the game).
   return null;
 }
 
@@ -31,12 +23,12 @@ function registerAll(bindings, onAction) {
   unregisterAll();
   const registered = [];
   const map = bindings || {};
-  for (const action of ["split", "pause", "undo", "newRun"]) {
+  for (const action of ["split", "pause", "undo", "newRun", "clickThrough", "toggleHint"]) {
     const accel = toAccelerator(map[action]);
     if (!accel) continue;
     try {
       const ok = globalShortcut.register(accel, () => onAction(action));
-      if (ok) registered.push(accel);
+      if (ok) registered.push({ action, accel });
       else console.warn("hotkey busy:", accel, action);
     } catch (e) {
       console.warn("hotkey failed:", accel, e.message);

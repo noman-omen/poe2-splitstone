@@ -24,6 +24,27 @@ function isClientTxtPath(p) {
   return base === "client.txt";
 }
 
+function realpathOrNull(p) {
+  try { return fs.realpathSync.native(path.resolve(p)); } catch (_) { return null; }
+}
+
+/**
+ * A log path is allowed when it resolves (symlinks followed) to a file named
+ * Client.txt that is either one of the known PoE2 install locations or the
+ * exact file the user picked in the Browse dialog.
+ */
+function isAllowedLogPath(p, pickedPath, candidates = DEFAULT_CANDIDATES) {
+  if (!isClientTxtPath(p)) return false;
+  const real = realpathOrNull(p);
+  if (!real || !isClientTxtPath(real)) return false;
+  const same = (a, b) => process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b;
+  if (pickedPath) {
+    const pr = realpathOrNull(pickedPath);
+    if (pr && same(pr, real)) return true;
+  }
+  return candidates.some(c => { const cr = realpathOrNull(c); return cr && same(cr, real); });
+}
+
 function findClientLog(override) {
   if (override && isClientTxtPath(override) && fs.existsSync(override)) return path.resolve(override);
   for (const c of DEFAULT_CANDIDATES) {
@@ -96,4 +117,4 @@ function watchClientLog(logPath, onEvent, opts = {}) {
   };
 }
 
-module.exports = { DEFAULT_CANDIDATES, isClientTxtPath, findClientLog, watchClientLog };
+module.exports = { DEFAULT_CANDIDATES, isClientTxtPath, isAllowedLogPath, findClientLog, watchClientLog };

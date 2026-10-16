@@ -1,0 +1,116 @@
+"use strict";
+/**
+ * E1 regression: main.js must load without ReferenceError when electron is stubbed.
+ * Catches missing requires (e.g. mergeDesktopSettings) at module-eval time.
+ */
+const { describe, it, before, after } = require("node:test");
+const assert = require("node:assert/strict");
+const Module = require("module");
+const path = require("path");
+
+describe("main.js boot (stubbed electron)", () => {
+  let originalRequire;
+  const listeners = {};
+  const stubApp = {
+    isPackaged: false,
+    getVersion: () => "1.0.0",
+    getPath: () => path.join(require("os").tmpdir(), "splitstone-test-userdata"),
+    whenReady: () => Promise.resolve(),
+    on: (ev, fn) => { listeners[ev] = fn; },
+    quit: () => {},
+  };
+  const stubElectron = {
+    app: Object.assign(stubApp, {
+      requestSingleInstanceLock: () => true,
+      on: (ev, fn) => { listeners[ev] = fn; },
+    }),
+    BrowserWindow: function BrowserWindow() {
+      this.webContents = {
+        send() {}, on() {}, once() {},
+        setWindowOpenHandler() {},
+      };
+      this.on = () => {};
+      this.loadFile = () => {};
+      this.isDestroyed = () => false;
+      this.setIgnoreMouseEvents = () => {};
+      this.setAlwaysOnTop = () => {};
+      this.setOpacity = () => {};
+      this.setFocusable = () => {};
+      this.showInactive = () => {};
+      this.show = () => {};
+      this.focus = () => {};
+      this.hide = () => {};
+      this.getPosition = () => [0, 0];
+      this.getBounds = () => ({ x: 0, y: 0, width: 280, height: 72 });
+      this.setBounds = () => {};
+      this.once = () => {};
+    },
+    ipcMain: { handle() {}, on() {} },
+    dialog: {
+      showOpenDialog: async () => ({ canceled: true, filePaths: [] }),
+      showErrorBox() {},
+    },
+    shell: { openExternal: async () => {} },
+    screen: {
+      getPrimaryDisplay: () => ({ id: 1, workAreaSize: { width: 1280, height: 720 }, workArea: { x: 0, y: 0, width: 1280, height: 720 } }),
+      getAllDisplays: () => [{ id: 1, workArea: { x: 0, y: 0, width: 1280, height: 720 } }],
+      getDisplayMatching: () => ({ id: 1, workArea: { x: 0, y: 0, width: 1280, height: 720 } }),
+      on() {},
+    },
+    globalShortcut: { register: () => true, unregisterAll: () => {} },
+    Tray: function Tray() { this.setToolTip = () => {}; this.setContextMenu = () => {}; this.on = () => {}; },
+    Menu: { buildFromTemplate: () => ({}) },
+    nativeImage: {
+      createFromPath: () => ({ isEmpty: () => true, resize: () => ({}) }),
+      createEmpty: () => ({ isEmpty: () => true, resize: () => ({}) }),
+    },
+  };
+
+  before(() => {
+    originalRequire = Module.prototype.require;
+    Module.prototype.require = function (id) {
+      if (id === "electron") return stubElectron;
+      if (id === "electron-updater") return { autoUpdater: { autoDownload: false, allowPrerelease: false, checkForUpdatesAndNotify: async () => {} } };
+      return originalRequire.apply(this, arguments);
+    };
+    // Clear cache so main re-evaluates with stubs
+    const mainPath = require.resolve("../src/main.js");
+    delete require.cache[mainPath];
+    delete require.cache[require.resolve("../src/desktop-settings.js")];
+    delete require.cache[require.resolve("../src/hotkeys.js")];
+    delete require.cache[require.resolve("../src/client-log.js")];
+    delete require.cache[require.resolve("../src/overlay-state.js")];
+  });
+
+  after(() => {
+    Module.prototype.require = originalRequire;
+    const mainPath = require.resolve("../src/main.js");
+    delete require.cache[mainPath];
+  });
+
+  it("loads without ReferenceError (mergeDesktopSettings in scope)", () => {
+    assert.doesNotThrow(() => {
+      require("../src/main.js");
+    });
+    // Prove the helper is actually bound: mergeDesktopSettings must be a function in the module scope.
+    // We can't reach locals, but requiring desktop-settings and checking main didn't throw is the boot smoke.
+    const ds = require("../src/desktop-settings");
+    assert.equal(typeof ds.merge, "function");
+    assert.equal(typeof ds.shouldCheckForUpdates, "function");
+    assert.equal(ds.merge(null).autoUpdate, true);
+  });
+
+  it("nav guard allows only the bundled pages", () => {
+    const path = require("path");
+    const { pathToFileURL } = require("url");
+    const { isAppPageUrl } = require("../src/main.js");
+    const idx = pathToFileURL(path.join(__dirname, "..", "..", "index.html")).href;
+    const ovl = pathToFileURL(path.join(__dirname, "..", "overlay", "overlay.html")).href;
+    assert.ok(isAppPageUrl(idx));
+    assert.ok(isAppPageUrl(idx + "#settings"));
+    assert.ok(isAppPageUrl(ovl));
+    assert.ok(!isAppPageUrl("file:///etc/passwd"));
+    assert.ok(!isAppPageUrl(pathToFileURL(path.join(__dirname, "..", "..", "README.md")).href));
+    assert.ok(!isAppPageUrl("https://example.com/"));
+  });
+});

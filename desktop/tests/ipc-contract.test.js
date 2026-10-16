@@ -16,9 +16,18 @@ describe("IPC contract", () => {
       "desktop:find-client-log", "desktop:set-hotkeys", "desktop:set-overlay",
       "desktop:overlay-state", "desktop:zone", "desktop:hotkey",
       "desktop:set-auto-update", "desktop:get-auto-update",
+      "desktop:set-click-through", "desktop:set-overlay-opacity",
+      "desktop:reset-overlay-position", "desktop:toast",
     ]) {
       assert.ok(main.includes(ch) || src.includes(ch), "missing " + ch);
     }
+  });
+
+  it("main guards navigation and allows 0.x prereleases", () => {
+    const main = fs.readFileSync(path.join(__dirname, "../src/main.js"), "utf8");
+    assert.match(main, /will-navigate/);
+    assert.match(main, /allowPrerelease/);
+    assert.match(main, /--smoke/);
   });
 
   it("file reads gated to Client.txt", () => {
