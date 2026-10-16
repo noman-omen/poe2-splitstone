@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0 (unreleased)
+
+- New Endgame tab: log map runs with tier, waystone mods, deaths, notes and loot; start, pause and finish each map; mark runs completed or failed.
+- Sessions with maps per hour, average map time, totals and a history of past sessions. Maps CSV export.
+- Atlas progress checklist for patch 0.5.5 (Fortress, pinnacle bosses, atlas masters, atlas points). Items not yet confirmed in patch notes or poe2db are marked.
+- Desktop: optional auto-detect of map runs from Client.txt.
+- New Tools tab with links to the trade site, poe2db, the PoE2 wiki, Path of Building 2, poe.ninja, Craft of Exile and Maxroll.
+- Saves move to schema 2. Map timers from 1.0 are migrated to endgame runs, and the old save is kept as a backup.
+
 ## 1.0.0 (2026-10-16)
 
 First full release of the desktop app.

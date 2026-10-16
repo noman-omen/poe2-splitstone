@@ -19,13 +19,29 @@ It's a campaign speedrun tracker and leveling guide for Acts 1–4 plus the Inte
 | **Auto-split** | Splits on zone changes from PoE2's `Client.txt` |
 | **Cues** | Basic-class notes, level/XP warnings, gear and gem checkpoints |
 | **Overlay** | Small top-right panel with the current step, hint and next step |
+| **Endgame** | Map runs with tier, mods, deaths and loot; session stats; atlas progress checklist |
+| **Tools** | One-click links to trade, poe2db, the wiki, PoB2, poe.ninja and more |
 | **PoB2 import, themes** | Paste a Path of Building 2 code; Ember, Slate, Crimson, Parchment |
 
 ![Now bar](screenshots/milestone3-nowbar.png)
 
-| Run analytics | Maps | Hotkeys |
-| --- | --- | --- |
-| ![Stats](screenshots/milestone3-stats.png) | ![Maps](screenshots/milestone3-maps.png) | ![Hotkeys](screenshots/milestone3-hotkeys.png) |
+| Run analytics | Hotkeys |
+| --- | --- |
+| ![Stats](screenshots/milestone3-stats.png) | ![Hotkeys](screenshots/milestone3-hotkeys.png) |
+
+### Endgame
+
+Log each map with its tier and waystone mods, then mark it completed or failed, count deaths and note any loot worth remembering. Sessions give you maps per hour, average map time and totals, and the atlas checklist tracks the Fortress, pinnacle bosses and atlas masters. In the desktop app you can turn on auto-detect, which starts, pauses and saves map runs from `Client.txt`. Everything stays in local storage and goes into the JSON export. Old map timers from 1.0 are carried over.
+
+![Endgame](screenshots/endgame.png)
+
+The checklist lives in `data/endgame.js`. Items I couldn't confirm in patch notes or poe2db are marked with a ?.
+
+### Tools
+
+Links to the community sites I keep open while playing. The list is in `data/tools.js`.
+
+![Tools](screenshots/tools.png)
 
 ### In-game overlay
 
@@ -73,11 +89,12 @@ My goal is to have Splitstone updated for PoE2 1.0 within the first week after i
 
 **Shipped in 1.0.0:** desktop app with auto-split and auto-update, minimal overlay, Ctrl+Alt global hotkeys, class notes, level/XP warnings, gear and gem checkpoints, custom shareable routes, practice mode.
 
+**New in 1.1.0:** endgame tracking (map runs, sessions, atlas progress, optional auto-detect) and a tools tab.
+
 **Next:**
 
-- Endgame tracking: map runs, session stats, atlas progress
-- A tools tab with links to the community tools I use
 - Ghost / race mode against your PB
+- Refresh the route and endgame data for PoE2 1.0
 
 **Later:** ascendancy-specific route notes, pinnacle boss logs, league history, shared PBs.
 
@@ -117,7 +134,7 @@ Then enable **Auto-split** in Splitstone on the same PC.
 index.html            app shell
 css/styles.css        themes and layout
 js/                   storage, timers, run logic, charts, auto-split, PoB, UI
-data/                 route, class notes, gear checkpoints
+data/                 route, class notes, gear checkpoints, endgame milestones, tools
 scripts/build_data.py regenerate data/campaign.js from route.json
 desktop/              Electron app
 helper/               Python helper (Client.txt to SSE, optional overlay)
@@ -135,8 +152,9 @@ python3 -m http.server 8765 --bind 127.0.0.1 &
 python3 tests/smoke_test.py
 python3 tests/security_test.py
 python3 tests/autosplit_test.py
+python3 tests/endgame_test.py
 python3 helper/test_helper.py
-(cd desktop && npm test)
+(cd desktop && npm test)       # also runs tests/*.test.js
 ```
 
 Tests write screenshots to `test-output/`. Run with `SPLITSTONE_UPDATE_SHOTS=1` to refresh the images in `screenshots/`.

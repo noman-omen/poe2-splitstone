@@ -1,7 +1,7 @@
 {
   "name": "splitstone",
   "productName": "Splitstone",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Path of Exile 2 campaign speedrun tracker — install and play, no setup.",
   "author": "Splitstone <noman-omen@users.noreply.github.com>",
   "license": "MIT",
@@ -12,7 +12,7 @@
   },
   "scripts": {
     "start": "electron .",
-    "test": "node --test tests/",
+    "test": "node --test tests/ ../tests/",
     "smoke": "electron . --smoke",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
