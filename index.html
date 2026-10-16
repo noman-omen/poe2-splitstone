@@ -91,7 +91,11 @@
       <label class="switch" title="When on, clicks pass through to the game. Unlock with Ctrl+Alt+O or the tray to drag the overlay."><input type="checkbox" id="desktopClickThrough" checked> Click-through (lock overlay)</label>
       <button type="button" data-action="overlay-reset-pos">Reset overlay position</button>
       <label class="switch"><input type="checkbox" id="desktopAutoUpdateSettings"> Auto-update from GitHub Releases</label>
-      <p class="muted small">Checks for a new version when the app starts. Uncheck to stop automatic checks. Global: Ctrl+Alt+S split · Ctrl+Alt+Z undo · Ctrl+Alt+P pause · Ctrl+Alt+R new run · Ctrl+Alt+O lock/unlock overlay.</p>
+      <p class="muted small">Checks for a new version when the app starts. Uncheck to stop automatic checks. Global: Ctrl+Alt+S split · Ctrl+Alt+Z undo · Ctrl+Alt+P pause · Ctrl+Alt+R new run · Ctrl+Alt+H show/hide hints · Ctrl+Alt+O lock/unlock overlay.</p>
+      <h3>Global hotkeys</h3>
+      <p class="muted small">Type a combo such as Ctrl+Alt+S, then press Enter. Combos need Ctrl or Alt; bare keys are refused.</p>
+      <table class="keys" id="desktopHotkeyTable"></table>
+      <p class="muted small" id="desktopVersion"></p>
     </div>
     <h2>Hotkeys</h2>
     <p class="muted small">Click "Change", then press the new key. Esc cancels.</p>

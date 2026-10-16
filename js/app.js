@@ -1294,6 +1294,13 @@
       commit();
       pushOverlay();
     }
+    else if (el.dataset && el.dataset.globalKey) {
+      const action = el.dataset.globalKey, want = el.value.trim();
+      window.splitstoneDesktop.setHotkeys({ [action]: want }).then(hk => {
+        renderDesktopHotkeys(hk);
+        toast(hk && hk[action] === want ? `${want} saved` : `${want || "That"} isn't allowed; use Ctrl or Alt with a key`);
+      }).catch(() => {});
+    }
     else if (el.id === "desktopClickThrough") {
       state.settings.overlay = Object.assign({}, state.settings.overlay || {}, { clickThrough: el.checked });
       if (window.splitstoneDesktop) window.splitstoneDesktop.setClickThrough(el.checked);
@@ -1526,6 +1533,23 @@
       if (fn) fn();
     },
   });
+  const GLOBAL_KEY_LABELS = [
+    ["split", "Split"], ["undo", "Undo"], ["pause", "Pause / resume"],
+    ["newRun", "New run (press twice)"], ["toggleHint", "Show / hide hints"], ["clickThrough", "Lock / unlock overlay"],
+  ];
+  function renderDesktopHotkeys(hk) {
+    const table = $("#desktopHotkeyTable");
+    if (!table || !hk) return;
+    table.innerHTML = GLOBAL_KEY_LABELS.map(([k, label]) =>
+      `<tr><td>${esc(label)}</td><td><input type="text" data-global-key="${k}" value="${esc(hk[k] || "")}"
+        maxlength="32" spellcheck="false" aria-label="${esc(label)} global hotkey"></td></tr>`).join("");
+  }
+  function showDesktopStatus(st) {
+    if (!st) return;
+    if (st.hotkeys && !(document.activeElement && document.activeElement.dataset.globalKey)) renderDesktopHotkeys(st.hotkeys);
+    const v = $("#desktopVersion");
+    if (v && st.version) v.textContent = "Splitstone " + st.version;
+  }
   function syncDesktopHotkeys() {
     // Global shortcuts stay as desktop modifier combos (Ctrl+Alt+…).
     // Do not push in-window Space/P/U/R bindings into globalShortcut.
@@ -1556,6 +1580,7 @@
     window.__desktopAutoUpdate = true; // default on until status says otherwise
     window.splitstoneDesktop.getStatus().then(st => {
       if (st && typeof st.autoUpdate === "boolean") window.__desktopAutoUpdate = st.autoUpdate;
+      showDesktopStatus(st);
       const box = document.getElementById("desktopAutoUpdate");
       if (box) box.checked = window.__desktopAutoUpdate !== false;
     }).catch(() => {});
@@ -1563,6 +1588,7 @@
     syncDesktopHotkeys();
     window.splitstoneDesktop.onFirstRunNeeded(info => showDesktopSetup(info));
     window.splitstoneDesktop.onStatus(st => {
+      showDesktopStatus(st);
       asStatus = AutoSplit.status();
       document.querySelectorAll("[data-as-pill]").forEach(el => { el.innerHTML = statusPill(); });
       if (st && st.watching && st.logExists) hideDesktopSetup();

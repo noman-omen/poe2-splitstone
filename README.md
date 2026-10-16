@@ -61,7 +61,7 @@ A browser tab cannot sit on top of fullscreen PoE2. The desktop app (and optiona
 4. Splitstone finds Path of Exile 2's `Client.txt` automatically. If it can't, click **Client.txt…** and pick it (Steam folder → `Path of Exile 2` → `logs` → `Client.txt`). Only that file, or one in a known PoE2 folder, is read.
 5. Play in **Windowed Fullscreen** so the overlay can sit on top.
 
-Global hotkeys (rebindable in Settings → Desktop; bare keys are never grabbed from the game):
+Global hotkeys (change them under Settings → Global hotkeys in the desktop app; bare keys are never grabbed from the game):
 
 | Keys | Action |
 | --- | --- |
