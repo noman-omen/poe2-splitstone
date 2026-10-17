@@ -100,6 +100,8 @@ My goal is to have Splitstone updated for PoE2 1.0 within the first week after i
 
 **Shipped in 1.2.0:** ghost race against your PB, best segments, a past run or a friend's shared ghost, plus overlay text size and accessibility fixes.
 
+**Shipped in 1.3.0:** campaign page with one act at a time beside a run panel, Runs and Character tabs, a compact overlay with just the current and next step that you can move and resize, and the level read from Client.txt in the desktop app.
+
 **Next:**
 
 - Refresh the route and endgame data for PoE2 1.0

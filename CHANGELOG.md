@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.0 (2026-10-17)
 
 - Campaign page uses the full window: the checklist on the left and a run panel on the right, in a centred column up to 1840px wide, with the header and tabs lined up with it. The run panel is 400px wide from 1800px. On desktop the page doesn't scroll; the checklist and the act splits scroll inside their own areas.
 - One act at a time. A tab strip above the checklist lists the acts and interludes in the order the route plays them, each marked done, current or upcoming, with that act's time and delta in the tooltip. Arrow keys, Home and End move between tabs.
