@@ -37,23 +37,24 @@ Auto-update is on by default (Settings → Desktop to turn off). Full releases o
 
 | | |
 | --- | --- |
-| **Now bar** | Zone, current objective, hints and next step, readable from a second monitor |
+| **Run panel** | Zone, timers, Split, current objective, hint and next step beside the checklist, readable from a second monitor |
+| **One act at a time** | Act and interlude tabs in route order; follows your run, C jumps back to the current zone |
 | **Splits and timers** | Per-zone segments, act and interlude totals, pause, undo, auto-advance |
 | **Routes** | Normal or speedrun route, required-steps-only, practice a single act or zone, custom shareable routes |
 | **History and PBs** | Per-character runs, PBs, gold segments, live delta, trend charts, CSV export |
 | **Ghost race** | Race your PB, best segments, any past run or a friend's ghost: ahead/behind per split, where the ghost is now, time gained or lost per act |
 | **Auto-split** | Splits on zone changes from PoE2's `Client.txt` |
 | **Cues** | Basic-class notes, level/XP warnings, gear and gem checkpoints |
-| **Overlay** | Small top-right panel with the current step, hint and next step |
+| **Overlay** | Small panel at the top centre with the current step, hint and next step |
 | **Endgame** | Map runs with tier, mods, deaths and loot; session stats; atlas progress checklist |
 | **Tools** | One-click links to trade, poe2db, the wiki, PoB2, poe.ninja and more |
 | **PoB2 import, themes** | Paste a Path of Building 2 code; Ember, Slate, Crimson and Parchment themes |
 
 ### In-game overlay
 
-A browser tab can't sit on top of a fullscreen game, so the desktop app draws a small always-on-top panel: current step, hint and next step, nothing else. It's 80% opaque by default (slider in Settings), click-through until you unlock it with `Ctrl+Alt+O` or the tray, and it remembers its position per monitor.
+A browser tab can't sit on top of a fullscreen game, so the desktop app draws a small always-on-top panel: current step, hint and next step, nothing else. It sits at the top centre, just below the boss health bar, and grows downward to fit the whole hint. It's 80% opaque by default (slider in Settings), click-through until you unlock it with `Ctrl+Alt+O` or the tray, and it remembers where you drag it per monitor. Settings → Desktop → Overlay position puts it back at the top centre or left of the minimap.
 
-![Overlay](screenshots/overlay-minimal.png)
+![Overlay](screenshots/overlay-top-center.png)
 
 ### Endgame
 
@@ -65,7 +66,7 @@ The checklist lives in `data/endgame.js`. Items I couldn't confirm in patch note
 
 ### Ghost race
 
-Turn it on under Settings → Ghost race. Pick what to race in the sidebar: your PB (default), your best segments, any saved run of this character, or a ghost a friend sent you. You get the delta for every split and in total, a line under the run timer saying which zone the ghost would be in right now, and how much you gained or lost in each act and interlude. To share a ghost, copy its code (`SSG1.…`) from the panel; to race someone, paste their code or load their Splitstone export file. Only zone times are taken from imports. The overlay stays step, hint and next only.
+Turn it on under Settings → Ghost race. Pick what to race on the Runs tab: your PB (default), your best segments, any saved run of this character, or a ghost a friend sent you. You get the delta for every split and in total, a line under the run timer saying which zone the ghost would be in right now, and how much you gained or lost in each act and interlude. To share a ghost, copy its code (`SSG1.…`) from the panel; to race someone, paste their code or load their Splitstone export file. Only zone times are taken from imports. The overlay stays step, hint and next only.
 
 ![Ghost race](screenshots/ghost-mode.png)
 
@@ -76,6 +77,8 @@ Links to the community sites I keep open while playing. The list is in `data/too
 ![Tools](screenshots/tools.png)
 
 ### Run analytics and practice
+
+Run history, analytics, CSV export and the full Run & Segments table are on the Runs tab; character details and PoB2 import are on the Character tab.
 
 | Run analytics | Practice mode |
 | --- | --- |
@@ -151,6 +154,8 @@ screenshots/          README images
 pip install playwright && python3 -m playwright install chromium
 python3 -m http.server 8765 --bind 127.0.0.1 &
 python3 tests/smoke_test.py
+python3 tests/layout_test.py
+python3 tests/overlay_test.py
 python3 tests/security_test.py
 python3 tests/autosplit_test.py
 python3 tests/endgame_test.py
