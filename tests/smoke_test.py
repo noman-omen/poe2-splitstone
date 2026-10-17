@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Headless end-to-end test for the tracker (Playwright + Chromium).
 
-Assumes the app is served at $TRACKER_URL (default http://127.0.0.1:8765/).
+Assumes the app is served at $TRACKER_URL (see tracker_url.py).
 Uses Playwright's fake clock so full speedruns take milliseconds.
 Covers: toggles, focus mode, per-zone/section/group timers, splits,
 auto-advance, undo, pause, full runs + PB + history + deltas, hotkeys,
@@ -17,6 +17,7 @@ from playwright.sync_api import sync_playwright
 from modal_helpers import fill_modal, reveal_click
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shot_dir import shot_dir  # noqa: E402
+from tracker_url import TRACKER_URL
 
 
 
@@ -35,7 +36,7 @@ def new_run(page):
     except Exception:
         pass  # nothing to confirm (fresh run)
 
-URL = os.environ.get("TRACKER_URL", "http://127.0.0.1:8765/")
+URL = TRACKER_URL
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "tests" / "output"
 OUT.mkdir(parents=True, exist_ok=True)

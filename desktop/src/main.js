@@ -187,13 +187,16 @@ const clampH = h => Math.min(OVERLAY.maxH, Math.max(OVERLAY.minH, parseInt(h, 10
 /**
  * Default spot: top-right but left of PoE2's minimap, which takes roughly the right
  * 17% of the screen width at the top (about 330 px at 1080p, more at 1440p/4K).
+ * The right edge stays MINIMAP_GAP px clear of it; resizes keep that edge (anchoredResize),
+ * so Large text grows left and keeps the gap.
  */
+const MINIMAP_GAP = 48;
+const minimapLeft = wa => wa.x + wa.width - Math.max(330, Math.round(wa.width * 0.17));
 function overlayDefaultBounds(display) {
   const wa = display.workArea;
   const w = OVERLAY.defW, h = OVERLAY.defH;
-  const minimap = Math.max(340, Math.round(wa.width * 0.18));
   return {
-    x: Math.max(wa.x + 16, wa.x + wa.width - w - minimap),
+    x: Math.max(wa.x + 16, minimapLeft(wa) - MINIMAP_GAP - w),
     y: wa.y + 20,
     width: w,
     height: h,
@@ -645,4 +648,4 @@ process.on("uncaughtException", (err) => {
   app.exit(1);
 });
 
-module.exports = { setHotkeys, isAppPageUrl, statusPayload, isClientTxtPath, findClientLog, setClickThrough, overlayDefaultBounds, anchoredResize };
+module.exports = { setHotkeys, isAppPageUrl, statusPayload, isClientTxtPath, findClientLog, setClickThrough, overlayDefaultBounds, anchoredResize, MINIMAP_GAP };

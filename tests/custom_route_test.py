@@ -7,8 +7,9 @@ from playwright.sync_api import sync_playwright
 from modal_helpers import fill_modal
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shot_dir import shot_dir  # noqa: E402
+from tracker_url import TRACKER_URL
 
-URL = os.environ.get("TRACKER_URL", "http://127.0.0.1:8765/")
+URL = TRACKER_URL
 ROOT = Path(__file__).resolve().parent.parent
 SHOT = shot_dir() / "custom-routes.png"
 results = []

@@ -2,15 +2,16 @@
 """Save safety: unreadable saves and failed migrations never get overwritten.
 
 Simulates QuotaExceededError by wrapping localStorage.setItem in the page.
-Needs the app on TRACKER_URL (default http://127.0.0.1:8765/).
+Needs the app on TRACKER_URL (see tracker_url.py).
 """
 import json
 from modal_helpers import reveal_click
 import os
 import sys
 from playwright.sync_api import sync_playwright
+from tracker_url import TRACKER_URL
 
-URL = os.environ.get("TRACKER_URL", "http://127.0.0.1:8765/")
+URL = TRACKER_URL
 KEY = "splitstone:v1"
 fails, passed = [], 0
 

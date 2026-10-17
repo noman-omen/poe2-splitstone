@@ -12,8 +12,9 @@ import time
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
+from tracker_url import TRACKER_URL
 
-URL = os.environ.get("TRACKER_URL", "http://127.0.0.1:8765/")
+URL = TRACKER_URL
 ROOT = Path(__file__).resolve().parent.parent
 PORT = 8767
 results = []

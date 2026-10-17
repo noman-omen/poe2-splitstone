@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Endgame + Tools tabs: storage migration, export/import, links, screenshots.
 
-Needs the app served on http://127.0.0.1:8765. Writes endgame.png and tools.png
+Needs the app on TRACKER_URL (see tracker_url.py). Writes endgame.png and tools.png
 to test-output/ (or screenshots/ with SPLITSTONE_UPDATE_SHOTS=1).
 """
 import json
@@ -13,8 +13,9 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shot_dir import shot_dir  # noqa: E402
+from tracker_url import TRACKER_URL
 
-URL = "http://127.0.0.1:8765/"
+URL = TRACKER_URL
 fails = []
 passed = 0
 

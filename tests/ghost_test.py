@@ -1,5 +1,5 @@
 """Ghost / race mode in the browser.
-Needs the app on TRACKER_URL (default http://127.0.0.1:8765/).
+Needs the app on TRACKER_URL (see tracker_url.py).
 Writes test-output/ghost-mode.png (screenshots/ with SPLITSTONE_UPDATE_SHOTS=1)."""
 import json
 import os
@@ -9,8 +9,9 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shot_dir import shot_dir  # noqa: E402
+from tracker_url import TRACKER_URL
 
-URL = os.environ.get("TRACKER_URL", "http://127.0.0.1:8765/")
+URL = TRACKER_URL
 ROOT = Path(__file__).resolve().parent.parent
 KEY = "splitstone:v1"
 results = []

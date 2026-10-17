@@ -5,8 +5,9 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shot_dir import shot_dir  # noqa: E402
+from tracker_url import TRACKER_URL
 
-URL = "http://127.0.0.1:8765/"
+URL = TRACKER_URL
 SHOT = shot_dir() / "class-notes.png"
 
 with sync_playwright() as p:

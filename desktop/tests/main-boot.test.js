@@ -128,13 +128,14 @@ describe("main.js boot (stubbed electron)", () => {
 
   it("Large overlay text grows left and keeps clear of the minimap", () => {
     const { overlayDefaultBounds, anchoredResize } = require("../src/main.js");
-    for (const [w, h] of [[1280, 720], [1920, 1080], [2560, 1440]]) {
+    for (const [w, h] of [[1280, 720], [1920, 1080], [2560, 1440], [3840, 2160]]) {
       const wa = { x: 0, y: 0, width: w, height: h };
       const b = overlayDefaultBounds({ workArea: wa });
       const big = anchoredResize(b, 440, 160, wa);
       assert.equal(big.x + big.width, b.x + b.width, `${w}x${h}: right edge stays put`);
       assert.ok(big.x < b.x, "growth goes left");
-      assert.ok(big.x + big.width <= w - Math.round(w * 0.17), "still left of the minimap");
+      const gap = (w - Math.round(w * 0.17)) - (big.x + big.width);
+      assert.ok(gap >= 48, `${w}x${h}: Large overlay keeps ${gap}px from the minimap (need 48)`);
       const small = anchoredResize(big, 220, 60, wa);
       assert.equal(small.x + small.width, b.x + b.width, "shrinking keeps the right edge too");
     }

@@ -9,8 +9,9 @@ from playwright.sync_api import sync_playwright
 from modal_helpers import auto_accept_modals
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shot_dir import shot_dir  # noqa: E402
+from tracker_url import TRACKER_URL
 
-URL = "http://127.0.0.1:8765/"
+URL = TRACKER_URL
 SHOTS = shot_dir()
 random.seed(7)
 

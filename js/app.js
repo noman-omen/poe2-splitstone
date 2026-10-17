@@ -471,19 +471,32 @@
   function firstRunVisible(c = char()) {
     return !state.settings.seen.firstRunTip && !(c.history || []).length && !Object.keys(c.split || {}).length;
   }
-  function renderFirstRun() {
-    const c = char();
-    const tip = firstRunVisible(c) ? `<div class="first-run" role="note">
-        <h3>How a run works</h3>
-        <ol>
+  /** A finished (complete) run of any kind, campaign or practice. */
+  const hasFinishedRun = (c = char()) => (c.history || []).some(h => h && h.complete);
+  /** The three-step explanation, shared by the first-run card and Help. */
+  function runStepsHTML() {
+    return `<ol>
           <li><b>Start run</b> (${esc(keyName(bindings().split))}) starts the clock on the first zone.</li>
           <li><b>Split</b> each time you enter the next zone. The big clock is the zone, <b>Run</b> is the total.</li>
           <li>Your first finished run becomes your <b>PB</b>. A full campaign is ${Run.ALL.length} zones; to see a finish now, practise one zone.</li>
-        </ol>
+        </ol>`;
+  }
+  function renderFirstRun() {
+    const c = char();
+    let html = "";
+    if (firstRunVisible(c)) {
+      html = `<div class="first-run" role="note">
+        <h3>How a run works</h3>
+        ${runStepsHTML()}
         <div class="row"><button type="button" class="primary" data-action="tip-practice">Try a one-zone practice</button>
-          <button type="button" data-action="tip-dismiss">Got it</button></div></div>` : "";
+          <button type="button" data-action="tip-dismiss">Got it</button></div></div>`;
+    } else if (!hasFinishedRun(c) && !Run.route(c).practice) {
+      // Until the first finished run: one muted line, so a 111-zone campaign doesn't feel like it never ends.
+      html = `<p class="no-pb-hint muted small">No PB yet: a full campaign is ${Run.ALL.length} zones.
+        <button type="button" class="link-btn" data-action="tip-practice">Practise one zone</button> to see a finish.</p>`;
+    }
     const el = $("#firstRun");
-    if (el) { el.innerHTML = tip; el.hidden = !tip; }
+    if (el) { el.innerHTML = html; el.hidden = !html; }
   }
 
   function renderHistory() {
@@ -1445,6 +1458,7 @@
     },
     "tip-dismiss"() { state.settings.seen.firstRunTip = true; commit(); },
     "tip-practice"() {
+      if ($("#help").open) closePanel("help");
       const c = char(), first = Run.order(c)[0] || Run.ALL[0];
       actions["practice-zone"]({ dataset: { id: Run.current(c) ? Run.current(c).zone.id : first.zone.id } });
     },
@@ -1705,6 +1719,8 @@
 
   function renderHelp() {
     const b = bindings(), cur = state.settings.theme || "ember";
+    const howto = $("#helpRun");
+    if (howto) howto.innerHTML = runStepsHTML();
     $("#helpKeys").innerHTML = HOTKEY_DEFS.map(([id, , label]) =>
       `<dt><kbd>${esc(keyName(b[id]))}</kbd></dt><dd>${esc(label)}</dd>`).join("") +
       `<dt><kbd>Esc</kbd></dt><dd>Close dialogs / leave a text field</dd>`;

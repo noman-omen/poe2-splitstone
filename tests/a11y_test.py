@@ -7,8 +7,9 @@ import os
 import sys
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from tracker_url import TRACKER_URL
 
-URL = os.environ.get("TRACKER_URL", "http://127.0.0.1:8765/")
+URL = TRACKER_URL
 CANDIDATES = [os.environ.get("AXE_PATH", ""), "/workspace/tools/node_modules/axe-core/axe.min.js",
               str(Path(__file__).resolve().parent.parent / "node_modules/axe-core/axe.min.js")]
 AXE = next((p for p in CANDIDATES if p and Path(p).is_file()), None)

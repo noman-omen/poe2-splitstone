@@ -14,8 +14,9 @@ sys.path.insert(0, str(ROOT / "helper"))
 
 from playwright.sync_api import sync_playwright
 import splitstone_helper as sh
+from tracker_url import TRACKER_URL
 
-URL = os.environ.get("TRACKER_URL", "http://127.0.0.1:8765/")
+URL = TRACKER_URL
 
 
 class HelperSecurityTest(unittest.TestCase):

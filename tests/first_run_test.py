@@ -1,11 +1,12 @@
 """Stacie's 1.2.0 re-verify: first-run tip placement (F4), Parchment gold star contrast, two icon sizes.
-Needs the app on TRACKER_URL (default http://127.0.0.1:8765/)."""
+Needs the app on TRACKER_URL (see tracker_url.py)."""
 import os
 import sys
 from playwright.sync_api import sync_playwright
 from shot_dir import shot_dir
+from tracker_url import TRACKER_URL
 
-URL = os.environ.get("TRACKER_URL", "http://127.0.0.1:8765/")
+URL = TRACKER_URL
 results = []
 
 
@@ -49,7 +50,8 @@ with sync_playwright() as p:
         check(f"{label}: no tip left in the sidebar", page.locator("#history .first-run").count() == 0)
         page.screenshot(path=str(shot_dir() / f"first-run-{label}.png"))
         page.click('[data-action="tip-dismiss"]')
-        check(f"{label}: Got it hides the tip", page.locator("#firstRun .first-run").count() == 0 and page.locator("#firstRun").is_hidden())
+        check(f"{label}: Got it swaps the card for the one-line hint", page.locator("#firstRun .first-run").count() == 0
+              and page.locator("#firstRun .no-pb-hint").is_visible())
         page.reload(); page.wait_for_timeout(300)
         check(f"{label}: dismissed tip stays gone", page.locator("#firstRun .first-run").count() == 0)
         # Fresh again: the tip retires itself on the first split.
@@ -75,6 +77,48 @@ with sync_playwright() as p:
     page.keyboard.press("Space"); page.wait_for_timeout(1100); page.keyboard.press("Space"); page.wait_for_timeout(300)
     check("tip practice finishes on Practice complete", "Practice complete" in page.text_content("#now"), page.text_content("#now")[:120])
     check("tip gone after the first run", page.locator("#firstRun .first-run").count() == 0)
+
+    check("no 'No PB yet' hint once a run is finished", page.locator("#firstRun .no-pb-hint").count() == 0)
+    ctx.close()
+
+    # "No PB yet" hint: keyed on a finished run, not on history being empty
+    ctx = b.new_context(viewport={"width": 1280, "height": 720})
+    page = ctx.new_page(); page.goto(URL); page.evaluate("localStorage.clear()"); page.reload(); page.wait_for_timeout(300)
+    hint = lambda: page.locator("#firstRun .no-pb-hint")
+    check("hint waits while the first-run card is up", hint().count() == 0)
+    page.click('[data-action="tip-dismiss"]'); page.wait_for_timeout(150)
+    check("after Got it: one muted 'No PB yet' line", hint().count() == 1 and "No PB yet: a full campaign is 111 zones." in hint().text_content()
+          and "muted" in hint().get_attribute("class"), hint().count() and hint().text_content())
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('splitstone:v1')); const c = s.characters[s.activeId];
+      c.history = [{ id: 'abandon1', complete: false, variant: 'normal', total: 120000, zones: { 'act1-z01': 120000 },
+        sections: {}, groups: {}, splitsDone: 1, zonesTotal: 111, finished: new Date().toISOString() }];
+      localStorage.setItem('splitstone:v1', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_timeout(300)
+    check("an abandoned run in history still shows the hint", hint().count() == 1)
+    hint().locator('[data-action="tip-practice"]').click(); page.wait_for_timeout(200)
+    check("hint's Practise link starts a one-zone practice", page.evaluate("!!document.body.classList.contains('practice-mode')"))
+    check("hint hides while practising", hint().count() == 0)
+    page.click('[data-action="practice-exit"]') if page.locator('[data-action="practice-exit"]').count() else None
+    for _ in range(2):
+        try:
+            page.wait_for_selector("#appModal[open]", timeout=800); page.click("#appModalOk"); page.wait_for_timeout(150)
+        except Exception:
+            break
+    ctx.close()
+
+    # Help: "How a run works" with a Practice button
+    ctx = b.new_context(viewport={"width": 1280, "height": 720})
+    page = ctx.new_page(); page.goto(URL); page.evaluate("localStorage.clear()"); page.reload(); page.wait_for_timeout(300)
+    page.click('[data-action="help"] >> nth=0'); page.wait_for_selector("#help[open]")
+    help_text = page.text_content("#help")
+    check("Help has a 'How a run works' section", "How a run works" in help_text and "Split" in help_text and "111 zones" in help_text)
+    btn = page.locator('#help [data-action="tip-practice"]')
+    check("Help has a Practice button", btn.count() == 1 and btn.is_visible())
+    btn.click(); page.wait_for_timeout(200)
+    check("Help's Practice closes Help and starts a practice", not page.evaluate("document.getElementById('help').open")
+          and page.evaluate("document.body.classList.contains('practice-mode')"))
+    page.close()
+    page = ctx.new_page(); page.goto(URL); page.wait_for_timeout(200)  # same context for the checks below
 
     # Two icon sizes only, in every view
     sizes = set()

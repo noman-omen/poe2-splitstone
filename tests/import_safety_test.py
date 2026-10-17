@@ -1,13 +1,14 @@
 """Malformed and hostile imports, clock jumps and two tabs (Reggie B1, m5, p2, p3).
-Needs the app on TRACKER_URL (default http://127.0.0.1:8765/)."""
+Needs the app on TRACKER_URL (see tracker_url.py)."""
 import json
 from modal_helpers import reveal_click
 import os
 import sys
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from tracker_url import TRACKER_URL
 
-URL = os.environ.get("TRACKER_URL", "http://127.0.0.1:8765/")
+URL = TRACKER_URL
 KEY = "splitstone:v1"
 OUT = Path(__file__).resolve().parent.parent / "test-output"
 OUT.mkdir(exist_ok=True)

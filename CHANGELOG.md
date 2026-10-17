@@ -11,7 +11,7 @@
 - No storage migration: 1.1 saves load as they are and pick up the new fields on the next save.
 - The ghost line under the timer is larger, with the zone in bold. Racing your PB it shows only where the ghost is, since the delta is already beside the timer. The ghost line, the ghost panel total and the act and interlude summaries also say "ahead" or "behind" in words, so they don't rely on red and green.
 - After your first PB, a one-time note points to the ghost race in Settings.
-- First run: a dismissible tip card under the timer explains splits and practice (until your first split), practice runs end on "Practice complete", and run history switches to the matching filter after a run.
+- First run: a "How a run works" card under the timer explains starting, splitting and the PB, with a button to try a one-zone practice. It shows for a new character until you dismiss it, split your first zone or finish a run. Until the character has a finished run, a one-line "No PB yet" hint under the timer links to a one-zone practice. Help has the same "How a run works" section with a Practice button. Practice runs end on "Practice complete", and run history switches to the matching filter after a run.
 - Desktop overlay: the default spot is left of the PoE2 minimap instead of on top of it, with a one-time hint on how to move it. New overlay text size option (Small, Medium, Large).
 - Accessibility: every theme meets WCAG AA contrast (Parchment and Ember were below it), a "Skip to timer" link, labelled dropdowns, and no animation or smooth scrolling when the system asks for reduced motion.
 - Settings and Help: consistent headings, and the dialogs are centred with the page dimmed behind them. Reset hotkeys to defaults now asks first.
@@ -23,7 +23,7 @@
 - A ghost code whose total doesn't match its zone times is rejected.
 - 1.0 saves with a map in progress keep that map's timer when migrated.
 - Desktop: Electron 44 and electron-builder 26. npm audit has no critical or high findings.
-- Releases: a Linux AppImage and a `SHA256SUMS` file alongside the Windows builds. The release workflow builds with read-only access and creates a draft release, which I publish after checking the assets. Publishing waits for approval on a protected `release` environment, and builds take their timestamps from the tag commit.
+- Releases: a Linux AppImage and a `SHA256SUMS` file alongside the Windows builds. The release workflow builds with read-only access and creates a draft release, which I publish after checking the assets. Publishing waits for approval on a protected `release` environment that only accepts `v*` tags, and builds take their timestamps from the tag commit.
 - Removed dead code. The PB always comes from run history; saves no longer store a separate best total. Added an ESLint config (`npm run lint`).
 
 ## 1.1.0 (2026-10-16)
