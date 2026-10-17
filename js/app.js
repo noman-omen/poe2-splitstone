@@ -55,7 +55,7 @@
   const askPrompt = (message, def = "") => openModal(message, { input: def == null ? "" : def });
 
 
-  /** Sidebar/campaign Δ vs PB at the same split point (not full PB vs partial Now). */
+  /** Run panel and Runs tab Δ vs PB at the same split point (not full PB vs partial Now). */
   function segDeltaVsPb(c, kind, id, now) {
     if (kind === "total") return Run.deltaVsPb(c, now);
     if (kind === "group") return Run.deltaVsPbIn(c, o => o.group === id, now);
@@ -86,7 +86,8 @@
   }
 
 
-  const collapsed = new Set();           // UI-only: collapsed section ids
+  const expandedZones = new Set();       // UI-only: completed zones opened again
+  let actSplitsOpen = false;              // UI-only: all act splits on mid-width and phone layouts
   let pobError = "";
   let asStatus = AutoSplit.status(), lastAuto = "";
   const openDetails = new Set();          // UI-only: <details data-keep> that stay open across re-renders
@@ -170,7 +171,8 @@
     $("#charSelect").innerHTML = Object.values(state.characters)
       .sort((a, b) => a.created.localeCompare(b.created))
       .map(x => `<option value="${esc(x.id)}"${x.id === c.id ? " selected" : ""}>${esc(x.name)}</option>`).join("");
-    renderNow(); renderFirstRun(); renderTotals(); renderGhost(); renderHistory(); renderCharacter(); renderCampaign();
+    renderNow(); renderFirstRun(); renderTotals(); renderGhost(); renderHistory(); renderCharacter();
+    renderCampaign(); renderActSplits(); renderRunFoot(); renderStats();
     renderHelp();
     renderViews();
     layoutSticky();
@@ -178,22 +180,20 @@
     pushOverlay();
   }
 
-  /** The top bar wraps on narrow screens, so sticky offsets are measured, not hard-coded. */
+  /** Phone: the header scrolls away, the tab row, now-bar and act strip stick. The bars wrap, so offsets are measured. */
   function layoutSticky() {
-    const top = $(".topbar"), now = $("#now");
+    const top = $(".topbar"), now = $("#now"), acts = $("#actTabs");
     if (!top || !now) return;
-    const root = document.documentElement.style;
-    let topH = getComputedStyle(top).position === "sticky" ? top.offsetHeight : 0;
     const tabs = top.querySelector(".views");
-    if (topH && tabs && matchMedia("(max-width: 860px)").matches) {
-      // Phone: the header scrolls away and the tab row sticks at the top.
-      const tabsH = tabs.offsetHeight;
-      top.style.top = -(topH - tabsH) + "px";
-      topH = tabsH;
-    } else top.style.top = "";
-    now.style.top = topH + "px";
-    // Measure after density classes apply (focus mode shrinks the now bar).
-    root.setProperty("--sticky-top", topH + now.offsetHeight + 12 + "px");
+    if (!matchMedia("(max-width: 860px)").matches || !tabs) {
+      top.style.top = now.style.top = "";
+      if (acts) acts.style.top = "";
+      return;
+    }
+    const tabsH = tabs.offsetHeight;
+    top.style.top = -(top.offsetHeight - tabsH) + "px";
+    now.style.top = tabsH + "px";
+    if (acts) acts.style.top = tabsH + now.offsetHeight + "px";
   }
   window.addEventListener("resize", () => layoutSticky());
   // Recalc after fonts/layout settle when focus mode toggles.
@@ -262,17 +262,17 @@
     AutoSplit.pushState(buildOverlayState(), state.settings.autoSplit.url, autoSplitOpts());
   }
 
-  /** The "now playing" bar: current zone, next steps, big timers, split controls. */
+  /** The run panel: zone and progress, big timers, split controls, then the current step and what comes next. */
   function renderNow() {
     const c = char(), cur = Run.current(c), running = Run.runningZone(c), paused = Run.isPaused(c);
     const p = Run.pb(c);
     if (!cur) {
       const last = c.history[0], prac = Run.route(c).practice;
-      $("#now").innerHTML = `<div class="now-main"><div class="now-zone now-finish">${Icons.icon("flag")} ${prac ? `Practice complete · ${esc(Run.practiceLabel(prac.kind, prac.id))}` : "Campaign complete"}</div>
-        <div class="now-sub">${last ? `Final time <b class="mono">${fmt(last.total)}</b>${p && p.id === last.id ? " · <span class='ahead'>New PB!</span>" : ""}` : ""}</div></div>
-        <div class="now-actions"><button data-action="undo">Undo split <kbd>${esc(keyName(bindings().undo))}</kbd></button>
-        <button class="primary" data-action="new-run">New run <kbd>${esc(keyName(bindings().newRun))}</kbd></button>
-        ${Run.route(c).practice ? `<button data-action="practice-exit">Exit practice</button>` : ""}</div>`;
+      $("#now").innerHTML = `<div class="now-head"><div class="now-zone now-finish">${Icons.icon("flag")} ${prac ? `Practice complete · ${esc(Run.practiceLabel(prac.kind, prac.id))}` : "Campaign complete"}</div>
+        <div class="now-sub">${last ? `Final time <b class="mono">${fmt(last.total)}</b>${p && p.id === last.id ? " · <span class='ahead'>New PB!</span>" : ""}` : ""}</div>
+        <div class="now-actions"><button class="primary big-btn" data-action="new-run">New run <kbd>${esc(keyName(bindings().newRun))}</kbd></button>
+          <div class="now-actions-row"><button data-action="undo">Undo split <kbd>${esc(keyName(bindings().undo))}</kbd></button>
+          ${prac ? `<button data-action="practice-exit">Exit practice</button>` : ""}</div></div></div>`;
       return;
     }
     const z = cur.zone, pbSeg = p && p.zones[z.id], best = Run.bestsFor(c)["zone:" + z.id];
@@ -282,8 +282,9 @@
     const step = todo[0] || vis[vis.length - 1], others = todo.slice(1, 4);
     const nextStep = todo[1] || (next && visibleSteps(c, next.zone)[0]);
     const label = running ? "Split" : paused ? "Resume" : Run.isStarted(c) ? "Resume" : "Start run";
+    const inAct = actZones(c, cur.section), posInAct = inAct.findIndex(x => x.id === z.id) + 1;
     $("#now").innerHTML = `
-      <div class="now-main">
+      <div class="now-head">
         <div class="now-where"><span data-as-pill>${statusPill()}</span> ${(() => {
           const r = Run.route(c);
           const bits = [];
@@ -291,7 +292,8 @@
           const cr = currentCustom(c);
           if (cr) bits.push(`<span class="custom-pill" title="Custom route — PB is separate per variant">${esc(cr.name)}</span>`);
           return bits.length ? bits.join(" · ") + " · " : "";
-        })()}${esc(cur.section.name)} · zone ${cur.index >= 0 ? cur.index + 1 : "–"}/${Run.order(c).length}${paused ? ' · <span class="behind">PAUSED</span>' : ""}</div>
+        })()}${esc(cur.section.name)} · zone ${posInAct}/${inAct.length}
+          <span class="now-overall" title="Zone ${cur.index + 1} of ${Run.order(c).length} on this route">(${cur.index + 1}/${Run.order(c).length})</span>${paused ? ' · <span class="behind">PAUSED</span>' : ""}</div>
         <div class="now-zone">${esc(z.name)}</div>
         ${(() => {
           const info = Levels.zoneLevelInfo(z), st = Levels.status(Levels.charLevel(c), info);
@@ -300,27 +302,61 @@
           if (st.kind === "ok") return `<div class="now-lvl muted small lvl-cue" title="${esc(st.detail)}">${esc(st.text)}</div>`;
           return `<div class="now-lvl lvl-cue ${st.kind}" title="${esc(st.detail)}">${esc(st.text)}</div>`;
         })()}
+        <div class="now-clock">
+          <div class="big mono" data-timer="zone:${esc(z.id)}">${fmt(Run.zoneMs(c, z.id))}</div>
+          <div class="now-run mono">Run ${sumTimer("total", "run", Run.totalMs(c))}
+            <span id="liveDelta" class="${deltaClass(Run.deltaVsPb(c))}">${p ? fmtDelta(Run.deltaVsPb(c)) : ""}</span></div>
+          ${ghostNowHTML(c)}
+          <div class="now-cmp mono">${pbSeg ? `PB seg ${fmt(pbSeg)} · ` : ""}${best ? `Best ${fmt(best)}` : "no best yet"}</div>
+        </div>
+        <div class="now-actions">
+          <button class="primary big-btn" data-action="split">${label} <kbd>${esc(keyName(bindings().split))}</kbd></button>
+          <div class="now-actions-row">
+            <button data-action="pause"${running || paused ? "" : " disabled"}>${paused ? "Resume" : "Pause"} <kbd>${esc(keyName(bindings().pause))}</kbd></button>
+            <button data-action="undo"${c.undo.length ? "" : " disabled"}>Undo <kbd>${esc(keyName(bindings().undo))}</kbd></button>
+            <button data-action="new-run">New run <kbd>${esc(keyName(bindings().newRun))}</kbd></button>
+          </div>
+        </div>
+      </div>
+      <div class="now-detail">
         ${step ? gearNowHTML(c.classId, step.id) : ""}
-        ${nowStepHTML(c, step, true)}
+        ${nowStepHTML(c, step)}
         ${step ? `<div class="now-class">${classNoteHTML(c, step.id)}</div>` : ""}
         ${others.length ? `<ul class="now-more">${others.map(x => `<li><label><input type="checkbox" data-action="step" data-id="${esc(x.id)}"${c.done[x.id] ? " checked" : ""}>
           ${esc(x.objective)}${x.optional ? ' <span class="optional">optional</span>' : ""}</label></li>`).join("")}</ul>` : ""}
-        <div class="now-next">${nextStep ? `<span class="k">Next step</span> ${esc(nextStep.objective)}` : ""}
-          ${next ? `<span class="k">Next zone</span> ${esc(next.zone.name)}${next.section !== cur.section ? ` (${esc(next.section.name)})` : ""}` : ""}</div>
-      </div>
-      <div class="now-clock">
-        <div class="big mono" data-timer="zone:${esc(z.id)}">${fmt(Run.zoneMs(c, z.id))}</div>
-        <div class="now-cmp mono">${pbSeg ? `PB seg ${fmt(pbSeg)} · ` : ""}${best ? `Best ${fmt(best)}` : "no best yet"}</div>
-        <div class="now-run mono">Run ${sumTimer("total", "run", Run.totalMs(c))}
-          <span id="liveDelta" class="${deltaClass(Run.deltaVsPb(c))}">${p ? fmtDelta(Run.deltaVsPb(c)) : ""}</span></div>
-        ${ghostNowHTML(c)}
-      </div>
-      <div class="now-actions">
-        <button class="primary big-btn" data-action="split">${label} <kbd>${esc(keyName(bindings().split))}</kbd></button>
-        <button data-action="pause"${running || paused ? "" : " disabled"}>${paused ? "Resume" : "Pause"} <kbd>${esc(keyName(bindings().pause))}</kbd></button>
-        <button data-action="undo"${c.undo.length ? "" : " disabled"}>Undo <kbd>${esc(keyName(bindings().undo))}</kbd></button>
-        <button data-action="new-run">New run <kbd>${esc(keyName(bindings().newRun))}</kbd></button>
+        <div class="now-next">${nextStep ? `<div><span class="k">Next step</span> ${esc(nextStep.objective)}</div>` : ""}
+          ${next ? `<div><span class="k">Next zone</span> ${esc(next.zone.name)}${next.section !== cur.section ? ` (${esc(next.section.name)})` : ""}</div>` : ""}</div>
       </div>`;
+  }
+
+  /** The selected act's zones with now / PB / Δ, the act total vs PB. Scrolls inside the panel. */
+  function renderActSplits() {
+    const c = char(), sec = selectedAct(c), cur = Run.current(c), p = Run.pb(c);
+    const zones = actZones(c, sec);
+    const rows = zones.map(z => {
+      const isCur = !!cur && cur.zone.id === z.id, split = !!c.split[z.id], pbSeg = p && p.zones[z.id];
+      const ms = Run.zoneMs(c, z.id), d = split && pbSeg ? ms - pbSeg : null;
+      return `<tr class="zrow${isCur ? " cur" : ""}${split ? " split" : ""}"${isCur ? ' aria-current="step"' : ""}><th>${esc(z.name)}</th>
+        <td class="${split || isCur ? "" : "muted"}"><span class="timer" data-timer="zone:${esc(z.id)}">${fmt(ms)}</span></td>
+        <td class="muted">${pbSeg ? fmt(pbSeg) : "–"}</td>
+        <td>${deltaSpan(d)}</td></tr>`;
+    });
+    const d = segDeltaVsPb(c, "section", sec.id), pbSec = p && p.sections[sec.id];
+    $("#actSplits").classList.toggle("open", actSplitsOpen);
+    $("#actSplits").innerHTML = `<header><h2>${esc(sec.name)} splits</h2>
+        <button type="button" class="link-btn act-splits-toggle" data-action="act-splits-toggle" aria-expanded="${actSplitsOpen}" aria-controls="actSplitsTable">${actSplitsOpen ? "Current zone only" : `All ${zones.length} zones`}</button></header>
+      <div class="act-splits-body" role="region" tabindex="0" aria-label="Act splits table"><table class="seg" id="actSplitsTable"><thead><tr><th>Zone</th><th>Now</th><th>PB</th><th>Δ</th></tr></thead>
+      <tbody>${rows.join("")}</tbody>
+      <tfoot><tr class="grand"><th>${esc(actShort(sec))} total</th><td>${sumTimer("section", sec.id, Run.sectionMs(c, sec.id))}</td>
+        <td>${pbSec ? fmt(pbSec) : "–"}</td>
+        <td class="mono ${d === null ? "muted" : deltaClass(d)}" data-seg-delta="section:${esc(sec.id)}">${d !== null ? fmtDelta(d) : "–"}</td></tr></tfoot></table></div>`;
+  }
+
+  function renderRunFoot() {
+    const c = char(), p = Run.pb(c), d = p ? Run.deltaVsPb(c) : null, sob = Run.sumOfBest(c), prac = Run.route(c).practice;
+    $("#runFoot").innerHTML = `<div><span class="k">${prac ? "Practice" : "Campaign"}</span> ${sumTimer("total", "", Run.totalMs(c))}
+        <span class="mono ${d === null ? "muted" : deltaClass(d)}" data-seg-delta="total:">${d !== null ? fmtDelta(d) : "–"}</span></div>
+      <div><span class="k">Sum of best</span> <span class="mono">${sob ? fmt(sob) : "–"}</span></div>`;
   }
 
   function renderTotals() {
@@ -456,7 +492,7 @@
       </details>`;
   }
 
-  /** Sidebar + analytics: All / Campaign / Practice (default Campaign). */
+  /** Run history and analytics: All / Campaign / Practice (default Campaign). */
   let historyFilter = "campaign";
   const isPracticeRun = h => !!(h && (h.practice || String(h.variant || "").includes("+p:")));
   function filteredHistory(c) {
@@ -466,7 +502,7 @@
     return all.filter(h => !isPracticeRun(h));
   }
 
-  /** First-run tip: in the main column under the now-bar, so it's on screen at 1280x720 and near the top on phones. */
+  /** First-run tip: at the top of the checklist, so it's on screen at 1280x720 and near the top on phones. */
   /** Shown to a new player until they dismiss it, split a zone or finish a run. */
   function firstRunVisible(c = char()) {
     return !state.settings.seen.firstRunTip && !(c.history || []).length && !Object.keys(c.split || {}).length;
@@ -527,7 +563,7 @@
   function renderCharacter() {
     const c = char(), b = c.build;
     const cls = classMeta(c.classId);
-    let html = `<h2>Character</h2><div class="char-name">${esc(c.name)}</div>
+    const details = `<section class="card char-card" aria-label="Character"><h2>Character</h2><div class="char-name">${esc(c.name)}</div>
       <div class="class-picker"><label for="classSelect">Class</label>
         <select id="classSelect" title="Basic class (not ascendancy)">
           <option value="">None</option>
@@ -547,27 +583,25 @@
           const src = c.level != null ? "manual" : "PoB";
           return `Using ${eff} (${src})${w != null ? ` · XP window ±${w}` : ""}`;
         })()}</span>
-      </div>`;
-    if (b) {
-      html += `<dl class="kv">
+      </div>
+      ${b ? `<dl class="kv">
         <dt>Class</dt><dd>${esc(b.className)}</dd>
         <dt>Ascendancy</dt><dd>${esc(b.ascendancy || "None")}</dd>
         <dt>PoB level</dt><dd>${esc(b.level)}</dd>
         <dt>Passives</dt><dd>${esc(b.passives)}</dd>
         <dt>Items</dt><dd>${esc(b.items)}</dd>
         ${(b.stats || []).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}
-      </dl><h2 style="margin-top:12px">Main skills</h2>
-      ${(b.skills || []).map(g => `<div class="skill"><div class="${g.main ? "main" : ""}">${g.main ? "★ " : ""}${esc(g.actives.join(", "))}</div>
+      </dl>` : ""}</section>`;
+    const build = `<section class="card pob-card" aria-label="Path of Building"><h2>${b ? "Main skills" : "Path of Building 2"}</h2>
+      ${b ? `${(b.skills || []).map(g => `<div class="skill"><div class="${g.main ? "main" : ""}">${g.main ? "★ " : ""}${esc(g.actives.join(", "))}</div>
         ${g.supports.length ? `<div class="sup">${esc(g.supports.join(" · "))}</div>` : ""}</div>`).join("") || "<div class='empty'>No skills</div>"}
-      <div class="row"><button data-action="pob-clear" class="danger">Remove build</button></div>`;
-    } else {
-      html += `<p class="muted" style="margin:4px 0 8px">Optional: paste a Path of Building 2 export code.</p>`;
-    }
-    html += `<details${b ? "" : " open"}><summary>Import PoB2 code</summary>
-      <textarea id="pobCode" placeholder="eNrtPVlz2zjSz6N…" spellcheck="false"></textarea>
-      <div class="row"><button class="primary" data-action="pob-import">Decode build</button></div>
-      ${pobError ? `<div class="error" id="pobError">${esc(pobError)}</div>` : ""}</details>`;
-    $("#character").innerHTML = html;
+        <div class="row"><button data-action="pob-clear" class="danger">Remove build</button></div>`
+        : `<p class="muted">Optional: paste a Path of Building 2 export code to fill in class, ascendancy, level and skills.</p>`}
+      <details${b ? "" : " open"}><summary>Import PoB2 code</summary>
+        <textarea id="pobCode" placeholder="eNrtPVlz2zjSz6N…" spellcheck="false" aria-label="Path of Building 2 code"></textarea>
+        <div class="row"><button class="primary" data-action="pob-import">Decode build</button></div>
+        ${pobError ? `<div class="error" id="pobError">${esc(pobError)}</div>` : ""}</details></section>`;
+    $("#character").innerHTML = details + build;
   }
 
   function gearCueHTML(classId, zone) {
@@ -615,69 +649,115 @@
     if (s.warning) extra.push(`<li class="warn">${Icons.icon("warn")} ${esc(s.warning)}</li>`);
     return `<div class="step${done ? " done" : ""}">
       <input type="checkbox" id="st-${esc(s.id)}" data-action="step" data-id="${esc(s.id)}"${done ? " checked" : ""}>
-      <label for="st-${esc(s.id)}"><span class="objective">${esc(s.objective)}</span>
+      <div class="step-body"><label for="st-${esc(s.id)}"><span class="objective">${esc(s.objective)}</span>
         ${s.level ? `<span class="lvl">· lvl ${esc(s.level)}</span>` : ""}${s.optional ? `<span class="optional">optional</span>` : ""}</label>
       ${stepHints(c, s).length ? `<ul class="hints">${stepHints(c, s).map(h => `<li>${esc(h)}</li>`).join("")}</ul>` : ""}
       ${classNoteHTML(c, s.id)}
       ${(() => { const cr = currentCustom(c); return cr && cr.notes && cr.notes[s.id]
-        ? `<div class="custom-note">${esc(cr.notes[s.id])}</div>` : ""; })()}
+        ? `<div class="custom-note">${esc(cr.notes[s.id])}</div>` : ""; })()}</div>
       ${extra.length ? `<ul class="extra">${extra.join("")}</ul>` : ""}
     </div>`;
   }
 
   function zoneHTML(z, c, cur) {
     const p = Run.pb(c), isSplit = !!c.split[z.id], isCur = cur && cur.zone.id === z.id;
+    const folded = isSplit && !expandedZones.has(z.id);
     const ms = Run.zoneMs(c, z.id), pbSeg = p && p.zones[z.id];
     const delta = isSplit && pbSeg ? ms - pbSeg : null;
     const zLvl = Levels.zoneLevelInfo(z), zStat = Levels.status(Levels.charLevel(c), zLvl);
     const lvlCue = zLvl ? `<span class="zone-lvl${zStat && zStat.kind !== "ok" ? " " + zStat.kind : ""}${zLvl.uncertain ? " uncertain" : ""}" title="${esc((zStat && zStat.detail) || ("Route level " + zLvl.label))}">${zStat && zStat.kind !== "ok" ? esc(zStat.text) : "lvl " + esc(zLvl.label)}</span>` : "";
     const gearCue = gearCueHTML(c.classId, z);
-    return `<div class="zone${isSplit ? " complete" : ""}${isCur ? " current" : ""}${zStat && zStat.kind === "bad" ? " underlevel" : ""}" data-zone="${esc(z.id)}" id="zone-${esc(z.id)}">
-      <div class="zone-head"><h3>${isSplit ? "✓ " : isCur ? "▶ " : ""}${esc(z.name)}</h3>
-        ${lvlCue}${gearCue}
-        ${!Run.route(c).practice ? `<button type="button" class="practice-btn tiny" data-action="practice-zone" data-id="${esc(z.id)}" title="Practice this zone only">Practice</button>` : ""}
-        ${c.golds[z.id] ? '<span class="gold" title="Best segment ever">★ gold</span>' : ""}
+    // Completed zones fold to one line (check, name, time, Δ) and open on click.
+    const title = isSplit
+      ? `<button type="button" class="zone-toggle" data-action="zone-toggle" data-id="${esc(z.id)}" aria-expanded="${!folded}">${Icons.icon("check")} ${esc(z.name)}</button>`
+      : `${isCur ? Icons.icon("play") + " " : ""}${esc(z.name)}`;
+    return `<div class="zone${isSplit ? " complete" : ""}${folded ? " folded" : ""}${isCur ? " current" : ""}${zStat && zStat.kind === "bad" ? " underlevel" : ""}" data-zone="${esc(z.id)}" id="zone-${esc(z.id)}">
+      <div class="zone-head"><h3>${title}</h3>
+        ${folded ? "" : lvlCue + gearCue}
+        ${!folded && !Run.route(c).practice ? `<button type="button" class="practice-btn tiny" data-action="practice-zone" data-id="${esc(z.id)}" title="Practice this zone only">Practice</button>` : ""}
+        ${c.golds[z.id] ? '<span class="gold" title="Best segment ever"><span class="star">★</span> gold</span>' : ""}
         ${delta !== null ? `<span class="delta ${deltaClass(delta)}" title="vs PB segment ${fmt(pbSeg)}">${fmtDelta(delta)}</span>`
           : pbSeg ? `<span class="muted small" title="PB segment">PB ${fmt(pbSeg)}</span>` : ""}
-        ${timerWidget("zone:" + z.id, z.name)}</div>
-      ${visibleSteps(c, z).map(s => stepHTML(s, c)).join("")}</div>`;
+        ${timerWidget("zone:" + z.id, z.name, { noButtons: folded })}</div>
+      ${folded ? "" : visibleSteps(c, z).map(s => stepHTML(s, c)).join("")}</div>`;
+  }
+
+  /* ---------- Act switcher: one act or interlude part at a time, in play order ---------- */
+  const ACT_UI_KEY = "splitstone:ui";
+  const actPick = Object.create(null);    // character id -> section shown; UI state, kept out of the save
+  const actFollow = Object.create(null);  // character id -> current act last seen (memory only, so a reload shows the current act)
+  try {
+    const saved = (JSON.parse(localStorage.getItem(ACT_UI_KEY) || "{}") || {}).acts || {};
+    for (const [k, v] of Object.entries(saved)) if (DATA.sections.some(x => x.id === v)) actPick[k] = v;
+  } catch (_) {}
+  function saveActPicks() { try { localStorage.setItem(ACT_UI_KEY, JSON.stringify({ acts: actPick })); } catch (_) {} }
+  const actShort = sec => sec.name.replace(" · part ", " · ");
+  /** Sections in the order this route plays them, so interlude parts sit where they're played. */
+  function actList(c) {
+    const seen = new Set(), out = [];
+    Run.order(c).forEach(o => { if (!seen.has(o.section.id)) { seen.add(o.section.id); out.push(o.section); } });
+    return out.length ? out : DATA.sections.slice();
+  }
+  const actZones = (c, sec) => Run.order(c).filter(o => o.section.id === sec.id).map(o => o.zone);
+  /** Follows the current act on load and when a split enters a new act; otherwise keeps what the player picked. */
+  function selectedAct(c) {
+    const acts = actList(c), cur = Run.current(c), curId = cur ? cur.section.id : null;
+    if (curId && actFollow[c.id] !== curId) {
+      actFollow[c.id] = curId;
+      if (actPick[c.id] !== curId) { actPick[c.id] = curId; saveActPicks(); }
+    }
+    return acts.find(x => x.id === actPick[c.id]) || acts.find(x => x.id === curId) || acts[0];
+  }
+  function showAct(id, { focus = false } = {}) {
+    const c = char();
+    actPick[c.id] = id; saveActPicks();
+    renderCampaign(); renderActSplits();
+    const cur = Run.current(c);
+    if (cur && cur.section.id === id) scrollToCurrent(false);
+    else $("#checklistScroll").scrollTop = 0;
+    if (focus) { const t = $("#act-tab-" + cssEsc(id)); if (t) t.focus(); }
+  }
+  const ACT_STATE_ICON = { done: "check", current: "play", upcoming: "circle" };
+  function actTabsHTML(c, sel) {
+    const cur = Run.current(c);
+    const tabs = actList(c).map(sec => {
+      const zones = actZones(c, sec);
+      const st = cur && cur.section.id === sec.id ? "current" : zones.length && zones.every(z => c.split[z.id]) ? "done" : "upcoming";
+      const ms = Run.sectionMs(c, sec.id), d = segDeltaVsPb(c, "section", sec.id);
+      const tip = [sec.name, ms ? fmt(ms) : "not started", d !== null ? `${fmtDelta(d)} vs PB` : ""].filter(Boolean).join(" · ");
+      const on = sec.id === sel.id;
+      return `<button type="button" role="tab" class="act-tab ${st}" id="act-tab-${esc(sec.id)}" data-action="act" data-id="${esc(sec.id)}"
+        aria-selected="${on}" aria-controls="actPanel" tabindex="${on ? 0 : -1}" title="${esc(tip)}">${Icons.icon(ACT_STATE_ICON[st])}<span>${esc(actShort(sec))}</span><span class="sr-only">, ${st}</span></button>`;
+    }).join("");
+    return `<div class="act-tabs" role="tablist" aria-label="Acts and interludes">${tabs}</div>
+      ${cur && cur.section.id !== sel.id ? `<button type="button" class="pill current-act" data-action="act-current" title="Back to ${esc(cur.section.name)} (${esc(keyName(bindings().scroll))})">Current act</button>` : ""}`;
+  }
+
+  /** Keeps the selected tab in view when the strip scrolls sideways, without moving the page. */
+  function revealActTab(id) {
+    const strip = $("#actTabs .act-tabs"), t = $("#act-tab-" + cssEsc(id));
+    if (!strip || !t || strip.scrollWidth <= strip.clientWidth) return;
+    const l = t.offsetLeft - strip.offsetLeft, r = l + t.offsetWidth;
+    if (l < strip.scrollLeft) strip.scrollLeft = l - 8;
+    else if (r > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = r - strip.clientWidth + 8;
   }
 
   function renderCampaign() {
     const c = char(), cur = Run.current(c);
-    const r = Run.route(c);
-    const inScopeSec = sec => {
-      if (!r.practice) return true;
-      if (r.practice.kind === "group") return sec.group === r.practice.id;
-      if (r.practice.kind === "section") return sec.id === r.practice.id;
-      if (r.practice.kind === "zone") return sec.zones.some(z => z.id === r.practice.id);
-      return true;
-    };
-    const sections = DATA.sections.filter(inScopeSec).map(sec => {
-      const custom = currentCustom(c);
-      const rVis = custom && custom.baseMode ? Object.assign({}, r, { mode: custom.baseMode }) : r;
-      let zones = sec.zones.filter(z => Run.zoneActive(z, rVis, custom) && Run.matchesPractice({ zone: z, section: sec, group: sec.group }, r.practice));
-      // Respect custom zoneOrder within the section.
-      if (custom && custom.zoneOrder && custom.zoneOrder.length) {
-        const rank = id => { const i = custom.zoneOrder.indexOf(id); return i < 0 ? 9999 : i; };
-        zones = zones.slice().sort((a, b) => rank(a.id) - rank(b.id));
-      }
-      const steps = zones.flatMap(z => visibleSteps(c, z)), done = steps.filter(s => c.done[s.id]).length;
-      const isCur = cur && cur.section.id === sec.id;
-      const isCollapsed = collapsed.has(sec.id);
-      const canPracticeAct = !r.practice;
-      return `<section class="section practice-scope${isCollapsed ? " collapsed" : ""}${isCur ? " current" : ""}" data-section="${esc(sec.id)}">
+    const r = Run.route(c), sec = selectedAct(c);
+    $("#actTabs").innerHTML = actTabsHTML(c, sec);
+    revealActTab(sec.id);
+    const zones = actZones(c, sec);
+    const steps = zones.flatMap(z => visibleSteps(c, z)), done = steps.filter(s => c.done[s.id]).length;
+    const isCur = cur && cur.section.id === sec.id;
+    const actPanel = `<section class="section practice-scope${isCur ? " current" : ""}" data-section="${esc(sec.id)}" id="actPanel" role="tabpanel" aria-labelledby="act-tab-${esc(sec.id)}">
         <header>
-          <button class="collapse" data-action="collapse" data-id="${esc(sec.id)}" aria-expanded="${!isCollapsed}"
-            aria-label="Toggle ${esc(sec.name)}">${isCollapsed ? "▸" : "▾"}</button>
           <h2>${esc(sec.name)}<small>${esc(sec.region || "")}${sec.levels ? " · lvl " + esc(sec.levels) : ""}</small></h2>
           <span class="badge">${done}/${steps.length}</span>
-          ${canPracticeAct ? `<button type="button" class="practice-btn" data-action="practice-group" data-id="${esc(sec.group)}" title="Practice this act / interlude">Practice</button>` : ""}
+          ${!r.practice ? `<button type="button" class="practice-btn" data-action="practice-group" data-id="${esc(sec.group)}" title="Practice this act / interlude">Practice</button>` : ""}
           <span class="tw">${sumTimer("section", sec.id, Run.sectionMs(c, sec.id))}</span>
         </header>
-        <div class="zones">${zones.map(z => zoneHTML(z, c, cur)).join("")}</div></section>`;
-    }).join("");
-
+        <div class="zones">${zones.map(z => zoneHTML(z, c, cur)).join("") || `<div class="empty">No zones of ${esc(sec.name)} on this route.</div>`}</div></section>`;
 
     const v = DATA.variants[r.mode] || {};
     const routeBar = `<section class="card route-bar" aria-label="Route">
@@ -730,8 +810,10 @@
       </details>
       ${v.tips && v.tips.length ? `<details class="tips" data-keep="tips"${openDetails.has("tips") ? " open" : ""}><summary>Speedrun tips (${v.tips.length})</summary><ul>${v.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul></details>` : ""}
     </section>`;
-    $("#campaign").innerHTML = routeBar + sections + statsHTML(c);
+    $("#campaign").innerHTML = routeBar + actPanel;
   }
+
+  function renderStats() { $("#statsSlot").innerHTML = statsHTML(char()); }
 
   /* ---------- Endgame view: map runs, sessions, atlas ---------- */
   const EG = () => char().endgame;
@@ -827,12 +909,13 @@
         <strong>${esc(t.name)}</strong><span class="muted small">${esc(t.desc)}</span><span class="tool-host small">${esc(new URL(t.url).host)}</span></a>`).join("")}</div></section>`;
   }
 
+  const VIEWS = ["campaign", "runs", "character", "endgame", "tools"];
   function renderViews() {
     const v = state.settings.view || "campaign";
-    ["campaign", "endgame", "tools"].forEach(n => document.body.classList.toggle("view-" + n, n === v));
-    $("#viewCampaign").hidden = v !== "campaign";
-    $("#viewEndgame").hidden = v !== "endgame";
-    $("#viewTools").hidden = v !== "tools";
+    VIEWS.forEach(n => {
+      document.body.classList.toggle("view-" + n, n === v);
+      $("#view" + n[0].toUpperCase() + n.slice(1)).hidden = n !== v;
+    });
     document.querySelectorAll(".views [data-view]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.view === v)));
     _layoutStickySoon();
     if (v === "endgame") {
@@ -995,13 +1078,27 @@
     if (Run.runningZone(c) || Run.isPaused(c)) pushOverlay();
   }
 
+  /** Bring the current zone into view inside the checklist column (the page itself only scrolls on phones). */
   function scrollToCurrent(smooth = true) {
     const cur = Run.current(char());
     const el = cur && document.querySelector("#zone-" + cssEsc(cur.zone.id));
-    const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const col = $("#checklistScroll"), reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const behavior = smooth && !reduce ? "smooth" : "auto";
     // A new player with nothing split yet: stay at the top so the first-run tip is in view.
-    if (firstRunVisible()) { window.scrollTo(0, 0); return; }
-    if (el) el.scrollIntoView({ behavior: smooth && !reduce ? "smooth" : "auto", block: "center" });
+    if (firstRunVisible()) { col.scrollTop = 0; window.scrollTo(0, 0); return; }
+    if (!el) return;
+    if (col.scrollHeight > col.clientHeight && getComputedStyle(col).overflowY === "auto") {
+      const top = el.getBoundingClientRect().top - col.getBoundingClientRect().top + col.scrollTop;
+      const head = el.closest(".section").querySelector("header").offsetHeight;
+      col.scrollTo({ top: Math.max(0, top - Math.max(head + 12, (col.clientHeight - el.offsetHeight) / 3)), behavior });
+    } else el.scrollIntoView({ behavior, block: "center" });
+  }
+  /** C: back to the current act, then its current zone. */
+  function jumpToCurrent() {
+    const c = char(), cur = Run.current(c);
+    if (state.settings.view !== "campaign") { state.settings.view = "campaign"; commit(); }
+    if (cur && selectedAct(c).id !== cur.section.id) showAct(cur.section.id);
+    else scrollToCurrent();
   }
 
   /* ---------- Actions ---------- */
@@ -1352,11 +1449,16 @@
           && Run.requiredSteps(cur.zone, Run.route(c), currentCustom(c)).every(s => c.done[s.id])) return doSplit();
       commit();
     },
-    collapse(el) {
+    act(el) { showAct(el.dataset.id); },
+    "act-current"() { jumpToCurrent(); },
+    "zone-toggle"(el) {
       const id = el.dataset.id;
-      collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id);
-      render();
+      expandedZones.has(id) ? expandedZones.delete(id) : expandedZones.add(id);
+      renderCampaign();
+      const btn = document.querySelector(`.zone-toggle[data-id="${cssEsc(id)}"]`);
+      if (btn) btn.focus();
     },
+    "act-splits-toggle"() { actSplitsOpen = !actSplitsOpen; renderActSplits(); $("#actSplits .act-splits-toggle").focus(); },
     async "storage-overwrite"() {
       const msg = Storage2.status.blocked === "unreadable"
         ? "Replace the unreadable save with what's in this window? Export first if you're unsure."
@@ -1548,10 +1650,10 @@
       // Don't full-re-render on every keystroke via change — change fires on blur.
       commit();
     }
-    else if (el.id === "statSeg") { statSeg = el.value; renderCampaign(); }
+    else if (el.id === "statSeg") { statSeg = el.value; renderStats(); }
     else if (el.id === "historyFilter") {
       historyFilter = ["campaign", "practice", "all"].includes(el.value) ? el.value : "campaign";
-      renderHistory(); renderCampaign();
+      renderHistory(); renderStats();
     }
     else if (el.id === "charLevel") {
       const raw = el.value.trim();
@@ -1695,6 +1797,16 @@
       });
     }
   });
+  // Act strip: arrow keys, Home and End move between tabs and show that act.
+  document.addEventListener("keydown", ev => {
+    const tab = ev.target.closest && ev.target.closest(".act-tab");
+    if (!tab || ev.ctrlKey || ev.metaKey || ev.altKey || anyDialogOpen()) return;
+    const tabs = [...document.querySelectorAll(".act-tab")], i = tabs.indexOf(tab);
+    const j = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[ev.key];
+    if (j === undefined) return;
+    ev.preventDefault();
+    showAct(tabs[(j + tabs.length) % tabs.length].dataset.id, { focus: true });
+  });
   document.addEventListener("submit", ev => {
     if (ev.target.dataset.form !== "eg-start") return;
     ev.preventDefault();
@@ -1712,7 +1824,7 @@
     ["undo", "u", "Undo last split", () => actions.undo()],
     ["pause", "p", "Pause / resume", () => actions.pause()],
     ["newRun", "r", "New run", () => doNewRun()],
-    ["scroll", "c", "Scroll to current zone", () => scrollToCurrent()],
+    ["scroll", "c", "Jump to the current act and zone", () => jumpToCurrent()],
     ["focus", "f", "Focus mode", () => { flip("focusMode"); scrollToCurrent(false); }],
     ["hints", "h", "Hide / show hints", () => flip("hideHints")],
     ["extra", "e", "Hide / show extra info", () => flip("hideExtra")],

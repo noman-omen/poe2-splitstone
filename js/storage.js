@@ -49,7 +49,7 @@
              autoSplit: { enabled: false, url: "http://127.0.0.1:8766", token: "" },
              overlay: { opacity: 0.8, clickThrough: true },
              endgameAutoDetect: false, // desktop: start/stop map runs from Client.txt
-             view: "campaign",         // campaign | endgame | tools
+             view: "campaign",         // campaign | runs | character | endgame | tools
              ghostMode: false,         // race against a ghost (PB, best segments, a past or imported run)
              seen: { firstRunTip: false, ghostHint: false }, // one-time tips already shown or dismissed
              hotkeys: {} };  // action -> key overrides; defaults live in app.js (HOTKEY_DEFS)
@@ -300,7 +300,7 @@
     out.ghostMode = asBool(src.ghostMode);
     const seen = asObject(src.seen);
     out.seen = { firstRunTip: seen.firstRunTip === true, ghostHint: seen.ghostHint === true };
-    out.view = ["campaign", "endgame", "tools"].includes(src.view) ? src.view : "campaign";
+    out.view = ["campaign", "runs", "character", "endgame", "tools"].includes(src.view) ? src.view : "campaign";
     out.overlay = {
       opacity,
       clickThrough: ov.clickThrough === undefined ? true : !!ov.clickThrough,

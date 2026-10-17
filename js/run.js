@@ -303,7 +303,7 @@
    * Comparison vs PB at the current point of the run: cumulative time through
    * the split zones (+ the live zone once it is slower than PB's segment) vs
    * the PB's time for the same zones. Positive = behind PB.
-   * Optional `pred(o)` limits the comparison to a group/section (sidebar Δ).
+   * Optional `pred(o)` limits the comparison to a group/section (act and run panel Δ).
    */
   function deltaVsPbIn(c, pred, now = Date.now()) {
     const p = pb(c);

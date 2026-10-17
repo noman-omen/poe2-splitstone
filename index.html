@@ -71,27 +71,44 @@
     </div>
     <nav class="views" role="tablist" aria-label="View">
       <button role="tab" data-action="view" data-view="campaign" id="tab-campaign">Campaign</button>
+      <button role="tab" data-action="view" data-view="runs" id="tab-runs">Runs</button>
+      <button role="tab" data-action="view" data-view="character" id="tab-character">Character</button>
       <button role="tab" data-action="view" data-view="endgame" id="tab-endgame">Endgame</button>
       <button role="tab" data-action="view" data-view="tools" id="tab-tools">Tools</button>
     </nav>
   </header>
 
 
-  <div id="viewCampaign" role="tabpanel" aria-labelledby="tab-campaign">
-  <section id="now" class="now" aria-label="Current zone"></section>
-  <div id="firstRun" class="first-run-slot"></div>
-
-  <div class="layout">
-    <aside class="sidebar">
-      <section class="card ghost-panel" id="ghost" aria-label="Ghost race" hidden></section>
-      <section class="card" id="totals" aria-label="Totals"></section>
-      <section class="card" id="history" aria-label="Run history"></section>
-      <section class="card" id="character" aria-label="Character"></section>
+  <div id="viewCampaign" class="campaign-view" role="tabpanel" aria-labelledby="tab-campaign">
+    <aside id="play" class="play" aria-label="Run">
+      <section id="now" class="now" aria-label="Current zone"></section>
+      <section id="actSplits" class="act-splits" aria-label="Act splits"></section>
+      <section id="runFoot" class="run-foot" aria-label="Campaign total"></section>
     </aside>
-    <main id="campaign" aria-live="polite"></main>
-  </div>
+    <div class="checklist">
+      <div id="actTabs" class="act-bar"></div>
+      <div id="checklistScroll" class="checklist-scroll">
+        <div id="firstRun" class="first-run-slot"></div>
+        <main id="campaign"></main>
+      </div>
+    </div>
   </div>
 
+  <main id="viewRuns" class="view-page runs-page" role="tabpanel" aria-labelledby="tab-runs" hidden>
+    <div class="runs-grid">
+      <div class="runs-main">
+        <section class="card" id="totals" aria-label="Run and segments"></section>
+        <div id="statsSlot"></div>
+      </div>
+      <div class="runs-side">
+        <section class="card ghost-panel" id="ghost" aria-label="Ghost race" hidden></section>
+        <section class="card" id="history" aria-label="Run history"></section>
+      </div>
+    </div>
+  </main>
+  <main id="viewCharacter" class="view-page" role="tabpanel" aria-labelledby="tab-character" hidden>
+    <div id="character" class="char-page"></div>
+  </main>
   <main id="viewEndgame" class="view-page" role="tabpanel" aria-labelledby="tab-endgame" hidden></main>
   <main id="viewTools" class="view-page" role="tabpanel" aria-labelledby="tab-tools" hidden></main>
 

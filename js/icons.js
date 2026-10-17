@@ -18,6 +18,9 @@
     target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>',
     warn: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>',
     x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
+    play: '<path d="M8 5l11 7-11 7z"/>',
+    circle: '<circle cx="12" cy="12" r="7"/>',
     more: '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
   };
   function icon(name, extraClass) {
