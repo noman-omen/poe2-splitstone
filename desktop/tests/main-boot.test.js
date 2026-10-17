@@ -126,6 +126,22 @@ describe("main.js boot (stubbed electron)", () => {
     assert.ok(second.x > 1920, "second monitor offsets are kept");
   });
 
+  it("Large overlay text grows left and keeps clear of the minimap", () => {
+    const { overlayDefaultBounds, anchoredResize } = require("../src/main.js");
+    for (const [w, h] of [[1280, 720], [1920, 1080], [2560, 1440]]) {
+      const wa = { x: 0, y: 0, width: w, height: h };
+      const b = overlayDefaultBounds({ workArea: wa });
+      const big = anchoredResize(b, 440, 160, wa);
+      assert.equal(big.x + big.width, b.x + b.width, `${w}x${h}: right edge stays put`);
+      assert.ok(big.x < b.x, "growth goes left");
+      assert.ok(big.x + big.width <= w - Math.round(w * 0.17), "still left of the minimap");
+      const small = anchoredResize(big, 220, 60, wa);
+      assert.equal(small.x + small.width, b.x + b.width, "shrinking keeps the right edge too");
+    }
+    const edge = anchoredResize({ x: 10, y: 5, width: 300, height: 72 }, 440, 100, { x: 0, y: 0, width: 1920, height: 1080 });
+    assert.equal(edge.x, 0, "never pushed off the left of the screen");
+  });
+
   it("overlay text size is a known value", () => {
     const ds = require("../src/desktop-settings");
     assert.equal(ds.merge({}).overlayTextSize, "m");

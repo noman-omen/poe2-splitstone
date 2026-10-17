@@ -65,7 +65,7 @@
   --dash: #d8d0c0; --chart-bg: #faf7f0; --chart-grid: #ddd5c5;
   --toast-bg: #fff8e8; --shadow: #0003;
   --text: #2a261c; --muted: #6a6458; --text-bright: #1a160e;
-  --gold: #7e6221; --gold-2: #7a6226; --gold-bright: #7f6016; --gold-star: #c9a227;
+  --gold: #7e6221; --gold-2: #7a6226; --gold-bright: #7f6016; --gold-star: #9e7f1f; /* 3.8:1 on white, 3:1 on panel-2 */
   --ok: #26733c; --bad: #be2f2f; --run: #945619; --run-bright: #9c520f;
   --hint: #5a5040; --hint-strong: #3a3428; --info: #4a4438; --key-label: #6b665b;
   --optional: #48688d; --extra-k: #6b665b;
@@ -606,8 +606,9 @@ dialog.panel-dialog:focus { outline: none; }
 body.focus-mode .ghost-panel { display: none; }
 .ghost-panel h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 12px 0 6px; }
 
-.ico { width: 1em; height: 1em; vertical-align: -0.14em; flex: none; }
-button .ico { width: 1.15em; height: 1.15em; }
+/* Two icon sizes only: 14px inline with text, 16px in buttons, headings and the finish line. */
+.ico { width: 14px; height: 14px; vertical-align: -2px; flex: none; }
+button .ico, h2 .ico, h3 .ico, .now-finish .ico { width: 16px; height: 16px; vertical-align: -3px; }
 
 /* Skip link: first Tab stop, jumps to the Split button */
 .skip-link { position: absolute; left: 8px; top: -60px; z-index: 50; padding: 8px 14px; border-radius: 6px;
@@ -615,7 +616,12 @@ button .ico { width: 1.15em; height: 1.15em; }
 .skip-link:focus { top: 8px; }
 
 /* First-run tip */
-.first-run { border: 1px dashed var(--gold); border-radius: 8px; padding: 10px 12px; margin: 0 0 10px; background: var(--panel-2); }
+/* Lines up with the main (zone list) column of .layout */
+.first-run-slot { display: grid; grid-template-columns: 300px 1fr; gap: 20px; max-width: 1400px; margin: 0 auto; padding: 20px 20px 0; }
+.first-run-slot > * { grid-column: 2; }
+.first-run-slot[hidden] { display: none; }
+.first-run { border: 1px dashed var(--gold); border-radius: 8px; padding: 10px 12px; margin: 0; background: var(--panel-2); }
+@media (max-width: 860px) { .first-run-slot { grid-template-columns: 1fr; padding: 12px 12px 0; } .first-run-slot > * { grid-column: 1; } }
 .first-run h3 { margin: 0 0 6px; font-size: 13px; color: var(--gold-2); }
 .first-run ol { margin: 0 0 8px; padding-left: 18px; }
 .first-run li { margin: 2px 0; }

@@ -7,23 +7,23 @@
 - Time gained or lost per act and interlude, including the one in progress.
 - Copy any comparison as a ghost code to share it. Up to 10 imported ghosts per character, saved locally and included in JSON export and import.
 - Imported ghosts keep only zone times for zones Splitstone knows, with capped names and sizes (16 KB codes, 64 KB once expanded, 5 MB export files). Names are escaped wherever they're shown.
-- The ghost panel hides in Focus mode; the one-line summary under the timer stays. The in-game overlay is unchanged.
+- The ghost panel hides in Focus mode; the one-line summary under the timer stays.
 - No storage migration: 1.1 saves load as they are and pick up the new fields on the next save.
-- The ghost line under the timer is larger, with the zone in bold. Racing your PB it shows only where the ghost is, since the delta is already beside the timer. Deltas also say "ahead" or "behind" in words, so they don't rely on red and green.
+- The ghost line under the timer is larger, with the zone in bold. Racing your PB it shows only where the ghost is, since the delta is already beside the timer. The ghost line, the ghost panel total and the act and interlude summaries also say "ahead" or "behind" in words, so they don't rely on red and green.
 - After your first PB, a one-time note points to the ghost race in Settings.
-- First run: a dismissible tip card explains splits and practice, practice runs end on "Practice complete", and run history switches to the matching filter after a run.
+- First run: a dismissible tip card under the timer explains splits and practice (until your first split), practice runs end on "Practice complete", and run history switches to the matching filter after a run.
 - Desktop overlay: the default spot is left of the PoE2 minimap instead of on top of it, with a one-time hint on how to move it. New overlay text size option (Small, Medium, Large).
 - Accessibility: every theme meets WCAG AA contrast (Parchment and Ember were below it), a "Skip to timer" link, labelled dropdowns, and no animation or smooth scrolling when the system asks for reduced motion.
 - Settings and Help: consistent headings, and the dialogs are centred with the page dimmed behind them. Reset hotkeys to defaults now asks first.
 - Emoji icons replaced with one inline SVG icon set.
 - Less clutter on desktop: per-zone timer and practice buttons show on hover, on focus or for the current zone, and at 1366px wide or less the header's toggles and import/export sit behind the ⋯ menu.
-- Imports and saves are checked field by field. PoB build summaries are rebuilt from known fields and escaped, malformed history entries are skipped, undo history isn't imported, and character names lose invisible and direction-control characters. Prototype keys like `__proto__` can't be used as character ids.
+- Imports and saves are checked field by field. PoB build summaries are rebuilt from known fields and escaped, malformed history entries are skipped, undo history isn't imported, and character and ghost names lose invisible and direction-control characters. Paused timers must be known zones, and prototype keys like `__proto__` can't be used as character ids or reach any id-keyed map.
 - Import asks before replacing a character that already exists here or applying the file's settings, and refuses files over 10 MB.
 - Timers never go negative. If the system clock jumps backwards, running timers keep the time already counted.
 - A ghost code whose total doesn't match its zone times is rejected.
 - 1.0 saves with a map in progress keep that map's timer when migrated.
 - Desktop: Electron 44 and electron-builder 26. npm audit has no critical or high findings.
-- Releases: a Linux AppImage and a `SHA256SUMS` file alongside the Windows builds. The release workflow builds with read-only access and creates a draft release, which I publish after checking the assets.
+- Releases: a Linux AppImage and a `SHA256SUMS` file alongside the Windows builds. The release workflow builds with read-only access and creates a draft release, which I publish after checking the assets. Publishing waits for approval on a protected `release` environment, and builds take their timestamps from the tag commit.
 - Removed dead code. The PB always comes from run history; saves no longer store a separate best total. Added an ESLint config (`npm run lint`).
 
 ## 1.1.0 (2026-10-16)

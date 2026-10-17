@@ -200,6 +200,19 @@ function overlayDefaultBounds(display) {
   };
 }
 
+/**
+ * New size for the overlay that keeps its right edge where it is, so bigger text
+ * grows left (away from the minimap), and stays inside the work area.
+ */
+function anchoredResize(b, w, h, wa) {
+  const right = b.x + b.width;
+  let x = right - w;
+  if (wa) x = Math.min(Math.max(x, wa.x), wa.x + wa.width - w);
+  let y = b.y;
+  if (wa) y = Math.min(Math.max(y, wa.y), wa.y + wa.height - h);
+  return { x, y, width: w, height: h };
+}
+
 /** First time the overlay shows (and after Reset position): say how to move it. */
 function showOverlayMoveHint(force) {
   if (!overlayWindow || overlayWindow.isDestroyed()) return;
@@ -515,7 +528,9 @@ function wireIpc() {
     try {
       const b = overlayWindow.getBounds();
       if (b.width === w && b.height === h) return;
-      overlayWindow.setBounds({ x: b.x, y: b.y, width: w, height: h });
+      let wa = null;
+      try { wa = screen.getDisplayMatching(b).workArea; } catch (_) { /* keep unclamped */ }
+      overlayWindow.setBounds(anchoredResize(b, w, h, wa));
       persistOverlayBounds();
     } catch (_) { /* */ }
   });
@@ -630,4 +645,4 @@ process.on("uncaughtException", (err) => {
   app.exit(1);
 });
 
-module.exports = { setHotkeys, isAppPageUrl, statusPayload, isClientTxtPath, findClientLog, setClickThrough, overlayDefaultBounds };
+module.exports = { setHotkeys, isAppPageUrl, statusPayload, isClientTxtPath, findClientLog, setClickThrough, overlayDefaultBounds, anchoredResize };

@@ -170,7 +170,7 @@
     $("#charSelect").innerHTML = Object.values(state.characters)
       .sort((a, b) => a.created.localeCompare(b.created))
       .map(x => `<option value="${esc(x.id)}"${x.id === c.id ? " selected" : ""}>${esc(x.name)}</option>`).join("");
-    renderNow(); renderTotals(); renderGhost(); renderHistory(); renderCharacter(); renderCampaign();
+    renderNow(); renderFirstRun(); renderTotals(); renderGhost(); renderHistory(); renderCharacter(); renderCampaign();
     renderHelp();
     renderViews();
     layoutSticky();
@@ -466,6 +466,26 @@
     return all.filter(h => !isPracticeRun(h));
   }
 
+  /** First-run tip: in the main column under the now-bar, so it's on screen at 1280x720 and near the top on phones. */
+  /** Shown to a new player until they dismiss it, split a zone or finish a run. */
+  function firstRunVisible(c = char()) {
+    return !state.settings.seen.firstRunTip && !(c.history || []).length && !Object.keys(c.split || {}).length;
+  }
+  function renderFirstRun() {
+    const c = char();
+    const tip = firstRunVisible(c) ? `<div class="first-run" role="note">
+        <h3>How a run works</h3>
+        <ol>
+          <li><b>Start run</b> (${esc(keyName(bindings().split))}) starts the clock on the first zone.</li>
+          <li><b>Split</b> each time you enter the next zone. The big clock is the zone, <b>Run</b> is the total.</li>
+          <li>Your first finished run becomes your <b>PB</b>. A full campaign is ${Run.ALL.length} zones; to see a finish now, practise one zone.</li>
+        </ol>
+        <div class="row"><button type="button" class="primary" data-action="tip-practice">Try a one-zone practice</button>
+          <button type="button" data-action="tip-dismiss">Got it</button></div></div>` : "";
+    const el = $("#firstRun");
+    if (el) { el.innerHTML = tip; el.hidden = !tip; }
+  }
+
   function renderHistory() {
     const c = char();
     const filtered = filteredHistory(c);
@@ -477,16 +497,8 @@
       <option value="practice"${historyFilter === "practice" ? " selected" : ""}>Practice</option>
       <option value="all"${historyFilter === "all" ? " selected" : ""}>All</option>
     </select></label>`;
-    const tip = !state.settings.seen.firstRunTip && !(c.history || []).length ? `<div class="first-run" role="note">
-        <h3>How a run works</h3>
-        <ol>
-          <li><b>Start run</b> (${esc(keyName(bindings().split))}) starts the clock on the first zone.</li>
-          <li><b>Split</b> each time you enter the next zone. The big clock is the zone, <b>Run</b> is the total.</li>
-          <li>Your first finished run becomes your <b>PB</b>. A full campaign is ${Run.ALL.length} zones; to see a finish now, practise one zone.</li>
-        </ol>
-        <div class="row"><button type="button" class="primary" data-action="tip-practice">Try a one-zone practice</button>
-          <button type="button" data-action="tip-dismiss">Got it</button></div></div>` : "";
-    $("#history").innerHTML = `<h2>Run history</h2>${tip}
+
+    $("#history").innerHTML = `<h2>Run history</h2>
       ${filterSel}
       <div class="muted small">${historyFilter === "all" ? "All variants" : historyFilter === "practice" ? "Practice runs only" : "Campaign runs (no practice)"} · ${esc(Run.variantLabel(Run.variantKey(Run.route(c))))}</div>
       ${p ? `<div class="pb">PB <b class="mono">${fmt(p.total)}</b> <span class="muted">${new Date(p.finished).toLocaleDateString()}</span></div>` : '<div class="muted">No completed run in this filter.</div>'}
@@ -974,6 +986,8 @@
     const cur = Run.current(char());
     const el = cur && document.querySelector("#zone-" + cssEsc(cur.zone.id));
     const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // A new player with nothing split yet: stay at the top so the first-run tip is in view.
+    if (firstRunVisible()) { window.scrollTo(0, 0); return; }
     if (el) el.scrollIntoView({ behavior: smooth && !reduce ? "smooth" : "auto", block: "center" });
   }
 
