@@ -490,7 +490,7 @@ body:not(.view-campaign) .topbar .toggles { display: none; }
   /* The character menu and its ⋯ button stay on the brand's line */
   .topbar .char-controls { flex-wrap: nowrap; min-width: 0; }
   .topbar.menu-open .char-controls { flex-wrap: wrap; }
-  #charSelect { min-width: 0; max-width: 100%; flex: 0 1 auto; }
+  #charSelect { min-width: 0; max-width: 100%; flex: 0 1 auto; text-overflow: ellipsis; }
 }
 @media (max-width: 400px) {
   .topbar .views button { padding: 8px 6px; font-size: 14px; }
@@ -721,7 +721,10 @@ body.hide-extra .now-info { display: none; }
 /* Short windows (1280x720, 1366x768): tighter panel so Split, the step and Next step stay on screen */
 @media (min-width: 960px) and (max-height: 820px) {
   .campaign-view { padding-top: 8px; padding-bottom: 8px; }
-  .now { padding: 8px 12px; }
+  /* The panel keeps its height; the act splits give way, and the footer stays one line even with a long delta */
+  .now { flex: none; padding: 8px 12px; }
+  .act-splits { flex: 0 1 auto; min-height: 0; }
+  .run-foot { flex-wrap: nowrap; gap: 4px 8px; white-space: nowrap; }
   .now-zone { font-size: 20px; }
   /* The ghost line shares the Run row under a smaller clock */
   .now-clock { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; }

@@ -66,7 +66,7 @@ describe("overlay placement", () => {
       assert.deepEqual(B.defaultSize(wa(w, h)), { width: B.BASE.width, height: B.BASE.height }, `${w}x${h}`);
     assert.ok(Math.abs(big.width / big.height - B.BASE.width / B.BASE.height) < 0.05, "same shape");
     assert.ok(B.defaultSize(wa(1920, 1080), "l").width > B.BASE.width);
-    assert.ok(B.defaultSize(wa(1920, 1080), "s").width < B.BASE.width);
+    assert.deepEqual(B.defaultSize(wa(1920, 1080), "s"), { width: B.BASE.width, height: B.BASE.height }, "old Small is the default");
   });
 
   it("a player size is kept inside the limits and the screen", () => {

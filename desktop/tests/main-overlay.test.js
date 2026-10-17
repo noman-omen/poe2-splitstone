@@ -169,7 +169,9 @@ describe("overlay size and position (main)", () => {
     assert.ok(big.overlay.bounds.width > def.width && big.overlay.bounds.height > def.height);
     assert.equal(big.stored().overlayTextSize, undefined, "the old key is gone");
     const small = await boot({ ...ON, overlayTextSize: "s" });
-    assert.ok(small.overlay.bounds.width < def.width);
+    assert.equal(small.stored().overlaySize ?? null, null, "Small migrates to the default box, never below 400x80");
+    assert.deepEqual({ width: small.overlay.bounds.width, height: small.overlay.bounds.height }, def);
+    assert.equal(small.stored().overlayTextSize, undefined);
     const medium = await boot({ ...ON, overlayTextSize: "m" });
     assert.equal(medium.stored().overlaySize ?? null, null, "Medium is the default and stays fit-to-text");
     assert.equal(medium.overlay.bounds.width, def.width);

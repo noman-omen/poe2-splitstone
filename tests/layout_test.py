@@ -56,6 +56,11 @@ PANEL_CUT = """() => {
   }
   const d = document.querySelector('#now .now-detail');
   if (d && d.scrollHeight > d.clientHeight + 1) bad.push('step area scrolls');
+  const panel = document.querySelector('#now').getBoundingClientRect();
+  for (const e of document.querySelectorAll('#now .now-next > div'))
+    if (e.getBoundingClientRect().bottom > panel.bottom + 0.5) bad.push('Next past the panel border');
+  const foot = document.querySelector('#runFoot');
+  if (foot && foot.scrollWidth > foot.clientWidth + 1) bad.push('footer overflows');
   const clamped = [...document.querySelectorAll('#now .now-obj-text, #now .now-hint1 li')].filter(e => e.scrollHeight > e.clientHeight + 1);
   const tog = document.querySelector('#now .now-more-toggle');
   if (clamped.length && (!tog || tog.hidden)) bad.push('clamped with no way to open it');
@@ -403,6 +408,9 @@ with sync_playwright() as p:
                   c.ghost = Object.assign(c.ghost || {}, { pick: 'sob' }); localStorage.setItem('splitstone:v1', JSON.stringify(s)); }""")
                 pg.reload(); auto_accept_modals(pg); pg.wait_for_timeout(200)
             pg.keyboard.press("Space")
+            if race:
+                # Over ten minutes behind before the first split: the widest campaign delta in the footer.
+                pg.clock.fast_forward(12 * 60_000)
             cut, clamped, ghosts = [], 0, 0
             for i in range(n):
                 pg.clock.fast_forward(45_000 + 1000 * (i % 7)); pg.wait_for_timeout(15)
@@ -414,7 +422,9 @@ with sync_playwright() as p:
                         cut.append((r["zone"], r["bad"]))
                 pg.keyboard.press("Space")
         print(f"     {w}x{h}: {n} zones, {len(cut)} with a line cut, {clamped} with the objective or hint clamped (and a way to open it)")
-        check(f"{w}x{h} Warrior, level, ghost: on all {n} zones every panel line is whole or deliberately clamped", not cut, cut[:4])
+        delta = pg.text_content("#runFoot")
+        check(f"{w}x{h} Warrior, level, ghost, campaign delta over 10:00: on all {n} zones every panel line is whole or "
+              "deliberately clamped and Next stays inside the panel", not cut, (delta, cut[:4]))
         check(f"{w}x{h}: the ghost line was on screen in every zone", ghosts == n, ghosts)
         pg.close()
 

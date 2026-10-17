@@ -22,7 +22,7 @@
 - Desktop: `desktop/package.json` declares Node 22 or newer for development.
 - Desktop overlay is smaller: it shows only the current step and the next step. Hints stay in the app. The default panel is 400x80 at 1080p, the same on smaller screens and larger on taller ones (533x107 at 1440p), centred at the top below the boss health bar.
 - Unlock the overlay (`Ctrl+Alt+O` or the tray) to drag it anywhere and resize it from the bottom-right corner. The corner follows the pointer; at the top centre the overlay grows evenly to both sides and stays centred, and the top-right spot becomes a custom position. Size and position are remembered. The text scales to fit the window you set and keeps one size from step to step; only an unusually long step gets smaller text, and it's cut short only at the smallest size (11px). The Next line is never smaller than 11px. Every route step and its next step fit uncut at the default size on 720p to 1440p screens.
-- The overlay text size option is gone. If you had Small or Large, the overlay starts at a matching smaller or larger size.
+- The overlay text size option is gone. If you had Large, the overlay starts at a matching larger size; Small and Medium start at the default size.
 - Settings → Desktop has an overlay position option (Top center, Top right, or where you dragged it) and "Reset overlay position and size". If your overlay was still at the old top-right default, it moves to top centre; a position you chose is kept.
 
 ## 1.2.0 (2026-10-17)

@@ -15,8 +15,8 @@ const OLD_DEFAULT_TOP = 20;
 const BASE = Object.freeze({ width: 400, height: 80, displayHeight: 1080 });
 /** Resize limits; the maximum is also capped to part of the screen. */
 const LIMITS = Object.freeze({ minW: 200, minH: 44, maxW: 1200, maxH: 360, maxScreenW: 0.7, maxScreenH: 0.45 });
-/** 1.2/1.3 text sizes become a starting window size. */
-const TEXT_SIZE_SCALE = Object.freeze({ s: 0.85, m: 1, l: 1.3 });
+/** 1.2 text sizes become a starting window size. Small keeps the default: anything smaller cuts route steps short. */
+const TEXT_SIZE_SCALE = Object.freeze({ s: 1, m: 1, l: 1.3 });
 
 const POSITIONS = ["top-center", "top-right", "custom"];
 

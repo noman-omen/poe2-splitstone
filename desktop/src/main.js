@@ -19,7 +19,7 @@ const {
 } = require("./desktop-settings");
 const {
   LIMITS: OVERLAY_LIMITS, defaultSize, maxSize, clampSize, topCenterBounds, anchoredResize, centeredResize, isOldDefault,
-  boundsFor, resizeFor, MINIMAP_GAP, POSITIONS: OVERLAY_POSITIONS,
+  boundsFor, resizeFor, MINIMAP_GAP, POSITIONS: OVERLAY_POSITIONS, TEXT_SIZE_SCALE,
 } = require("./overlay-bounds");
 
 let autoUpdater = null;
@@ -244,7 +244,8 @@ function migrateOverlay() {
     changed = true;
   }
   if (settings.overlayLegacyTextSize) {
-    if (!settings.overlaySize) settings.overlaySize = defaultSize(overlayDisplay().workArea, settings.overlayLegacyTextSize);
+    if (!settings.overlaySize && (TEXT_SIZE_SCALE[settings.overlayLegacyTextSize] || 1) > 1)
+      settings.overlaySize = defaultSize(overlayDisplay().workArea, settings.overlayLegacyTextSize);
     settings.overlayLegacyTextSize = null;
     changed = true;
   }
