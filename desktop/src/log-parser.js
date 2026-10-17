@@ -1,10 +1,24 @@
 "use strict";
 /**
  * Client.txt zone-event parser (ported from helper/splitstone_helper.py).
- * Pure: feed(line, now?) → emit zone events via callback.
+ * Pure: feed(line, now?) → emit zone and level-up events via callback.
  */
 const RE_GENERATING = /Generating level (\d+) area "([^"]+)"/;
 const RE_ENTERED = /\] : You have entered (.+?)\.?\s*$/;
+/**
+ * The game's own level-up notice, matched as a whole line: date, time, two counters, the [INFO Client n] tag, then
+ * " : Name (Class) is now level N". Chat lines put the sender before the colon ("] Name: ..."), so a typed message
+ * can't produce one.
+ */
+const RE_LEVEL = /^\d{4}\/\d\d\/\d\d \d\d:\d\d:\d\d \d+ [0-9a-f]+ \[INFO Client \d+\] : ([A-Za-z0-9_]{3,23}) \(([A-Za-z]{2,24})\) is now level (\d{1,3})\r?$/;
+
+/** { name, cls, level } for a level-up line, otherwise null. */
+function parseLevelUp(line) {
+  const m = RE_LEVEL.exec(String(line));
+  if (!m) return null;
+  const level = Number(m[3]);
+  return level >= 1 && level <= 100 ? { name: m[1], cls: m[2], level } : null;
+}
 
 class Parser {
   constructor(emit) {
@@ -19,6 +33,11 @@ class Parser {
     if (m) {
       this.flush(t, true);
       this.pending = { area: m[2].toLowerCase(), level: parseInt(m[1], 10), t };
+      return;
+    }
+    const up = parseLevelUp(line);
+    if (up) {
+      this.emit({ type: "level", ...up });
       return;
     }
     m = RE_ENTERED.exec(line);
@@ -40,4 +59,4 @@ class Parser {
   }
 }
 
-module.exports = { Parser, RE_GENERATING, RE_ENTERED };
+module.exports = { Parser, parseLevelUp, RE_GENERATING, RE_ENTERED, RE_LEVEL };

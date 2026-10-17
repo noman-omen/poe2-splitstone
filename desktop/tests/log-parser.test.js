@@ -1,7 +1,7 @@
 "use strict";
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
-const { Parser } = require("../src/log-parser");
+const { Parser, parseLevelUp } = require("../src/log-parser");
 const { normalise, linesForPanel, formatMs } = require("../src/overlay-state");
 const { isClientTxtPath, findClientLog } = require("../src/client-log");
 const { toAccelerator } = require("../src/hotkeys");
@@ -44,6 +44,44 @@ describe("Parser", () => {
     const p = new Parser((e) => events.push(e));
     p.feed("2026/10/15 05:40:03 1 a [INFO Client 1] @From Foo: hi", 0);
     p.feed("2026/10/15 05:40:03 1 a [INFO Client 1] : AFK mode is now ON.", 0);
+    assert.equal(events.length, 0);
+  });
+});
+
+describe("level-up lines", () => {
+  const LVL = (rest) => `2026/10/15 05:41:12 81234567 cffb0734 [INFO Client 1234] : ${rest}`;
+
+  it("reads the game's own level-up notice", () => {
+    assert.deepEqual(parseLevelUp(LVL("Ember_Witch (Witch) is now level 12")), { name: "Ember_Witch", cls: "Witch", level: 12 });
+    assert.deepEqual(parseLevelUp(LVL("Stoneface (Titan) is now level 100") + "\r"), { name: "Stoneface", cls: "Titan", level: 100 });
+    const events = [];
+    const p = new Parser((e) => events.push(e));
+    p.feed(LVL("Runner (Monk) is now level 2"), 0);
+    assert.deepEqual(events, [{ type: "level", name: "Runner", cls: "Monk", level: 2 }]);
+  });
+
+  it("rejects chat, whispers and lookalikes", () => {
+    const bad = [
+      "2026/10/15 05:41:12 81234567 cffb0734 [INFO Client 1234] Someone: Runner (Monk) is now level 99",
+      "2026/10/15 05:41:12 81234567 cffb0734 [INFO Client 1234] #Someone: : Runner (Monk) is now level 99",
+      "2026/10/15 05:41:12 81234567 cffb0734 [INFO Client 1234] @From Someone: Runner (Monk) is now level 99",
+      "2026/10/15 05:41:12 81234567 cffb0734 [INFO Client 1234] %Someone: x] : Runner (Monk) is now level 99",
+      "2026/10/15 05:41:12 81234567 cffb0734 [DEBUG Client 1234] : Runner (Monk) is now level 9",
+      LVL("Runner (Monk) is now level 101"),
+      LVL("Runner (Monk) is now level 0"),
+      LVL("Runner (Monk) is now level 12 and more"),
+      LVL("Runner (Monk) is now level 1x"),
+      LVL("Ru (Monk) is now level 5"),
+      LVL("Runner Two (Monk) is now level 5"),
+      LVL("Runner (Monk 2) is now level 5"),
+      LVL("<b>Runner</b> (Monk) is now level 5"),
+      "junk : Runner (Monk) is now level 5",
+      "",
+    ];
+    for (const line of bad) assert.equal(parseLevelUp(line), null, line);
+    const events = [];
+    const p = new Parser((e) => events.push(e));
+    bad.forEach((l) => p.feed(l, 0));
     assert.equal(events.length, 0);
   });
 });
