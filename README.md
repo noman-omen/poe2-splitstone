@@ -4,7 +4,7 @@ I built Splitstone because I wanted one place to run the Path of Exile 2 campaig
 
 It's a campaign speedrun tracker and leveling guide for Acts 1–4 plus the Interludes (route data for patch 0.5.5). Use it in a browser, or install the desktop app for auto-split, global hotkeys and an in-game overlay.
 
-![Splitstone](screenshots/splitstone.png)
+![Splitstone demo: splitting through Act 1, switching acts, the Runs and Endgame tabs, then the in-game overlay changing step and theme](screenshots/demo.gif)
 
 ## Download
 
@@ -34,6 +34,8 @@ Auto-update is on by default (Settings → Desktop to turn off). Full releases o
 ---
 
 ## What it does
+
+![Splitstone campaign page](screenshots/splitstone.png)
 
 | | |
 | --- | --- |

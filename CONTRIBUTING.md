@@ -49,6 +49,8 @@ python3 helper/test_helper.py
 
 Run the suite for the area you touched; the other `tests/*_test.py` files cover dialogs, ghosts, levels, imports and storage. Tests write screenshots to `test-output/`. `SPLITSTONE_UPDATE_SHOTS=1` refreshes the README images in `screenshots/`; only do that when the UI change is intentional.
 
+`scripts/record_demo.py` re-records `screenshots/demo.gif` (needs ffmpeg). CI doesn't run it.
+
 ## Code style
 
 - `npm run lint` must pass (`eslint.config.js`).
