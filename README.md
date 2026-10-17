@@ -26,7 +26,7 @@ Global hotkeys. Change them under Settings → Desktop → Global hotkeys in the
 | `Ctrl+Alt+Z` | Undo |
 | `Ctrl+Alt+P` | Pause / resume |
 | `Ctrl+Alt+R` | New run (press twice within 3 s) |
-| `Ctrl+Alt+H` | Show / hide hints |
+| `Ctrl+Alt+H` | Show / hide hints in the app |
 | `Ctrl+Alt+O` | Lock / unlock the overlay (unlocked = drag to move, corner to resize) |
 
 Auto-update is on by default (Settings → Desktop to turn off). Full releases only get full releases; prerelease builds also see prereleases. A build that crashes on launch can't update itself, so reinstall from the link above.
@@ -37,7 +37,7 @@ Auto-update is on by default (Settings → Desktop to turn off). Full releases o
 
 | | |
 | --- | --- |
-| **Run panel** | Zone, timers, Split, current objective with one hint, and the next step beside the checklist, readable from a second monitor. The ghost line opens a picker; −/+ on the level cue |
+| **Run panel** | Zone, timers, Split, current objective with one hint, and the next step beside the checklist, readable from a second monitor. "+N more" shows the rest of the step. The ghost line opens a picker; −/+ on the level cue |
 | **One act at a time** | Act and interlude tabs in route order; follows your run, C jumps back to the current zone |
 | **Splits and timers** | Per-zone segments, act and interlude totals, pause, undo, auto-advance |
 | **Routes** | Normal or speedrun route, required-steps-only, practice a single act or zone, custom shareable routes |
@@ -52,7 +52,7 @@ Auto-update is on by default (Settings → Desktop to turn off). Full releases o
 
 ### In-game overlay
 
-A browser tab can't sit on top of a fullscreen game, so the desktop app draws a small always-on-top panel with the current step and the next step, nothing else. Hints stay in the app. By default it's about 400x72 at 1080p (scaled to your screen height) at the top centre, just below the boss health bar. It's click-through until you unlock it with `Ctrl+Alt+O` or the tray: then drag it anywhere and pull the bottom-right corner to resize it. The text scales to fill whatever size you pick; a very long step is cut short only at the smallest text size. Position and size are remembered. Opacity is a slider in Settings (80% by default), and Settings → Desktop → Reset overlay position and size puts it back at the top centre at the default size.
+A browser tab can't sit on top of a fullscreen game, so the desktop app draws a small always-on-top panel with the current step and the next step, nothing else. Hints stay in the app. By default it's 400x80 at 1080p and below, a little larger on taller screens, at the top centre just below the boss health bar. It's click-through until you unlock it with `Ctrl+Alt+O` or the tray: then drag it anywhere and pull the bottom-right corner to resize it. The text scales to fill whatever size you pick and stays the same size from step to step; only an unusually long step gets smaller text, and it's cut short only at the smallest size (11px, the Next line included). Position and size are remembered. Opacity is a slider in Settings (80% by default), and Settings → Desktop → Reset overlay position and size puts it back at the top centre at the default size.
 
 ![Overlay](screenshots/overlay-top-center.png)
 
