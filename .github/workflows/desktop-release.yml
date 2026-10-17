@@ -5,27 +5,35 @@ on:
     tags:
       - "v*"
 
+# Read-only by default. Only the publish job can write, and it makes a draft
+# release that has to be published by hand after checking the assets.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: desktop
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
-          cache-dependency-path: desktop/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - name: Lint
+        run: npm ci && npm run lint
       - name: Install
+        working-directory: desktop
         run: npm ci
       - name: Test
+        working-directory: desktop
         run: npm test
       - name: Launch smoke (xvfb)
+        working-directory: desktop
         run: |
           sudo apt-get update && sudo apt-get install -y xvfb
           xvfb-run -a npx electron . --smoke --no-sandbox 2>&1 | tee smoke.log
@@ -34,6 +42,8 @@ jobs:
   build-windows:
     needs: smoke
     runs-on: windows-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: desktop
@@ -41,7 +51,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: desktop/package-lock.json
       - name: Install
@@ -49,17 +59,70 @@ jobs:
       - name: Test
         run: npm test
       - name: Build Windows installer + portable
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run dist:win
-      - name: Upload artifacts to Release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        run: npm run dist:win -- --publish never
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          files: |
+          name: windows
+          if-no-files-found: error
+          path: |
             desktop/dist/Splitstone-Setup-*.exe
             desktop/dist/Splitstone-Portable-*.exe
             desktop/dist/*.blockmap
             desktop/dist/latest.yml
+
+  build-linux:
+    needs: smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Build AppImage
+        run: npm run dist:linux -- --publish never
+      - name: AppImage smoke (xvfb)
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb libfuse2
+          chmod +x dist/Splitstone-*.AppImage
+          xvfb-run -a dist/Splitstone-*.AppImage --smoke --no-sandbox 2>&1 | tee smoke.log
+          grep -q SMOKE_OK smoke.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux
+          if-no-files-found: error
+          path: |
+            desktop/dist/Splitstone-*.AppImage
+            desktop/dist/latest-linux.yml
+
+  publish:
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: assets
+          merge-multiple: true
+      - name: SHA256SUMS
+        working-directory: assets
+        run: |
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+      - name: Draft release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          draft: true
+          files: assets/*
           # v1.2.3 is a full release; v1.3.0-beta.1 (any '-') is a prerelease.
           prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
