@@ -52,7 +52,9 @@
     }
     if (!n) throw new Error("The ghost has no zone times this version of Splitstone knows");
     const sum = Object.values(zones).reduce((a, b) => a + b, 0);
-    const total = cleanMs(raw.total, MAX_TOTAL_MS) || sum;
+    // The total must agree with the zone times (within a second of rounding); otherwise trust the zones.
+    const claimed = cleanMs(raw.total, MAX_TOTAL_MS);
+    const total = claimed !== null && Math.abs(claimed - sum) <= 1000 ? claimed : sum;
     return {
       id: typeof raw.id === "string" && /^[A-Za-z0-9_-]{1,24}$/.test(raw.id) ? raw.id : uid(),
       name: cleanName(raw.name),

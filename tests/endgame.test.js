@@ -182,3 +182,21 @@ test("maps/hour waits for 10 minutes of data", () => {
   assert.strictEqual(E.sessionStats(eg, eg.sessions[0].id, T0 + 60000).mapsPerHour, null);
   assert.ok(E.sessionStats(eg, eg.sessions[0].id, T0 + 10 * 60000).mapsPerHour > 0);
 });
+
+test("1.0 maps in progress survive migration", () => {
+  const now = Date.parse("2026-10-16T20:00:00Z");
+  const eg = E.fromLegacy(
+    [{ id: "h1", name: "Burial Bog (T5)", ms: 240000, finished: "2026-10-15T20:00:00Z" }],
+    [{ id: "m1", name: "Savannah (T7)" }, { id: "m2", name: "Sandspit" }, { id: "m3", name: "Untouched" }],
+    { "map:m1": { elapsed: 60000, startedAt: now - 30000 }, "map:m2": { elapsed: 120000, startedAt: null },
+      "map:m3": { elapsed: 0, startedAt: null } },
+    now);
+  assert.ok(eg.active, "the running map becomes the active map");
+  assert.deepStrictEqual([eg.active.map, eg.active.tier, eg.active.elapsed, eg.active.resumedAt], ["Savannah", 7, 90000, null]);
+  assert.ok(E.currentSession(eg), "a session is opened for it");
+  const unfinished = eg.runs.filter(r => !r.completed);
+  assert.deepStrictEqual(unfinished.map(r => [r.map, r.ms]), [["Sandspit", 120000]]);
+  assert.strictEqual(eg.runs.filter(r => r.completed).length, 1, "finished history kept");
+  assert.ok(!eg.runs.some(r => r.map === "Untouched"), "maps with no time are dropped");
+  assert.strictEqual(E.fromLegacy([], null, null, now).active, null);
+});

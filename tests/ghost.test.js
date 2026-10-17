@@ -107,12 +107,22 @@ test("export files: fastest complete campaign run, same route variant preferred"
       { complete: false, total: s(50), variant: "normal", zones: { a1: s(5) } },
     ] } } };
   const g = await G.parse(JSON.stringify(exp), { knownZones: KNOWN, variant: "normal" });
-  assert.deepStrictEqual([g.name, g.total, g.zones.a1], ["Alice PB", s(300), s(30)]);
+  // Claimed totals pick the run; the ghost's own total is its zone sum (m4).
+  assert.deepStrictEqual([g.name, g.total, g.zones.a1], ["Alice PB", s(30), s(30)]);
   const f = await G.parse(JSON.stringify(exp), { knownZones: KNOWN, variant: "fast" });
-  assert.strictEqual(f.total, s(200));
+  assert.strictEqual(f.zones.a1, s(20));
   await assert.rejects(G.parse(JSON.stringify({ app: "splitstone", characters: {} }), { knownZones: KNOWN }), /no completed/);
   await assert.rejects(G.parse("{\"app\":\"other\"}", { knownZones: KNOWN }), /Not a ghost/);
   await assert.rejects(G.parse("not json", { knownZones: KNOWN }), /Not a ghost/);
   await assert.rejects(G.parse(" ".repeat(10) + "x".repeat(G.MAX_JSON_CHARS + 1), { knownZones: KNOWN }), /too large/);
   await assert.rejects(G.parse("   ", { knownZones: KNOWN }), /Paste/);
+});
+
+test("a ghost's total must agree with its zone times", async () => {
+  const lie = G.normaliseGhost({ zones: { a1: s(60), a2: s(60) }, total: s(5) }, KNOWN);
+  assert.strictEqual(lie.total, s(120), "a too-small claimed total is replaced by the zone sum");
+  const ok = G.normaliseGhost({ zones: { a1: s(60), a2: s(60) }, total: s(120) + 400 }, KNOWN);
+  assert.strictEqual(ok.total, s(120) + 400, "rounding within a second is kept");
+  const code = await G.encode({ name: "x", total: s(1), zones: { a1: s(60) } });
+  assert.strictEqual((await G.parse(code, { knownZones: KNOWN })).total, s(60));
 });

@@ -517,11 +517,11 @@
         <dt>Class</dt><dd>${esc(b.className)}</dd>
         <dt>Ascendancy</dt><dd>${esc(b.ascendancy || "None")}</dd>
         <dt>PoB level</dt><dd>${esc(b.level)}</dd>
-        <dt>Passives</dt><dd>${b.passives}</dd>
-        <dt>Items</dt><dd>${b.items}</dd>
-        ${b.stats.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}
+        <dt>Passives</dt><dd>${esc(b.passives)}</dd>
+        <dt>Items</dt><dd>${esc(b.items)}</dd>
+        ${(b.stats || []).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}
       </dl><h2 style="margin-top:12px">Main skills</h2>
-      ${b.skills.map(g => `<div class="skill"><div class="${g.main ? "main" : ""}">${g.main ? "★ " : ""}${esc(g.actives.join(", "))}</div>
+      ${(b.skills || []).map(g => `<div class="skill"><div class="${g.main ? "main" : ""}">${g.main ? "★ " : ""}${esc(g.actives.join(", "))}</div>
         ${g.supports.length ? `<div class="sup">${esc(g.supports.join(" · "))}</div>` : ""}</div>`).join("") || "<div class='empty'>No skills</div>"}
       <div class="row"><button data-action="pob-clear" class="danger">Remove build</button></div>`;
     } else {
@@ -921,8 +921,11 @@
   const fileSafe = s => s.replace(/[^a-z0-9_-]+/gi, "_");
 
   /** Called 4×/s: refresh only the numbers, not the DOM structure. */
+  let lastTickAt = null;
   function tick() {
     const c = char(), now = Date.now();
+    if (Timers.rebase(c, now, lastTickAt) > 1000) persist();   // clock jumped back: keep the shifted starts
+    lastTickAt = now;
     document.querySelectorAll("[data-timer]").forEach(el => {
       el.textContent = fmt(Timers.value(c, el.dataset.timer, now));
     });
@@ -1616,18 +1619,25 @@
     }
     else if (el.id === "charSelect") { state.activeId = el.value; pobError = ""; commit(); scrollToCurrent(false); }
     else if (el.id === "importFile" && el.files[0]) {
-      el.files[0].text().then(async text => {
+      const file = el.files[0];
+      if (file.size > Storage2.MAX_IMPORT_CHARS) { toast("Import failed: file is too large (10 MB max)"); el.value = ""; return; }
+      file.text().then(async text => {
         try {
+          const preview = Storage2.previewImport(state, text);
+          if (preview.replaces.length && !(await askConfirm(
+            `This file replaces ${preview.replaces.length === 1 ? "this character" : "these characters"} on this device:\n\n` +
+            preview.replaces.map(n => "• " + n).join("\n") + "\n\nTheir runs, PBs and progress here will be overwritten. Continue?"))) {
+            el.value = ""; return;
+          }
+          const applySettings = preview.hasSettings && await askConfirm(
+            "Also apply the file's settings (theme, toggles, hotkeys)? Cancel keeps your current settings.");
           let keepHelper = false;
-          try {
-            const peek = JSON.parse(text);
-            if (peek && peek.settings && peek.settings.autoSplit) {
-              keepHelper = await askConfirm(
-                "This file includes Auto-split / helper URL settings.\n\n" +
-                "Apply the helper URL? (enabled stays off — import never connects.)");
-            }
-          } catch (_) { /* normalise will throw below */ }
-          const n = Storage2.importJSON(state, text, { keepHelper });
+          if (applySettings && preview.hasHelper) {
+            keepHelper = await askConfirm(
+              "This file includes Auto-split / helper URL settings.\n\n" +
+              "Apply the helper URL? (enabled stays off — import never connects.)");
+          }
+          const n = Storage2.importJSON(state, text, { keepHelper, applySettings, preview });
           Object.values(state.characters).forEach(Run.prune);
           // Never AutoSplit.connect on import — user must re-enable Auto-split.
           commit(); toast(`Imported ${n} character(s)`);

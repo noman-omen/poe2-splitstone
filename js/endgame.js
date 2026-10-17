@@ -90,6 +90,40 @@
     return eg;
   }
 
+  /**
+   * 1.0 also had maps in progress: maps [{ id, name }] each timed by timers["map:<id>"].
+   * Keep them: the one that was running (else the one with most time) becomes the active map,
+   * paused so no time is invented; any others are kept as unfinished runs.
+   */
+  function fromLegacy(mapHistory, maps, timers, now) {
+    const eg = fromLegacyMapHistory(mapHistory);
+    const t = timers && typeof timers === "object" ? timers : {};
+    const ms = id => {
+      const x = t["map:" + id];
+      if (!x || typeof x !== "object") return 0;
+      const el = Math.max(0, Number(x.elapsed) || 0);
+      const run = Number(x.startedAt) > 0 ? Math.max(0, now - Number(x.startedAt)) : 0;
+      return Math.min(el + run, 24 * 3600 * 1000);
+    };
+    const open = (Array.isArray(maps) ? maps : []).slice(0, 50)
+      .filter(m => m && typeof m === "object" && ms(m.id) > 0)
+      .map(m => ({ m, ms: ms(m.id), running: !!(t["map:" + m.id] && Number(t["map:" + m.id].startedAt) > 0) }));
+    if (!open.length) return eg;
+    open.sort((a, b) => (b.running - a.running) || (b.ms - a.ms));
+    const [first, ...rest] = open;
+    const p = parseLegacyName(first.m.name);
+    startSession(eg, now);
+    eg.active = { id: uid(), map: p.map, tier: p.tier, mods: "", started: iso(now - first.ms), elapsed: Math.round(first.ms),
+      resumedAt: null, deaths: 0, notes: "Carried over from 1.0", loot: "", sessionId: eg.sessionId, auto: false, area: "" };
+    for (const o of rest) {
+      const q = parseLegacyName(o.m.name);
+      eg.runs.unshift(normaliseRun({ map: q.map, tier: q.tier, ms: o.ms, completed: false, started: iso(now - o.ms),
+        notes: "Unfinished in 1.0", sessionId: eg.sessionId }));
+    }
+    eg.runs = eg.runs.slice(0, MAX_RUNS);
+    return eg;
+  }
+
   /* ---------- Sessions ---------- */
   function currentSession(eg) {
     return eg.sessionId ? eg.sessions.find(s => s.id === eg.sessionId) || null : null;
@@ -272,7 +306,7 @@
   }
 
   const Endgame = {
-    blank, normalise, normaliseRun, parseLegacyName, fromLegacyMapHistory,
+    blank, normalise, normaliseRun, parseLegacyName, fromLegacyMapHistory, fromLegacy,
     currentSession, startSession, endSession,
     activeMs, isRunning, startMap, pauseMap, resumeMap, addDeath, updateActive, finishMap, discardMap,
     stats, sessionStats, perMap, toggleMilestone, atlasProgress,

@@ -98,29 +98,139 @@
   function asBool(v) { return !!v; }
   function asString(v, fallback) { return typeof v === "string" ? v : fallback; }
 
+  /* ---------- Untrusted-data helpers (saves and imports) ---------- */
+  const MAX_CHARACTERS = 100;
+  const BAD_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+  // Control chars, soft hyphen, Arabic letter mark, zero-width and bidi controls.
+  const INVISIBLE = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u206f\ufeff]/g;
+  function cleanText(v, max, fallback = "") {
+    if (typeof v !== "string" && typeof v !== "number") return fallback;
+    const s = String(v).replace(INVISIBLE, "").replace(/\s+/g, " ").trim().slice(0, max);
+    return s || fallback;
+  }
+  const cleanName = (v, fallback) => cleanText(v, 80, fallback);
+  const safeId = v => typeof v === "string" && /^[A-Za-z0-9_-]{1,40}$/.test(v) && !BAD_KEYS.has(v);
+  const isoOrNull = v => (typeof v === "string" && v.length <= 40 && Number.isFinite(Date.parse(v)) ? v : null);
+  const MAX_MS = 30 * 24 * 3600 * 1000;
+  const msOrNull = (v, max = MAX_MS) => { const n = Number(v); return typeof v !== "boolean" && Number.isFinite(n) && n >= 0 && n <= max ? Math.round(n) : null; };
+  const intIn = (v, lo, hi) => { const n = Number(v); return Number.isInteger(n) && n >= lo && n <= hi ? n : null; };
+  /** { key: ms } with string keys only, sane numbers, capped size. */
+  function msMap(v, maxKeys = 600) {
+    const out = {};
+    let n = 0;
+    for (const [k, ms] of Object.entries(asObject(v))) {
+      if (n >= maxKeys) break;
+      if (typeof k !== "string" || k.length > 80 || BAD_KEYS.has(k)) continue;
+      const x = msOrNull(ms);
+      if (x !== null) { out[k] = x; n++; }
+    }
+    return out;
+  }
+  function boolMap(v, maxKeys = 5000) {
+    const out = {};
+    let n = 0;
+    for (const [k, x] of Object.entries(asObject(v))) {
+      if (n >= maxKeys) break;
+      if (k.length > 80 || BAD_KEYS.has(k) || !x) continue;
+      out[k] = typeof x === "number" ? x : true; n++;
+    }
+    return out;
+  }
+  function timerMap(v) {
+    const out = {};
+    for (const [k, t] of Object.entries(asObject(v))) {
+      if (k.length > 100 || BAD_KEYS.has(k) || !t || typeof t !== "object") continue;
+      const elapsed = msOrNull(t.elapsed) ?? 0;
+      const startedAt = Number.isFinite(Number(t.startedAt)) && Number(t.startedAt) > 0 ? Number(t.startedAt) : null;
+      out[k] = { elapsed, startedAt };
+    }
+    return out;
+  }
+  function cleanPractice(pr) {
+    if (!pr || typeof pr !== "object" || typeof pr.kind !== "string" || typeof pr.id !== "string") return null;
+    return ["group", "section", "zone"].includes(pr.kind) ? { kind: pr.kind, id: pr.id.slice(0, 64) } : null;
+  }
+
+  /** One finished/abandoned run; null when it isn't usable (skipped, not fatal). */
+  function cleanHistoryEntry(h) {
+    if (!h || typeof h !== "object" || Array.isArray(h)) return null;
+    const total = msOrNull(h.total);
+    if (!total || !h.zones || typeof h.zones !== "object") return null;
+    return {
+      id: safeId(h.id) ? h.id : uid(),
+      complete: h.complete === true,
+      variant: typeof h.variant === "string" && /^[A-Za-z0-9:+_.-]{1,120}$/.test(h.variant) ? h.variant : "normal",
+      practice: cleanPractice(h.practice),
+      customId: safeId(h.customId) ? h.customId : null,
+      customName: h.customName == null ? null : cleanText(h.customName, 48, null),
+      started: isoOrNull(h.started),
+      finished: isoOrNull(h.finished) || new Date(0).toISOString(),
+      splitsDone: intIn(h.splitsDone, 0, 10000) ?? 0,
+      zonesTotal: intIn(h.zonesTotal, 0, 10000) ?? 0,
+      zones: msMap(h.zones), sections: msMap(h.sections), groups: msMap(h.groups), total,
+    };
+  }
+  function cleanUndoEntry(e) {
+    if (!e || typeof e !== "object" || typeof e.zone !== "string" || !knownZoneIds().has(e.zone)) return null;
+    const strs = v => asArray(v).filter(x => typeof x === "string" && x.length <= 80).slice(0, 2000);
+    const prev = {};
+    for (const [k, v] of Object.entries(asObject(e.prevBests))) {
+      if (BAD_KEYS.has(k) || k.length > 80) continue;
+      if (v === undefined || v === null) prev[k] = undefined; else { const x = msOrNull(v); if (x !== null) prev[k] = x; }
+    }
+    return { zone: e.zone, autoMarked: strs(e.autoMarked), prevBests: prev, golds: strs(e.golds).filter(z => knownZoneIds().has(z)),
+      wasRunning: !!e.wasRunning, extra: strs(e.extra).filter(z => knownZoneIds().has(z)) };
+  }
+
+  /** PoB summary rebuilt from known fields only (see pob.js summarise). */
+  function cleanBuild(b) {
+    if (!b || typeof b !== "object" || Array.isArray(b)) return null;
+    const strs = (v, max, each) => asArray(v).slice(0, max).map(x => cleanText(x, each)).filter(Boolean);
+    const skills = asArray(b.skills).slice(0, 8).filter(g => g && typeof g === "object").map(g => ({
+      actives: strs(g.actives, 12, 80), supports: strs(g.supports, 12, 80),
+      main: g.main === true, dps: g.dps === true, label: cleanText(g.label, 80),
+    })).filter(g => g.actives.length);
+    const STAT_KEYS = ["Life", "EnergyShield", "Mana", "Spirit", "CombinedDPS"];
+    const stats = asArray(b.stats).filter(p => Array.isArray(p) && STAT_KEYS.includes(p[0]))
+      .slice(0, STAT_KEYS.length).map(([k, v]) => [k, cleanText(v, 24)]).filter(p => p[1]);
+    return {
+      className: cleanText(b.className, 40, "Unknown"),
+      ascendancy: cleanText(b.ascendancy, 40),
+      level: cleanText(b.level, 4, "?"),
+      version: cleanText(b.version, 20),
+      skills,
+      passives: intIn(b.passives, 0, 5000) ?? 0,
+      items: intIn(b.items, 0, 500) ?? 0,
+      stats,
+      notes: typeof b.notes === "string" ? b.notes.replace(INVISIBLE, "").slice(0, 600) : "",
+      imported: isoOrNull(b.imported),
+    };
+  }
+
   function coerceCharacter(id, c) {
     const src = c && typeof c === "object" ? c : {};
-    const base = newCharacter(asString(src.name, "Character"));
-    const out = { id: asString(id, base.id) };
+    const base = newCharacter(cleanName(src.name, "Character"));
+    const out = { id: safeId(id) ? id : base.id };
     for (const k of CHAR_KEYS) {
       if (k === "id") continue;
       if (k === "endgame") {
         // Schema 1 kept finished map runs in mapHistory; carry them over.
         if (src.endgame) out[k] = Endgame.normalise(src.endgame);
-        else if (Array.isArray(src.mapHistory) && src.mapHistory.length) out[k] = Endgame.fromLegacyMapHistory(src.mapHistory);
+        else if ((Array.isArray(src.mapHistory) && src.mapHistory.length) || (Array.isArray(src.maps) && src.maps.length))
+          out[k] = Endgame.fromLegacy(src.mapHistory, src.maps, src.timers, Date.now());
         else out[k] = Endgame.blank();
         continue;
       }
       if (!(k in src)) { out[k] = base[k]; continue; }
       const v = src[k];
-      if (k === "name") out[k] = asString(v, base.name).slice(0, 80);
+      if (k === "name") out[k] = cleanName(v, base.name);
       else if (k === "created" || k === "runStarted") out[k] = typeof v === "string" || v === null ? v : base[k];
       else if (k === "classId") out[k] = typeof v === "string" || v === null ? v : null;
       else if (k === "level") {
         if (v === null || v === undefined || v === "") out[k] = null;
         else { const n = Number(v); out[k] = Number.isFinite(n) && n >= 1 && n <= 100 ? Math.floor(n) : null; }
       }
-      else if (k === "build") out[k] = v && typeof v === "object" ? v : null;
+      else if (k === "build") out[k] = cleanBuild(v);
       else if (k === "ghost") out[k] = global.Ghost ? Ghost.normaliseState(v, knownZoneIds()) : base[k];
       else if (k === "paused") out[k] = Array.isArray(v) || v === null ? v : null;
       else if (k === "route") {
@@ -141,7 +251,16 @@
           customId,
         };
       }
-      else if (k === "done" || k === "timers" || k === "split" || k === "golds" || k === "bests") out[k] = asObject(v);
+      else if (k === "done" || k === "split" || k === "golds") out[k] = boolMap(v);
+      else if (k === "timers") out[k] = timerMap(v);
+      else if (k === "bests") {
+        // { variant: { "zone:<id>" | "section:<id>" | "group:<id>": ms } }; older flat saves are migrated by Run.prune.
+        const flat = Object.keys(asObject(v)).some(x => x.includes(":"));
+        out[k] = {};
+        if (flat) out[k] = msMap(v, 2000);
+        else for (const [variant, m] of Object.entries(asObject(v)).slice(0, 200))
+          if (!BAD_KEYS.has(variant) && variant.length <= 120) out[k][variant] = msMap(m, 2000);
+      }
       else if (k === "customRoutes") {
         out[k] = {};
         const srcR = asObject(v);
@@ -152,7 +271,8 @@
           } catch (_) { /* drop bad route */ }
         });
       }
-      else if (k === "undo" || k === "history") out[k] = asArray(v);
+      else if (k === "history") out[k] = asArray(v).slice(0, 2000).map(cleanHistoryEntry).filter(Boolean);
+      else if (k === "undo") out[k] = asArray(v).slice(-300).map(cleanUndoEntry).filter(Boolean);
       else out[k] = base[k];
     }
     return out;
@@ -192,14 +312,19 @@
   function normalise(s) {
     if (!s || typeof s !== "object" || Array.isArray(s) || !s.characters || typeof s.characters !== "object" || Array.isArray(s.characters))
       throw new Error("Not a campaign tracker file");
-    const out = { schema: SCHEMA, characters: {}, settings: coerceSettings(s.settings) };
-    for (const [id, c] of Object.entries(s.characters)) {
-      if (!id || typeof id !== "string") continue;
-      out.characters[id] = coerceCharacter(id, c);
+    // Null-prototype map: an id such as "__proto__" can't reach Object.prototype.
+    const out = { schema: SCHEMA, characters: Object.create(null), settings: coerceSettings(s.settings) };
+    let activeId = null;
+    for (const [id, c] of Object.entries(s.characters).slice(0, MAX_CHARACTERS)) {
+      // Unsafe or odd ids get a fresh one; the character itself is kept.
+      let key = safeId(id) ? id : null;
+      while (!key || out.characters[key]) key = uid();
+      out.characters[key] = coerceCharacter(key, c);
+      if (id === s.activeId) activeId = key;
     }
     const ids = Object.keys(out.characters);
     if (!ids.length) throw new Error("File contains no characters");
-    out.activeId = out.characters[s.activeId] ? s.activeId : ids[0];
+    out.activeId = activeId || ids[0];
     return out;
   }
 
@@ -318,11 +443,26 @@
    * enabled forced off. Otherwise preserve the current autoSplit settings.
    * Never connects to the helper — caller must not auto-connect on import.
    */
+  const MAX_IMPORT_CHARS = 10 * 1024 * 1024;
+  /** Parse and validate an import without touching state; tells the caller what would be replaced. */
+  function previewImport(state, text) {
+    if (typeof text !== "string" || text.length > MAX_IMPORT_CHARS) throw new Error("File is too large (10 MB max)");
+    let raw;
+    try { raw = JSON.parse(text); } catch (_) { throw new Error("Not a JSON file"); }
+    const incoming = normalise(raw);
+    // Undo stacks belong to the machine that made them; never import them.
+    Object.values(incoming.characters).forEach(c => { c.undo = []; });
+    const replaces = Object.keys(incoming.characters).filter(id => state.characters[id])
+      .map(id => state.characters[id].name);
+    return { raw, incoming, replaces, hasSettings: !!(raw && raw.settings && typeof raw.settings === "object"),
+      hasHelper: !!(raw && raw.settings && raw.settings.autoSplit), count: Object.keys(incoming.characters).length };
+  }
+
   function importJSON(state, text, opts) {
     const options = opts || {};
-    const raw = JSON.parse(text), incoming = normalise(raw);
+    const { raw, incoming } = options.preview || previewImport(state, text);
     Object.assign(state.characters, incoming.characters);
-    if (raw.settings) {
+    if (raw.settings && options.applySettings !== false) {
       const prevHelper = state.settings.autoSplit;
       state.settings = incoming.settings;
       if (options.keepHelper) {
@@ -336,6 +476,7 @@
   }
 
   global.Storage2 = {
+    previewImport, MAX_IMPORT_CHARS, cleanBuild, cleanHistoryEntry, cleanName,
     KEY, LEGACY_KEYS, BACKUP_KEY, status, load, save, hasBackup, backupState, unblock, exportJSON, importJSON, newCharacter, uid,
     isLocalHelperUrl, isLocalHelperHost, canonicalHelperUrl, sanitizeAutoSplit, normalise, defaultSettings,
   };
