@@ -170,7 +170,7 @@
     $("#charSelect").innerHTML = Object.values(state.characters)
       .sort((a, b) => a.created.localeCompare(b.created))
       .map(x => `<option value="${esc(x.id)}"${x.id === c.id ? " selected" : ""}>${esc(x.name)}</option>`).join("");
-    renderNow(); renderTotals(); renderHistory(); renderCharacter(); renderCampaign();
+    renderNow(); renderTotals(); renderGhost(); renderHistory(); renderCharacter(); renderCampaign();
     renderHelp();
     renderViews();
     layoutSticky();
@@ -313,6 +313,7 @@
         <div class="now-cmp mono">${pbSeg ? `PB seg ${fmt(pbSeg)} · ` : ""}${best ? `Best ${fmt(best)}` : "no best yet"}</div>
         <div class="now-run mono">Run ${sumTimer("total", "run", Run.totalMs(c))}
           <span id="liveDelta" class="${deltaClass(Run.deltaVsPb(c))}">${p ? fmtDelta(Run.deltaVsPb(c)) : ""}</span></div>
+        ${ghostNowHTML(c)}
       </div>
       <div class="now-actions">
         <button class="primary big-btn" data-action="split">${label} <kbd>${esc(keyName(bindings().split))}</kbd></button>
@@ -361,6 +362,94 @@
         <td>${p ? fmt(p.total) : "–"}</td><td>${sob ? fmt(sob) : "–"}</td></tr>
       </tbody></table>
       <div class="muted small">Best = best segment ever (gold) for this route/practice variant.${prac ? " Practice PBs do not replace the full-campaign PB." : " Campaign best = sum of best zones."}</div>`;
+  }
+
+  /* ---------- Ghost race ---------- */
+  async function importGhost(text) {
+    const c = char();
+    try {
+      const g = await Ghost.parse(text, { knownZones: KNOWN_ZONES, variant: Run.variantKey(Run.route(c)) });
+      const st = ghostState(c);
+      st.pick = Ghost.addImported(st, g);
+      commit();
+      toast(`Racing ${g.name} (${fmt(g.total)})`);
+    } catch (e) { toast("Not loaded: " + e.message); }
+  }
+  const ghostOn = () => !!state.settings.ghostMode;
+  const GROUP_NAME = Object.fromEntries(DATA.groups.map(g => [g.id, g.name]));
+  const KNOWN_ZONES = new Set(Run.ALL.map(o => o.zone.id));
+  function ghostState(c) { return c.ghost || (c.ghost = Ghost.blankState()); }
+  function currentGhost(c) {
+    return Ghost.resolve(ghostState(c), { pb: Run.pb(c), history: Run.runsOf(c), bests: Run.bestsFor(c), order: Run.order(c) });
+  }
+  const ghostMine = (c, now) => ({ ms: z => Run.zoneMs(c, z, now), split: z => !!c.split[z], live: Run.runningZone(c) });
+  const zoneName = zid => (Run.BY_ZONE[zid] ? Run.BY_ZONE[zid].zone.name : zid);
+  const deltaSpan = (ms, extra = "") => ms === null || ms === undefined
+    ? `<span class="muted">–</span>` : `<span class="mono ${deltaClass(ms)}"${extra}>${fmtDelta(ms)}</span>`;
+
+  /** Short line for the now bar: where the ghost is and the running delta. */
+  function ghostNowHTML(c, now = Date.now()) {
+    if (!ghostOn()) return "";
+    const g = currentGhost(c);
+    if (!g) return `<div class="now-ghost muted small" data-ghost-now>Ghost: no comparison yet</div>`;
+    const order = Run.order(c), cmp = Ghost.compare(order, ghostMine(c, now), g);
+    const pos = Ghost.position(order, g, Run.totalMs(c, now));
+    const where = !pos ? "" : pos.finished ? "Ghost finished" : `Ghost in ${esc(zoneName(pos.zid))}`;
+    return `<div class="now-ghost small" data-ghost-now>${where}${cmp.cum !== null ? " · " + deltaSpan(cmp.cum) : ""}</div>`;
+  }
+
+  /** Live part of the ghost panel; re-rendered by tick() only when it changes. */
+  function ghostLiveHTML(c, now = Date.now()) {
+    const g = currentGhost(c);
+    if (!g) return `<div class="empty">Nothing to race yet. Finish a run, or import a ghost below.</div>`;
+    const order = Run.order(c), mine = ghostMine(c, now);
+    const cmp = Ghost.compare(order, mine, g), pos = Ghost.position(order, g, Run.totalMs(c, now));
+    const sums = Ghost.groupSummaries(order, mine, g);
+    const rows = cmp.rows.slice(-8).map(r => `<tr><th>${esc(zoneName(r.zid))}</th><td>${deltaSpan(r.seg)}</td><td>${deltaSpan(r.cum)}</td></tr>`);
+    if (cmp.live) rows.push(`<tr class="live"><th>${esc(zoneName(cmp.live.zid))} <span class="muted small">now</span></th>
+      <td>${cmp.live.mine > cmp.live.theirs ? deltaSpan(cmp.live.seg) : `<span class="muted mono">${fmt(cmp.live.theirs - cmp.live.mine)} left</span>`}</td><td>${deltaSpan(cmp.live.cum)}</td></tr>`);
+    const posText = !pos ? "" : pos.finished ? "The ghost has finished"
+      : `The ghost is in <b>${esc(zoneName(pos.zid))}</b> <span class="muted small">(${fmt(pos.intoMs)} of ${fmt(pos.zoneMs)})</span>`;
+    return `<div class="ghost-head"><span>${posText}</span>${deltaSpan(cmp.cum, ' data-ghost-cum title="Ahead (−) or behind (+) the ghost"')}</div>
+      ${rows.length ? `<table class="seg ghost-splits"><thead><tr><th>Split</th><th>Segment</th><th>Total</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
+        : `<div class="muted small">Split a zone to see the race.</div>`}
+      ${sums.length ? `<h3>Acts and interludes</h3><ul class="ghost-acts">${sums.map(x => `<li><span>${esc(GROUP_NAME[x.group] || x.group)}${x.done ? "" : ` <span class="muted small">so far</span>`}</span>
+        ${deltaSpan(x.delta)} <span class="muted small">${x.delta < 0 ? "gained" : x.delta > 0 ? "lost" : "even"}</span></li>`).join("")}</ul>` : ""}`;
+  }
+
+  function renderGhost() {
+    const el = $("#ghost"), c = char();
+    if (!el) return;
+    el.hidden = !ghostOn();
+    if (!ghostOn()) { el.innerHTML = ""; return; }
+    const st = ghostState(c), p = Run.pb(c), g = currentGhost(c);
+    const runs = Run.runsOf(c).slice(0, 30);
+    const opt = (v, label, dis) => `<option value="${esc(v)}"${st.pick === v ? " selected" : ""}${dis ? " disabled" : ""}>${esc(label)}</option>`;
+    const pick = (g && g.source === "pb" && st.pick !== "pb") ? "pb" : st.pick;
+    el.innerHTML = `<h2>Ghost race</h2>
+      <label class="ghost-pick">Race against <select id="ghostPick">
+        ${opt("pb", p ? `Personal best (${fmt(p.total)})` : "Personal best (none yet)", !p)}
+        ${opt("sob", "Best segments")}
+        ${runs.length ? `<optgroup label="Past runs">${runs.map(h => opt("run:" + h.id,
+          `${new Date(h.finished).toLocaleDateString()} · ${fmt(h.total)}${h.complete ? "" : ` · reset ${h.splitsDone}/${h.zonesTotal}`}`)).join("")}</optgroup>` : ""}
+        ${st.imported.length ? `<optgroup label="Imported">${st.imported.map(x => opt("imp:" + x.id, `${x.name} · ${fmt(x.total)}`)).join("")}</optgroup>` : ""}
+      </select></label>
+      ${pick !== st.pick ? `<div class="muted small">That run is gone; racing your PB instead.</div>` : ""}
+      <div id="ghostLive">${ghostLiveHTML(c)}</div>
+      <details class="ghost-io" data-keep="ghost-io"${openDetails.has("ghost-io") ? " open" : ""}><summary>Import or share a ghost</summary>
+        <label for="ghostImportText" class="small">Paste a ghost code (SSG1.…) or a Splitstone export file's text</label>
+        <textarea id="ghostImportText" rows="3" maxlength="${Ghost.MAX_JSON_CHARS}" spellcheck="false" placeholder="SSG1.…"></textarea>
+        <div class="row">
+          <button type="button" data-action="ghost-import" class="primary">Load ghost</button>
+          <button type="button" data-action="ghost-import-file">From file…</button>
+          <input type="file" id="ghostFile" accept="application/json,.json,.txt" hidden>
+        </div>
+        <div class="row">
+          <button type="button" data-action="ghost-share"${g ? "" : " disabled"}>Copy ghost code</button>
+          ${st.pick.startsWith("imp:") ? `<button type="button" class="danger" data-action="ghost-remove">Remove this ghost</button>` : ""}
+        </div>
+        <p class="muted small">Imported ghosts only keep zone times; nothing else from the file is used.</p>
+      </details>`;
   }
 
   /** Sidebar + analytics: All / Campaign / Practice (default Campaign). */
@@ -858,6 +947,12 @@
         el.className = "mono " + deltaClass(v);
       });
     }
+    if (ghostOn() && Run.runningZone(c)) {
+      const gn = document.querySelector("[data-ghost-now]");
+      if (gn) { const h = ghostNowHTML(c, now); if (gn.outerHTML !== h) gn.outerHTML = h; }
+      const gl = $("#ghostLive");
+      if (gl) { const h = ghostLiveHTML(c, now); if (gl.innerHTML !== h) gl.innerHTML = h; }
+    }
     if (Run.runningZone(c) || Run.isPaused(c)) pushOverlay();
   }
 
@@ -1309,6 +1404,24 @@
     },
     "csv-runs"() { download(`splitstone-runs-${fileSafe(char().name)}.csv`, runsCSV(char()), "text/csv"); },
     "eg-csv"() { download(`splitstone-maps-${fileSafe(char().name)}.csv`, Endgame.toCSV(EG(), char().name), "text/csv"); },
+    "ghost-import"() { importGhost($("#ghostImportText").value); },
+    "ghost-import-file"() { $("#ghostFile").click(); },
+    async "ghost-share"() {
+      const g = currentGhost(char());
+      if (!g) return;
+      try {
+        const code = await Ghost.encode(g, g.source === "import" ? g.name : `${char().name} ${g.source === "pb" ? "PB" : g.source === "sob" ? "best segments" : "run"}`);
+        const box = $("#ghostImportText");
+        box.value = code; box.select();  // also shown in the box, for when clipboard access is blocked
+        try { await navigator.clipboard.writeText(code); toast("Ghost code copied (" + code.length + " chars)"); }
+        catch (_) { toast("Ghost code is in the box; copy it from there"); }
+      } catch (e) { toast("Not copied: " + e.message); }
+    },
+    async "ghost-remove"() {
+      const st = ghostState(char()), id = st.pick.slice(4), g = st.imported.find(x => x.id === id);
+      if (!g || !(await openModal(`Remove the ghost "${g.name}"?`, { okLabel: "Remove" }))) return;
+      Ghost.removeImported(st, id); commit(); toast("Ghost removed");
+    },
     help() { if ($("#help").open) closePanel("help"); else openPanel("help"); },
     "header-menu"() { setHeaderMenu(!$(".topbar").classList.contains("menu-open"), true); },
     async "pob-import"() {
@@ -1438,6 +1551,13 @@
     else if (el.dataset && el.dataset.egField) { Endgame.updateActive(EG(), { [el.dataset.egField]: el.value }); persist(); }
     else if (el.id === "egSession") { egShowSession = el.value || null; renderViews(); }
     else if (el.id === "egAutoDetect") { state.settings.endgameAutoDetect = el.checked; commit(); }
+    else if (el.id === "ghostModeSetting") { state.settings.ghostMode = el.checked; commit(); toast(el.checked ? "Ghost race on" : "Ghost race off"); }
+    else if (el.id === "ghostPick") { ghostState(char()).pick = el.value; commit(); }
+    else if (el.id === "ghostFile" && el.files[0]) {
+      const f = el.files[0]; el.value = "";
+      if (f.size > Ghost.MAX_JSON_CHARS) { toast("File is too large to import as a ghost"); return; }
+      f.text().then(t => importGhost(t)).catch(e => toast("Not loaded: " + e.message));
+    }
     else if (el.dataset && el.dataset.globalKey) {
       const action = el.dataset.globalKey, want = el.value;
       window.splitstoneDesktop.setHotkeys({ [action]: want }).then(res => {
@@ -1579,6 +1699,7 @@
       toast("Overlay position reset");
     },
     settings() {
+      $("#ghostModeSetting").checked = ghostOn();
       $("#backupBlock").hidden = !Storage2.hasBackup();
       capturing = null;
       renderHelp();

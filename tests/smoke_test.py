@@ -403,6 +403,8 @@ with sync_playwright() as p:
     # --- Rebindable hotkeys ---
     page.click('[data-action="settings"] >> nth=0')
     check("hotkey settings open", page.locator("#settings").is_visible())
+    check("ghost race toggle in settings, off by default", page.locator("#ghostModeSetting").is_visible() and not page.locator("#ghostModeSetting").is_checked())
+    check("ghost panel hidden while off", not page.locator("#ghost").is_visible())
     page.click('tr[data-hk="split"] button')
     page.keyboard.press("s")
     check("split rebound to S", js(page, "JSON.parse(localStorage.getItem('splitstone:v1')).settings.hotkeys.split") == "s")

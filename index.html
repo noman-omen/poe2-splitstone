@@ -81,6 +81,7 @@
 
   <div class="layout">
     <aside class="sidebar">
+      <section class="card ghost-panel" id="ghost" aria-label="Ghost race" hidden></section>
       <section class="card" id="totals" aria-label="Totals"></section>
       <section class="card" id="history" aria-label="Run history"></section>
       <section class="card" id="character" aria-label="Character"></section>
@@ -123,6 +124,9 @@
       <p class="muted small">A copy of your save from before 1.1 is kept for a while after the upgrade.</p>
       <button type="button" data-action="restore-backup">Restore pre-1.1 backup</button>
     </div>
+    <h2>Ghost race</h2>
+    <label class="switch"><input type="checkbox" id="ghostModeSetting"> Race against a ghost</label>
+    <p class="muted small">Shows ahead/behind per split against your PB, best segments, a past run or a ghost imported from a friend, plus where the ghost would be now. Not shown on the in-game overlay.</p>
     <h2>Hotkeys</h2>
     <p class="muted small">Click "Change", then press the new key. Esc cancels.</p>
     <table class="keys" id="keyTable"></table>
@@ -152,6 +156,7 @@
   <script src="data/endgame.js"></script>
   <script src="data/tools.js"></script>
   <script src="js/endgame.js"></script>
+  <script src="js/ghost.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/timers.js"></script>
   <script src="js/run.js"></script>

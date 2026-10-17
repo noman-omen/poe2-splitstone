@@ -32,10 +32,14 @@
       bests: {},    // "zone:<id>" | "section:<id>" | "group:<id>" | "total" -> best ms ever
       level: null,  // manual character level (number) or null — PoB may also set build.level
       customRoutes: {}, // id -> custom route definition (see custom_route.js)
+      ghost: global.Ghost ? Ghost.blankState() : { pick: "pb", imported: [] }, // race comparison (see ghost.js)
     };
   }
 
   const CHAR_KEYS = Object.keys(newCharacter(""));
+  let _zoneIds = null;
+  const knownZoneIds = () => _zoneIds || (_zoneIds = new Set(((global.CAMPAIGN_DATA || {}).sections || [])
+    .flatMap(s => s.zones.map(z => z.id))));
 
   function defaultSettings() {
     return { hideHints: false, hideExtra: false, focusMode: false,
@@ -44,10 +48,11 @@
              overlay: { opacity: 0.8, clickThrough: true },
              endgameAutoDetect: false, // desktop: start/stop map runs from Client.txt
              view: "campaign",         // campaign | endgame | tools
+             ghostMode: false,         // race against a ghost (PB, best segments, a past or imported run)
              hotkeys: {} };  // action -> key overrides; defaults live in app.js (HOTKEY_DEFS)
   }
 
-  const SETTINGS_KEYS = ["hideHints", "hideExtra", "focusMode", "theme", "autoSplit", "overlay", "endgameAutoDetect", "view", "hotkeys"];
+  const SETTINGS_KEYS = ["hideHints", "hideExtra", "focusMode", "theme", "autoSplit", "overlay", "endgameAutoDetect", "view", "ghostMode", "hotkeys"];
 
   /** Local helper hosts: 127.0.0.1, localhost, [::1]. No path/search/hash/userinfo. */
   function isLocalHelperHost(hostname) {
@@ -116,6 +121,7 @@
         else { const n = Number(v); out[k] = Number.isFinite(n) && n >= 1 && n <= 100 ? Math.floor(n) : null; }
       }
       else if (k === "build") out[k] = v && typeof v === "object" ? v : null;
+      else if (k === "ghost") out[k] = global.Ghost ? Ghost.normaliseState(v, knownZoneIds()) : base[k];
       else if (k === "paused") out[k] = Array.isArray(v) || v === null ? v : null;
       else if (k === "route") {
         const r = asObject(v);
@@ -167,6 +173,7 @@
     if (!Number.isFinite(opacity)) opacity = 0.8;
     opacity = Math.min(1, Math.max(0.3, opacity));
     out.endgameAutoDetect = asBool(src.endgameAutoDetect);
+    out.ghostMode = asBool(src.ghostMode);
     out.view = ["campaign", "endgame", "tools"].includes(src.view) ? src.view : "campaign";
     out.overlay = {
       opacity,
