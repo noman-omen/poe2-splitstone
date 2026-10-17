@@ -58,6 +58,9 @@ jobs:
         run: npm ci
       - name: Test
         run: npm test
+      - name: Reproducible timestamps (tag commit time)
+        shell: bash
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
       - name: Build Windows installer + portable
         run: npm run dist:win -- --publish never
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -87,6 +90,9 @@ jobs:
           cache-dependency-path: desktop/package-lock.json
       - name: Install
         run: npm ci
+      - name: Reproducible timestamps (tag commit time)
+        shell: bash
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
       - name: Build AppImage
         run: npm run dist:linux -- --publish never
       - name: AppImage smoke (xvfb)
@@ -106,6 +112,8 @@ jobs:
   publish:
     needs: [build-windows, build-linux]
     runs-on: ubuntu-latest
+    # Waits for a required reviewer on the "release" environment before it can write.
+    environment: release
     permissions:
       contents: write
     steps:
