@@ -59,7 +59,7 @@ with sync_playwright() as p:
 
     page.keyboard.press("Space")
     for _ in range(st["n"] + 8):
-        if page.locator("#now .now-zone", has_text="🏁").count():
+        if page.locator("#now .now-finish").count():
             break
         page.clock.run_for(5_000)
         page.keyboard.press("Space")

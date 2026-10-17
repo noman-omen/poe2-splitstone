@@ -5,6 +5,7 @@ Needs the app served on http://127.0.0.1:8765. Writes endgame.png and tools.png
 to test-output/ (or screenshots/ with SPLITSTONE_UPDATE_SHOTS=1).
 """
 import json
+from modal_helpers import fill_modal, reveal_click
 from datetime import datetime
 import sys
 from pathlib import Path
@@ -100,16 +101,17 @@ with sync_playwright() as p:
 
     # --- Export / import round trip ---
     with page.expect_download() as dl:
-        page.click('[data-action="export"]')
+        reveal_click(page, '[data-action="export"]')
     exp = json.loads(Path(dl.value.path()).read_text())
     ec = exp["characters"]["c1"]["endgame"]
     check("export includes endgame runs, sessions and atlas", len(ec["runs"]) == 7 and ec["sessions"] and "arbiter-ash" in ec["atlas"])
     page.evaluate("localStorage.clear()"); page.reload()
     page.set_input_files("#importFile", {"name": "e.json", "mimeType": "application/json", "buffer": json.dumps(exp).encode()})
-    try:
-        page.wait_for_selector("#appModal[open]", timeout=1500); page.click("#appModalOk")
-    except Exception:
-        pass
+    for _ in range(3):  # optional confirms: replace characters, apply settings, apply helper URL
+        try:
+            fill_modal(page, timeout=1500)
+        except Exception:
+            break
     page.wait_for_timeout(300)
     back = page.evaluate("JSON.parse(localStorage.getItem('splitstone:v1')).characters.c1")
     check("import restores endgame", back and len(back["endgame"]["runs"]) == 7 and back["endgame"]["active"]["map"] == "Lost Towers")

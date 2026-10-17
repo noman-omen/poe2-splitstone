@@ -52,6 +52,7 @@ with sync_playwright() as p:
     page.click('.topbar [data-action="settings"]')
     page.click('[data-action="settings-close"]')
     check("settings closes with its button", not page.locator("#settings").is_visible())
+    if not page.locator('[data-action="char-rename"]').is_visible(): page.click(".more-btn")
     page.click('[data-action="char-rename"]'); page.wait_for_selector("#appModal[open]")
     page.keyboard.press("Space"); page.keyboard.press("Escape"); page.wait_for_timeout(150)
     check("confirm box blocks hotkeys", not running(page))

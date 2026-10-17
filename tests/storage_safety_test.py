@@ -5,6 +5,7 @@ Simulates QuotaExceededError by wrapping localStorage.setItem in the page.
 Needs the app on TRACKER_URL (default http://127.0.0.1:8765/).
 """
 import json
+from modal_helpers import reveal_click
 import os
 import sys
 from playwright.sync_api import sync_playwright
@@ -12,6 +13,7 @@ from playwright.sync_api import sync_playwright
 URL = os.environ.get("TRACKER_URL", "http://127.0.0.1:8765/")
 KEY = "splitstone:v1"
 fails, passed = [], 0
+
 
 
 def check(name, ok, detail=""):
@@ -61,7 +63,7 @@ with sync_playwright() as p:
     # 1) Unreadable save: never overwritten, user warned, edits not saved.
     ctx, page, errs = fresh(b, seed="{not json")
     check("unreadable: warning shown", page.locator("#storageWarn").is_visible() and "couldn't be read" in page.text_content("#storageWarn"))
-    page.click('[data-action="char-new"]'); page.fill("#appModalInput", "X"); page.click("#appModalOk")
+    reveal_click(page, '[data-action="char-new"]'); page.fill("#appModalInput", "X"); page.click("#appModalOk")
     check("unreadable: save left untouched after an edit", raw_of(page) == "{not json")
     page.click('[data-action="storage-overwrite"]'); page.click("#appModalOk")
     check("unreadable: explicit overwrite writes a valid save", json.loads(raw_of(page))["schema"] == 2)
@@ -93,7 +95,7 @@ with sync_playwright() as p:
     page.click('[data-action="settings"]')
     check("settings shows restore action", page.locator('[data-action="restore-backup"]').is_visible())
     page.click('[data-action="settings-close"]')
-    page.click('[data-action="char-rename"]'); page.fill("#appModalInput", "Renamed"); page.click("#appModalOk")
+    reveal_click(page, '[data-action="char-rename"]'); page.fill("#appModalInput", "Renamed"); page.click("#appModalOk")
     page.click('[data-action="settings"]'); page.click('[data-action="restore-backup"]'); page.click("#appModalOk")
     page.wait_for_timeout(200)
     st = json.loads(raw_of(page))
@@ -116,7 +118,7 @@ with sync_playwright() as p:
     # 5) Ordinary save hitting quota: warning, no crash.
     ctx, page, errs = fresh(b)
     page.evaluate(f"({QUOTA})('^splitstone:v1$')")
-    page.click('[data-action="char-rename"]'); page.fill("#appModalInput", "Y"); page.click("#appModalOk")
+    reveal_click(page, '[data-action="char-rename"]'); page.fill("#appModalInput", "Y"); page.click("#appModalOk")
     check("save quota: warning with export button", page.locator('#storageWarn [data-action="export"]').is_visible())
     check("no JS errors (save quota)", not errs, errs)
     ctx.close()

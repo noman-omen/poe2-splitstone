@@ -1,6 +1,7 @@
 """Malformed and hostile imports, clock jumps and two tabs (Reggie B1, m5, p2, p3).
 Needs the app on TRACKER_URL (default http://127.0.0.1:8765/)."""
 import json
+from modal_helpers import reveal_click
 import os
 import sys
 from pathlib import Path
@@ -11,6 +12,7 @@ KEY = "splitstone:v1"
 OUT = Path(__file__).resolve().parent.parent / "test-output"
 OUT.mkdir(exist_ok=True)
 results = []
+
 
 
 def check(name, ok, info=""):
@@ -107,7 +109,7 @@ with sync_playwright() as p:
 
     # --- m5: confirm before replacing, settings opt-in, size cap ---
     ctx, page, errs = fresh(b)
-    page.click('[data-action="char-rename"]'); page.fill("#appModalInput", "Mine"); page.click("#appModalOk")
+    reveal_click(page, '[data-action="char-rename"]'); page.fill("#appModalInput", "Mine"); page.click("#appModalOk")
     st = saved(page); cid = st["activeId"]
     other = json.loads(json.dumps(st))
     other["characters"][cid]["name"] = "Theirs"
@@ -160,7 +162,7 @@ with sync_playwright() as p:
     ctx = b.new_context()
     a = ctx.new_page(); a.goto(URL); a.evaluate("localStorage.clear()"); a.reload()
     bb = ctx.new_page(); bb.goto(URL)
-    a.click('[data-action="char-rename"]'); a.fill("#appModalInput", "From tab A"); a.click("#appModalOk")
+    reveal_click(a, '[data-action="char-rename"]'); a.fill("#appModalInput", "From tab A"); a.click("#appModalOk")
     bb.wait_for_timeout(300)
     check("tab B picks up tab A's change", "From tab A" in bb.text_content("#charSelect"))
     bb.evaluate("document.activeElement && document.activeElement.blur()")

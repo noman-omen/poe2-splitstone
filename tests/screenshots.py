@@ -24,7 +24,7 @@ with sync_playwright() as p:
     page.evaluate("localStorage.clear()")
     page.reload()
     auto_accept_modals(page)
-    done = "() => document.querySelector('#now .now-zone')?.textContent.includes('🏁')"
+    done = "() => !!document.querySelector('#now .now-finish')"
     for run in range(5):
         page.keyboard.press("r")
         while not page.evaluate(done):

@@ -14,9 +14,10 @@ import sys
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
-from modal_helpers import fill_modal
+from modal_helpers import fill_modal, reveal_click
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shot_dir import shot_dir  # noqa: E402
+
 
 
 def accept_if_modal(page, timeout=800):
@@ -152,7 +153,7 @@ with sync_playwright() as p:
     check("interlude 2 total = part1 + part2", run1["groups"]["interlude2"] == run1["sections"]["int2a"] + run1["sections"]["int2b"])
     check("act total = sum of its zones", run1["sections"]["act1"] == sum(v for k, v in run1["zones"].items() if k.startswith("act1-")))
     check("campaign total = sum of groups", run1["total"] == sum(run1["groups"].values()))
-    check("finish screen shown", page.locator("#now .now-zone", has_text="🏁").count() == 1)
+    check("finish screen shown", page.locator("#now .now-finish").count() == 1)
     check("PB shown in history", "PB" in page.text_content("#history"))
 
     # --- Run 2: faster, live delta vs PB, new PB ---
@@ -190,7 +191,7 @@ with sync_playwright() as p:
     check("mid-run Act 1 Δ uses split-point (not full act PB)", mid["act1"] is not None and mid["wrongAct1"] < mid["act1"] - 10_000, mid)
     check("unstarted Act 4 Δ is dash", mid["act4"] is None and mid["act4Dom"] == "–", mid)
     for _ in range(200):
-        if page.locator("#now .now-zone", has_text="🏁").count():
+        if page.locator("#now .now-finish").count():
             break
         tick(page, 5_000)
         page.keyboard.press("Space")
@@ -218,13 +219,13 @@ with sync_playwright() as p:
     n_fast = js(page, "Run.order(state_c()).length")
     check(f"fast route drops normal-only zones ({n_normal}->{n_fast})", n_fast < n_normal)
     check("normal-only step hidden in fast route", page.locator('input[data-id="act1-15"]').count() == 0)
-    check("fast tips shown with ⚡ in fast route", page.locator(".zone .hints li", has_text="⚡").count() > 0)
+    check("fast tips marked in fast route", page.locator(".zone .hints li", has_text="Speedrun:").count() > 0)
     page.check("#requiredOnly")
     check("required-only hides optional steps", page.locator('input[data-id="interludes-20"]').count() == 0
           and js(page, "Run.order(state_c()).length") <= n_fast)
     page.uncheck("#requiredOnly")
     for _ in range(200):
-        if page.locator("#now .now-zone", has_text="🏁").count():
+        if page.locator("#now .now-finish").count():
             break
         tick(page, 4_000)
         page.keyboard.press("Space")
@@ -246,7 +247,7 @@ with sync_playwright() as p:
     page.uncheck("#hideExtra")
 
     # Manual zone timers still work
-    page.click('.zone[data-zone="act2-z01"] button.tt')
+    reveal_click(page, '.zone[data-zone="act2-z01"] button.tt')
     c = char(page)
     check("manual zone start stops other zones", c["timers"]["zone:act2-z01"]["startedAt"] and not c["timers"]["zone:act1-z01"]["startedAt"])
 
@@ -317,16 +318,16 @@ with sync_playwright() as p:
     ec = list(exported["characters"].values())[0]
     check("export includes history + bests + endgame runs", len(ec["history"]) == 4 and ec["bests"] and len(ec["endgame"]["runs"]) == 3)
 
-    page.click('[data-action="char-new"]')
+    reveal_click(page, '[data-action="char-new"]')
     fill_modal(page, "Second char")
     check("new character created, separate history", page.locator("#charSelect option").count() == 2 and not char(page)["history"])
-    page.click('[data-action="char-rename"]')
+    reveal_click(page, '[data-action="char-rename"]')
     fill_modal(page, "Renamed char")
     check("rename works", "Renamed char" in page.text_content("#charSelect"))
     page.select_option("#charSelect", index=0)
     check("switch character restores its history", len(char(page)["history"]) == 4)
     page.select_option("#charSelect", index=1)
-    page.click('[data-action="char-delete"]')
+    reveal_click(page, '[data-action="char-delete"]')
     fill_modal(page)  # confirm delete
     check("delete works", page.locator("#charSelect option").count() == 1)
 
@@ -334,10 +335,12 @@ with sync_playwright() as p:
     page.reload()
     check("cleared state is fresh", not char(page)["history"] if js(page, "!!localStorage.getItem('splitstone:v1')") else True)
     page.set_input_files("#importFile", str(export_path))
-    try:
-        fill_modal(page, timeout=1500)  # optional "apply helper URL?" confirm
-    except Exception:
-        pass
+    for _ in range(3):  # optional confirms: replace characters, apply settings, apply helper URL
+        try:
+            fill_modal(page, timeout=1500)
+        except Exception:
+            break
+        page.wait_for_timeout(150)
     page.wait_for_timeout(300)
     check("import restores history + build", len(char(page)["history"]) == 4 and "Infernalist" in page.text_content("#character"))
     page.set_input_files("#importFile", {"name": "bad.json", "mimeType": "application/json", "buffer": b"{\"x\":1}"})
@@ -426,6 +429,7 @@ with sync_playwright() as p:
     check("old key no longer splits", not char(page)["split"])
     page.click('[data-action="settings"] >> nth=0')
     page.click('[data-action="keys-reset"]')
+    fill_modal(page)  # F10: reset asks first
     page.click('[data-action="settings-close"]')
     check("reset defaults", js(page, "JSON.stringify(JSON.parse(localStorage.getItem('splitstone:v1')).settings.hotkeys)") == "{}")
 
