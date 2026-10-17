@@ -7,10 +7,10 @@ const RE_GENERATING = /Generating level (\d+) area "([^"]+)"/;
 const RE_ENTERED = /\] : You have entered (.+?)\.?\s*$/;
 /**
  * The game's own level-up notice, matched as a whole line: date, time, two counters, the [INFO Client n] tag, then
- * " : Name (Class) is now level N". Chat lines put the sender before the colon ("] Name: ..."), so a typed message
- * can't produce one.
+ * " : Name (Class) is now level N". The class is the ascendancy once the character has one, which can be several
+ * words ("Smith of Kitava"). Chat lines put the sender before the colon ("] Name: ..."), so a typed message can't produce one.
  */
-const RE_LEVEL = /^\d{4}\/\d\d\/\d\d \d\d:\d\d:\d\d \d+ [0-9a-f]+ \[INFO Client \d+\] : ([A-Za-z0-9_]{3,23}) \(([A-Za-z]{2,24})\) is now level (\d{1,3})\r?$/;
+const RE_LEVEL = /^\d{4}\/\d\d\/\d\d \d\d:\d\d:\d\d \d+ [0-9a-f]+ \[INFO Client \d+\] : ([A-Za-z0-9_]{3,23}) \(([A-Za-z]{2,24}(?: [A-Za-z]{2,24}){0,3})\) is now level (\d{1,3})\r?$/;
 
 /** { name, cls, level } for a level-up line, otherwise null. */
 function parseLevelUp(line) {

@@ -1,4 +1,6 @@
-// Class-aware campaign notes for the six basic classes (not ascendancies).
+// The eight basic classes with their ascendancies, and class-aware campaign notes (by basic class, not ascendancy).
+// Classes without notes yet still get the shared route and gear checkpoints. Playable classes only (0.5.5):
+// add new ones (Duelist at 1.0) as another entry; ascendancyAliases maps variants to their ascendancy.
 // Skills are NOT class-locked in PoE2; Uncut gems show class-recommended options.
 // Each note: { kind, text, reward?, alt?, sources[], uncertain? }
 // kind: gem | support | choice | tip | gear | spirit
@@ -17,15 +19,19 @@ window.CLASS_NOTES = {
       game8_list: "https://game8.co/games/Path-of-Exile-2/archives/512964 (0.5 leveling builds list)",
       thegamer_gems: "https://www.thegamer.com/path-of-exile-2-skill-gems-explained/",
       maxroll_league: "https://maxroll.gg/poe2/getting-started/comprehensive-league-start-leveling-guide",
+      classes_poe2db: "https://poe2db.tw/us/Ascendancy_class (8 classes, 22 ascendancies in 0.5.5; spellings as in PoB TreeData/0_5)",
+      classes_exiledb: "https://exiledb.com/classes (starting weapons from the 0.5.5 game files)",
     },
   },
   classes: [
-    { id: "warrior", name: "Warrior", short: "War", weapon: "Mace / shield", summary: "Act 1: Rolling Slam + Boneshatter; Perfect Strike for bosses at 14. Shield Wall later (~22)." },
-    { id: "sorceress", name: "Sorceress", short: "Sorc", weapon: "Staff / wand", summary: "Spark + Frost Bomb (Cold Infusion) is the common league-start caster path." },
-    { id: "ranger", name: "Ranger", short: "Rng", weapon: "Bow", summary: "Projectile attack leveling (Ice Shot / Poison variants). Prioritise bow DPS and freeze/poison tools." },
-    { id: "monk", name: "Monk", short: "Mnk", weapon: "Quarterstaff → Hollow Palm", summary: "Cold quarterstaff into Ice Strike / Hollow Palm (~13). Squishy — freeze before packs reach you." },
-    { id: "mercenary", name: "Mercenary", short: "Merc", weapon: "Crossbow", summary: "Grenades (Explosive → Flash → Gas at 14). Save currency for a strong Act 2 crossbow." },
-    { id: "witch", name: "Witch", short: "Wch", weapon: "Staff / minions", summary: "Contagion / drain or Spark (same caster path as Sorc). Cut Contagion early for clear." },
+    { id: "warrior", name: "Warrior", short: "War", weapon: "Mace / shield", summary: "Act 1: Rolling Slam + Boneshatter; Perfect Strike for bosses at 14. Shield Wall later (~22).", ascendancies: ["Titan", "Warbringer", "Smith of Kitava"] },
+    { id: "ranger", name: "Ranger", short: "Rng", weapon: "Bow", summary: "Projectile attack leveling (Ice Shot / Poison variants). Prioritise bow DPS and freeze/poison tools.", ascendancies: ["Deadeye", "Pathfinder"] },
+    { id: "huntress", name: "Huntress", short: "Hnt", weapon: "Spear / buckler", summary: "No class-specific campaign notes yet: the shared route, hints and gear checkpoints apply.", ascendancies: ["Amazon", "Ritualist", "Spirit Walker"] },
+    { id: "witch", name: "Witch", short: "Wch", weapon: "Staff / minions", summary: "Contagion / drain or Spark (same caster path as Sorc). Cut Contagion early for clear.", ascendancies: ["Infernalist", "Blood Mage", "Lich"], ascendancyAliases: { "Abyssal Lich": "Lich" } },
+    { id: "sorceress", name: "Sorceress", short: "Sorc", weapon: "Staff / wand", summary: "Spark + Frost Bomb (Cold Infusion) is the common league-start caster path.", ascendancies: ["Stormweaver", "Chronomancer", "Disciple of Varashta"] },
+    { id: "mercenary", name: "Mercenary", short: "Merc", weapon: "Crossbow", summary: "Grenades (Explosive → Flash → Gas at 14). Save currency for a strong Act 2 crossbow.", ascendancies: ["Witchhunter", "Gemling Legionnaire", "Tactician"] },
+    { id: "monk", name: "Monk", short: "Mnk", weapon: "Quarterstaff → Hollow Palm", summary: "Cold quarterstaff into Ice Strike / Hollow Palm (~13). Squishy — freeze before packs reach you.", ascendancies: ["Invoker", "Acolyte of Chayula", "Martial Artist"] },
+    { id: "druid", name: "Druid", short: "Dru", weapon: "Staff / talisman", summary: "No class-specific campaign notes yet: the shared route, hints and gear checkpoints apply.", ascendancies: ["Oracle", "Shaman"] },
   ],
 };
 

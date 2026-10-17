@@ -112,5 +112,26 @@
     return summarise(xml);
   }
 
-  global.PoB = { decode, inflate, base64UrlToBytes, PobError, MAX_COMPRESSED, MAX_DECOMPRESSED };
+  /** "Smith of Kitava", "smith-of-kitava" and "Witch Hunter" all compare equal to the in-game spelling. */
+  const key = s => String(s || "").toLowerCase().replace(/[^a-z]/g, "");
+
+  /**
+   * The basic class (and ascendancy, by its in-game name) for an imported build, from the class list in
+   * data/class_notes.js. The class name wins; an ascendancy (or an alias such as Abyssal Lich) finds its class
+   * when PoB names only that. Null when nothing matches.
+   */
+  function classFor(build, classes) {
+    if (!build) return null;
+    const list = Array.isArray(classes) ? classes : [];
+    const ascOf = c => {
+      const want = key(build.ascendancy);
+      if (!want) return "";
+      const alias = Object.entries(c.ascendancyAliases || {}).find(([a]) => key(a) === want);
+      return alias ? alias[1] : (c.ascendancies || []).find(a => key(a) === want) || "";
+    };
+    const cls = list.find(c => key(c.name) === key(build.className)) || list.find(c => ascOf(c));
+    return cls ? { cls, ascendancy: ascOf(cls) } : null;
+  }
+
+  global.PoB = { decode, inflate, base64UrlToBytes, classFor, PobError, MAX_COMPRESSED, MAX_DECOMPRESSED };
 })(window);

@@ -54,6 +54,8 @@ describe("level-up lines", () => {
   it("reads the game's own level-up notice", () => {
     assert.deepEqual(parseLevelUp(LVL("Ember_Witch (Witch) is now level 12")), { name: "Ember_Witch", cls: "Witch", level: 12 });
     assert.deepEqual(parseLevelUp(LVL("Stoneface (Titan) is now level 100") + "\r"), { name: "Stoneface", cls: "Titan", level: 100 });
+    for (const asc of ["Smith of Kitava", "Acolyte of Chayula", "Disciple of Varashta", "Gemling Legionnaire", "Blood Mage", "Spirit Walker", "Martial Artist"])
+      assert.deepEqual(parseLevelUp(LVL(`Runner (${asc}) is now level 41`)), { name: "Runner", cls: asc, level: 41 }, asc);
     const events = [];
     const p = new Parser((e) => events.push(e));
     p.feed(LVL("Runner (Monk) is now level 2"), 0);
@@ -74,6 +76,9 @@ describe("level-up lines", () => {
       LVL("Ru (Monk) is now level 5"),
       LVL("Runner Two (Monk) is now level 5"),
       LVL("Runner (Monk 2) is now level 5"),
+      LVL("Runner (Smith  of Kitava) is now level 5"),
+      LVL("Runner (Smith of Kitava ) is now level 5"),
+      LVL("Runner (A B C D E) is now level 5"),
       LVL("<b>Runner</b> (Monk) is now level 5"),
       "junk : Runner (Monk) is now level 5",
       "",

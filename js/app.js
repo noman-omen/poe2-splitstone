@@ -668,9 +668,11 @@
         <select id="classSelect" title="Basic class (not ascendancy)">
           <option value="">None</option>
           ${(CLASS_NOTES.classes || []).map(x =>
-            `<option value="${esc(x.id)}"${c.classId === x.id ? " selected" : ""}>${esc(x.name)}</option>`).join("")}
+            `<option value="${esc(x.id)}"${c.classId === x.id ? " selected" : ""} title="${esc((x.ascendancies || []).join(", "))}">${esc(x.name)}</option>`).join("")}
         </select>
-        ${cls ? `<span class="muted small">${esc(cls.weapon)} — ${esc(cls.summary)}</span>` : `<span class="muted small">Optional: unlocks campaign gem &amp; reward tips for that class.</span>`}
+        ${cls ? `<span class="muted small">${esc(cls.weapon)} — ${esc(cls.summary)}</span>
+          ${cls.ascendancies && cls.ascendancies.length ? `<span class="muted small class-asc">Ascendancies: ${cls.ascendancies.map(esc).join(", ")}</span>` : ""}`
+          : `<span class="muted small">Optional: unlocks campaign gem &amp; reward tips for that class.</span>`}
       </div>
       <div class="char-level"><label for="charLevel">Level</label>
         <input type="number" id="charLevel" min="1" max="100" step="1"
@@ -1751,7 +1753,10 @@
     async "pob-import"() {
       const code = $("#pobCode").value;
       try {
-        char().build = await PoB.decode(code);
+        const c = char();
+        c.build = await PoB.decode(code);
+        // An empty class picker follows the build's class (or the class its ascendancy belongs to).
+        if (!c.classId) { const m = PoB.classFor(c.build, CLASS_NOTES.classes); if (m) c.classId = m.cls.id; }
         pobError = ""; commit(); toast("Build imported");
       } catch (e) {
         pobError = e instanceof PoB.PobError ? e.message : "Could not read that build code.";
