@@ -221,17 +221,16 @@
   }
 
 
-  /** Snapshot for the helper overlay (POST /state). Keep it tiny and stable. */
+  /** Snapshot for the overlay (desktop IPC or the helper's POST /state). Keep it tiny and stable. */
   function buildOverlayState() {
     const c = char(), cur = Run.current(c);
     const ov = (state.settings && state.settings.overlay) || { opacity: 0.8, clickThrough: true };
-    const showTip = !(state.settings && state.settings.hideHints);
     if (!cur) {
       const last = c.history[0];
       return {
         v: 1,
         step: last ? `Finished · ${Timers.format(last.total)}` : "Campaign complete",
-        tip: "", nextStep: "", showTip: false,
+        nextStep: "",
         opacity: ov.opacity,
       };
     }
@@ -241,13 +240,11 @@
     const next = Run.order(c)[cur.index + 1];
     const nextVis = next ? visibleSteps(c, next.zone) : [];
     const nextStep = todo[1] || nextVis[0];
-    const tips = step ? stepHints(c, step) : [];
+    // Current step and next step only: hints stay in the app.
     return {
       v: 1,
       step: step ? step.objective : "",
-      tip: showTip ? tips[0] || "" : "",
       nextStep: nextStep ? nextStep.objective : "",
-      showTip,
       opacity: ov.opacity,
     };
   }
@@ -1701,10 +1698,6 @@
           toast("Overlay: " + el.selectedOptions[0].textContent);
         });
     }
-    else if (el.id === "overlayTextSize") {
-      if (window.splitstoneDesktop && window.splitstoneDesktop.setOverlayTextSize)
-        window.splitstoneDesktop.setOverlayTextSize(el.value).then(v => { window.__desktopTextSize = v; toast("Overlay text: " + el.selectedOptions[0].textContent); });
-    }
     else if (el.id === "ghostModeSetting") { state.settings.ghostMode = el.checked; commit(); toast(el.checked ? "Ghost race on" : "Ghost race off"); }
     else if (el.id === "ghostPick") { ghostState(char()).pick = el.value; commit(); }
     else if (el.id === "ghostFile" && el.files[0]) {
@@ -1872,7 +1865,7 @@
       window.__desktopOverlayPosition = "top-center";
       const pos = $("#overlayPosition");
       if (pos) setOverlayPositionSelect(pos, "top-center");
-      toast("Overlay position reset to top centre");
+      toast("Overlay back at the top centre, default size");
     },
     settings() {
       $("#ghostModeSetting").checked = ghostOn();
@@ -1891,8 +1884,6 @@
           const pct = Math.round((Number(ov.opacity) || 0.8) * 100);
           if (op) op.value = String(pct);
           if (ovl) ovl.textContent = pct + "%";
-          const ts = $("#overlayTextSize");
-          if (ts) ts.value = window.__desktopTextSize || "m";
           const pos = $("#overlayPosition");
           if (pos) setOverlayPositionSelect(pos, window.__desktopOverlayPosition);
           const ct = $("#desktopClickThrough");
@@ -2052,7 +2043,6 @@
       if (st && st.watching && st.logExists) hideDesktopSetup();
       if (st && typeof st.overlayEnabled === "boolean") {
         window.__desktopOverlayEnabled = st.overlayEnabled;
-        if (st.overlayTextSize) window.__desktopTextSize = st.overlayTextSize;
         if (st.overlayPosition) window.__desktopOverlayPosition = st.overlayPosition;
         const a = $("#desktopOverlay"), b = $("#desktopOverlaySettings");
         if (a) a.checked = st.overlayEnabled;

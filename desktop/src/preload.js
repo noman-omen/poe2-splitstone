@@ -14,7 +14,6 @@ contextBridge.exposeInMainWorld("splitstoneDesktop", {
   setHotkeys: (bindings) => ipcRenderer.invoke("desktop:set-hotkeys", bindings),
   setOverlayEnabled: (on) => ipcRenderer.invoke("desktop:set-overlay", !!on),
   setOverlayOpacity: (n) => ipcRenderer.invoke("desktop:set-overlay-opacity", n),
-  setOverlayTextSize: (size) => ipcRenderer.invoke("desktop:set-overlay-text-size", String(size)),
   setAutoUpdate: (on) => ipcRenderer.invoke("desktop:set-auto-update", !!on),
   setClickThrough: (on) => ipcRenderer.invoke("desktop:set-click-through", !!on),
   setOverlayPosition: (pos) => ipcRenderer.invoke("desktop:set-overlay-position", String(pos)),

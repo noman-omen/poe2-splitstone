@@ -45,14 +45,14 @@ Auto-update is on by default (Settings → Desktop to turn off). Full releases o
 | **Ghost race** | Race your PB, best segments, any past run or a friend's ghost: ahead/behind per split, where the ghost is now, time gained or lost per act |
 | **Auto-split** | Splits on zone changes from PoE2's `Client.txt` |
 | **Cues** | Basic-class notes, level/XP warnings, gear and gem checkpoints |
-| **Overlay** | Small panel at the top centre with the current step, hint and next step |
+| **Overlay** | Small panel at the top centre with the current step and the next step; move it, resize it, the text scales to fit |
 | **Endgame** | Map runs with tier, mods, deaths and loot; session stats; atlas progress checklist |
 | **Tools** | One-click links to trade, poe2db, the wiki, PoB2, poe.ninja and more |
 | **PoB2 import, themes** | Paste a Path of Building 2 code; Ember, Slate, Crimson and Parchment themes |
 
 ### In-game overlay
 
-A browser tab can't sit on top of a fullscreen game, so the desktop app draws a small always-on-top panel: current step, hint and next step, nothing else. It sits at the top centre, just below the boss health bar, and grows downward to fit the whole hint. It's 80% opaque by default (slider in Settings), click-through until you unlock it with `Ctrl+Alt+O` or the tray, and it remembers where you drag it per monitor. Settings → Desktop → Overlay position puts it back at the top centre or left of the minimap.
+A browser tab can't sit on top of a fullscreen game, so the desktop app draws a small always-on-top panel with the current step and the next step, nothing else. Hints stay in the app. By default it's about 400x72 at 1080p (scaled to your screen height) at the top centre, just below the boss health bar. It's click-through until you unlock it with `Ctrl+Alt+O` or the tray: then drag it anywhere and pull the bottom-right corner to resize it. The text scales to fill whatever size you pick; a very long step is cut short only at the smallest text size. Position and size are remembered. Opacity is a slider in Settings (80% by default), and Settings → Desktop → Reset overlay position and size puts it back at the top centre at the default size.
 
 ![Overlay](screenshots/overlay-top-center.png)
 
@@ -66,7 +66,7 @@ The checklist lives in `data/endgame.js`. Items I couldn't confirm in patch note
 
 ### Ghost race
 
-Turn it on under Settings → Ghost race. Pick what to race on the Runs tab: your PB (default), your best segments, any saved run of this character, or a ghost a friend sent you. You get the delta for every split and in total, a line under the run timer saying which zone the ghost would be in right now, and how much you gained or lost in each act and interlude. To share a ghost, copy its code (`SSG1.…`) from the panel; to race someone, paste their code or load their Splitstone export file. Only zone times are taken from imports. The overlay stays step, hint and next only.
+Turn it on under Settings → Ghost race. Pick what to race on the Runs tab: your PB (default), your best segments, any saved run of this character, or a ghost a friend sent you. You get the delta for every split and in total, a line under the run timer saying which zone the ghost would be in right now, and how much you gained or lost in each act and interlude. To share a ghost, copy its code (`SSG1.…`) from the panel; to race someone, paste their code or load their Splitstone export file. Only zone times are taken from imports. The overlay stays current step and next step only.
 
 ![Ghost race](screenshots/ghost-mode.png)
 

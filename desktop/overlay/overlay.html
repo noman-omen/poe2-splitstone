@@ -6,54 +6,47 @@
 <title>Splitstone Overlay</title>
 <style>
   html, body {
-    margin: 0; padding: 0; background: transparent; overflow: hidden;
+    margin: 0; padding: 0; width: 100%; height: 100%; background: transparent; overflow: hidden;
     font-family: "Segoe UI", system-ui, sans-serif; user-select: none;
   }
-  /* Sized by its text, not by the window, so the window can be fitted to it. */
-  #wrap {
-    width: max-content; margin: 6px;
-  }
-  #handle {
-    display: none; text-align: center; font-size: 10px; letter-spacing: 2px;
-    color: rgba(232, 192, 122, 0.7); cursor: grab; height: 14px; line-height: 14px;
-    text-shadow: 0 1px 2px #000a;
-  }
-  #wrap:hover #handle, body.unlocked #handle { display: block; }
-  body.unlocked #wrap { -webkit-app-region: drag; cursor: move; }
-  body.unlocked #panel { border-color: rgba(200,164,90,.85); }
+  /* The panel is the window minus a small margin for the shadow; the text is scaled to fit it. */
   #panel {
-    padding: 8px 12px; border-radius: 8px;
-    background: #100e0a;
-    border: 1px solid #50463a;
-    box-shadow: 0 4px 16px rgba(0,0,0,.35);
-    color: #f2ebe0;
+    position: absolute; top: 4px; left: 4px; box-sizing: border-box; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 3px 10px; border-radius: 8px;
+    background: #100e0a; border: 1px solid #50463a; box-shadow: 0 3px 10px rgba(0,0,0,.35);
+    color: #f2ebe0; --f: 14px;
   }
+  #text { min-height: 0; max-height: 100%; overflow: hidden; }
   .row {
-    margin: 0; line-height: 1.35; overflow-wrap: anywhere;
+    margin: 0; line-height: 1.22; overflow-wrap: anywhere;
     text-shadow: 0 1px 2px #000c, 0 0 6px #0008;
   }
-  /* Text size (Settings → Desktop → Overlay text size). Text always wraps in full; the window takes its height. */
-  body { --step: 14px; --small: 13px; --w: 520px; }
-  body[data-size="s"] { --step: 12px; --small: 11px; --w: 440px; }
-  body[data-size="l"] { --step: 18px; --small: 16px; --w: 600px; }
-  #wrap { max-width: var(--w); }
-  .step { font-weight: 700; font-size: var(--step); color: #f5efe6; }
-  .tip  { font-size: var(--small); color: #e0d4b8; margin-top: 3px; }
-  .next { font-size: var(--small); color: #b0a790; margin-top: 3px; }
-  #toast { font-size: var(--small); }
-  #toast {
-    display: none; margin-top: 4px; padding: 4px 10px; border-radius: 6px;
-    background: #2a2216; border: 1px solid #c8a45a; color: #f5efe6; font-size: 13px;
+  .step { font-weight: 700; font-size: var(--f); color: #f5efe6; }
+  .next { font-size: calc(var(--f) * 0.86); color: #b9b09a; margin-top: 2px; }
+  /* Only at the smallest font size: cut long text to the lines that fit. */
+  .clamp { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+  body.unlocked #panel { -webkit-app-region: drag; cursor: move; border-color: rgba(200,164,90,.9); }
+  #grip {
+    display: none; position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize;
+    -webkit-app-region: no-drag;
+    background: linear-gradient(135deg, transparent 50%, rgba(232,192,122,.85) 50%, rgba(232,192,122,.85) 60%, transparent 60%,
+      transparent 70%, rgba(232,192,122,.85) 70%, rgba(232,192,122,.85) 80%, transparent 80%);
   }
-  #toast.on { display: block; }
+  body.unlocked #grip { display: block; }
+  #toast {
+    display: none; position: absolute; inset: 0; align-items: center; justify-content: center; text-align: center;
+    padding: 2px 8px; background: #2a2216; border-radius: 8px; color: #f5efe6; font-size: 12px; line-height: 1.2;
+  }
+  #toast.on { display: flex; }
 </style>
 </head>
 <body>
-  <div id="wrap">
-    <div id="handle" title="Drag">⠿</div>
-    <div id="panel"><div class="row step">Waiting…</div></div>
+  <div id="panel">
+    <div id="text"><div class="row step">Waiting…</div></div>
     <div id="toast" role="status"></div>
   </div>
+  <div id="grip" title="Drag to resize"></div>
 <script src="overlay.js"></script>
 </body>
 </html>

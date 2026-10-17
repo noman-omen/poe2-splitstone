@@ -4,7 +4,7 @@
  * Kept free of Electron so unit tests can assert defaults.
  */
 const { isClientTxtPath } = require("./client-log");
-const { POSITIONS: OVERLAY_POSITIONS, LIMITS: OVERLAY_LIMITS } = require("./overlay-bounds");
+const { POSITIONS: OVERLAY_POSITIONS, LIMITS: OVERLAY_LIMITS, TEXT_SIZE_SCALE } = require("./overlay-bounds");
 
 /** Global (system-wide) accelerators — always modifier combos so we don't steal Space/letters from the game. */
 const DEFAULT_GLOBAL_HOTKEYS = Object.freeze({
@@ -27,10 +27,10 @@ const DEFAULTS = Object.freeze({
   autoUpdate: true,
   overlayBounds: null, // { displayId, x, y, width, height } relative to display work area
   overlayPosition: "top-center", // top-center | top-right | custom (dragged)
-  overlayTextSize: "m", // s | m | l
+  overlaySize: null, // { width, height } once the player resizes it; null = default size for the display
+  overlayLegacyTextSize: null, // "s" | "l" from the old text-size setting, turned into a size by main
   overlayHintShown: false, // one-time "Ctrl+Alt+O to move me" on the overlay
 });
-const OVERLAY_TEXT_SIZES = ["s", "m", "l"];
 
 function blank() {
   return {
@@ -44,7 +44,8 @@ function blank() {
     autoUpdate: true,
     overlayBounds: null,
     overlayPosition: "top-center",
-    overlayTextSize: "m",
+    overlaySize: null,
+    overlayLegacyTextSize: null,
     overlayHintShown: false,
   };
 }
@@ -67,7 +68,20 @@ function merge(raw) {
     }
   }
   if (raw.firstRunDone) out.firstRunDone = true;
-  if (OVERLAY_TEXT_SIZES.includes(raw.overlayTextSize)) out.overlayTextSize = raw.overlayTextSize;
+  if (raw.overlaySize && typeof raw.overlaySize === "object") {
+    const w = Number(raw.overlaySize.width), h = Number(raw.overlaySize.height);
+    if (w > 0 && h > 0) {
+      out.overlaySize = {
+        width: Math.round(Math.min(OVERLAY_LIMITS.maxW, Math.max(OVERLAY_LIMITS.minW, w))),
+        height: Math.round(Math.min(OVERLAY_LIMITS.maxH, Math.max(OVERLAY_LIMITS.minH, h))),
+      };
+    }
+  }
+  // The text-size setting is gone: Small and Large become a starting size (Medium is the default size).
+  if (!out.overlaySize && raw.overlayTextSize !== "m" && Object.hasOwn(TEXT_SIZE_SCALE, raw.overlayTextSize))
+    out.overlayLegacyTextSize = raw.overlayTextSize;
+  else if (!out.overlaySize && ["s", "l"].includes(raw.overlayLegacyTextSize))
+    out.overlayLegacyTextSize = raw.overlayLegacyTextSize;
   if (raw.overlayHintShown === true) out.overlayHintShown = true;
   if (typeof raw.clickThrough === "boolean") out.clickThrough = raw.clickThrough;
   if (raw.autoUpdate === false) out.autoUpdate = false;
@@ -77,8 +91,8 @@ function merge(raw) {
       displayId: raw.overlayBounds.displayId != null ? String(raw.overlayBounds.displayId) : null,
       x: Number(raw.overlayBounds.x) || 0,
       y: Number(raw.overlayBounds.y) || 0,
-      width: Math.min(OVERLAY_LIMITS.maxW, Math.max(OVERLAY_LIMITS.minW, Number(raw.overlayBounds.width) || OVERLAY_LIMITS.defW)),
-      height: Math.max(OVERLAY_LIMITS.minH, Number(raw.overlayBounds.height) || OVERLAY_LIMITS.defH),
+      width: Math.max(0, Number(raw.overlayBounds.width) || 0),
+      height: Math.max(0, Number(raw.overlayBounds.height) || 0),
     };
   }
   // Settings from 1.2 have bounds but no position; main decides once it knows the display (null = undecided).
@@ -156,5 +170,5 @@ function isPrereleaseVersion(v) {
 }
 
 module.exports = {
-  DEFAULTS, DEFAULT_GLOBAL_HOTKEYS, OVERLAY_TEXT_SIZES, OVERLAY_POSITIONS, blank, merge, shouldCheckForUpdates, isSafeGlobalAccelerator, validateAccelerator, isPrereleaseVersion,
+  DEFAULTS, DEFAULT_GLOBAL_HOTKEYS, OVERLAY_POSITIONS, blank, merge, shouldCheckForUpdates, isSafeGlobalAccelerator, validateAccelerator, isPrereleaseVersion,
 };

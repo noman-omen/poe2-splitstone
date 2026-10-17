@@ -1,8 +1,7 @@
 "use strict";
-/** Overlay snapshot normaliser — minimal panel (step / tip / next). */
+/** Overlay snapshot normaliser: the minimal panel shows the current step and the next step, never hints. */
 const SCHEMA_VERSION = 1;
 // Upper bounds on what the renderer may send. Route text is far shorter (a test checks), so nothing real is cut.
-const TIP_MAX = 600;
 const STEP_MAX = 600;
 const NEXT_MAX = 600;
 const DEFAULT_OPACITY = 0.80;
@@ -12,7 +11,6 @@ const EMPTY = Object.freeze({
   zone: "—",
   section: "",
   step: "Waiting for Splitstone…",
-  tip: "",
   nextStep: "",
   nextZone: "",
   zoneMs: 0,
@@ -22,7 +20,6 @@ const EMPTY = Object.freeze({
   paused: false,
   finished: false,
   progress: "",
-  showTip: true,
   opacity: DEFAULT_OPACITY,
   clickThrough: true,
   hotkeys: Object.freeze({ split: " ", pause: "p", undo: "u" }),
@@ -44,7 +41,7 @@ function formatDelta(ms) {
   return sign + formatMs(Math.abs(ms));
 }
 
-function ellipsis(text, limit = TIP_MAX) {
+function ellipsis(text, limit = STEP_MAX) {
   const s = String(text || "").trim();
   if (s.length <= limit) return s;
   return s.slice(0, Math.max(0, limit - 1)).replace(/\s+$/, "") + "…";
@@ -64,7 +61,6 @@ function normalise(raw) {
     zone: EMPTY.zone,
     section: "",
     step: EMPTY.step,
-    tip: "",
     nextStep: "",
     nextZone: "",
     zoneMs: 0,
@@ -74,7 +70,6 @@ function normalise(raw) {
     paused: false,
     finished: false,
     progress: "",
-    showTip: true,
     opacity: DEFAULT_OPACITY,
     clickThrough: true,
     hotkeys: { split: " ", pause: "p", undo: "u" },
@@ -86,14 +81,13 @@ function normalise(raw) {
   for (const key of ["step", "nextStep"]) {
     if (raw[key] != null) out[key] = String(raw[key]);
   }
-  if (raw.tip != null) out.tip = ellipsis(String(raw.tip), TIP_MAX);
   out.step = ellipsis(out.step || "", STEP_MAX);
   out.nextStep = ellipsis(out.nextStep || "", NEXT_MAX);
   for (const key of ["zoneMs", "runMs"]) {
     if (raw[key] != null) out[key] = Math.max(0, parseInt(raw[key], 10) || 0);
   }
   if ("deltaMs" in raw) out.deltaMs = raw.deltaMs == null ? null : parseInt(raw.deltaMs, 10) || 0;
-  for (const key of ["running", "paused", "finished", "showTip", "clickThrough"]) {
+  for (const key of ["running", "paused", "finished", "clickThrough"]) {
     if (key in raw) out[key] = !!raw[key];
   }
   if (raw.opacity != null) {
@@ -111,16 +105,12 @@ function normalise(raw) {
 function linesForPanel(state) {
   const rows = [];
   rows.push(["step", ellipsis(state.step || "—", STEP_MAX)]);
-  if (state.showTip !== false) {
-    const tip = ellipsis(state.tip || "", TIP_MAX);
-    if (tip) rows.push(["tip", tip]);
-  }
   const nxt = ellipsis(state.nextStep || "", NEXT_MAX);
   if (nxt) rows.push(["next", "Next · " + nxt]);
   return rows;
 }
 
 module.exports = {
-  EMPTY, SCHEMA_VERSION, DEFAULT_OPACITY, TIP_MAX, STEP_MAX, NEXT_MAX,
+  EMPTY, SCHEMA_VERSION, DEFAULT_OPACITY, STEP_MAX, NEXT_MAX,
   formatMs, formatDelta, ellipsis, keyLabel, normalise, linesForPanel,
 };

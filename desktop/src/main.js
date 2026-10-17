@@ -15,10 +15,11 @@ const { findClientLog, watchClientLog, isClientTxtPath, isAllowedLogPath } = req
 const { normalise, EMPTY } = require("./overlay-state");
 const { registerAll, unregisterAll, ACTIONS: HOTKEY_ACTIONS } = require("./hotkeys");
 const {
-  merge: mergeDesktopSettings, shouldCheckForUpdates, validateAccelerator, isPrereleaseVersion, OVERLAY_TEXT_SIZES,
+  merge: mergeDesktopSettings, shouldCheckForUpdates, validateAccelerator, isPrereleaseVersion,
 } = require("./desktop-settings");
 const {
-  clampW, clampH, topCenterBounds, anchoredResize, centeredResize, isOldDefault, boundsFor, resizeFor, MINIMAP_GAP, POSITIONS: OVERLAY_POSITIONS,
+  LIMITS: OVERLAY_LIMITS, defaultSize, maxSize, clampSize, topCenterBounds, anchoredResize, centeredResize, isOldDefault,
+  boundsFor, resizeFor, MINIMAP_GAP, POSITIONS: OVERLAY_POSITIONS,
 } = require("./overlay-bounds");
 
 let autoUpdater = null;
@@ -67,8 +68,8 @@ function statusPayload() {
     watching: !!logWatcher,
     overlayEnabled: settings.overlayEnabled,
     overlayOpacity: settings.overlayOpacity,
-    overlayTextSize: settings.overlayTextSize || "m",
     overlayPosition: settings.overlayPosition,
+    overlaySize: settings.overlaySize ? { ...settings.overlaySize } : null,
     hotkeys: { ...settings.hotkeys },
     version: app.getVersion(),
     firstRunDone: settings.firstRunDone,
@@ -121,7 +122,7 @@ function setClickThrough(on, { toast } = {}) {
   if (toast) {
     toastOverlay(settings.clickThrough
       ? "Overlay locked"
-      : "Unlocked: drag to move, Ctrl+Alt+O to lock");
+      : `Unlocked: drag to move, corner to resize. ${settings.hotkeys.clickThrough || "Ctrl+Alt+O"} locks it`);
   }
   return settings.clickThrough;
 }
@@ -203,11 +204,21 @@ function overlayDisplay() {
   return found || screen.getPrimaryDisplay();
 }
 
+/** The box the text is fitted into: the player's size, or the default for this display. */
+function overlayBox(wa) {
+  const size = settings.overlaySize ? clampSize(settings.overlaySize, wa) : defaultSize(wa);
+  return { ...size, custom: !!settings.overlaySize };
+}
+
+function sendOverlayBox() {
+  if (!overlayWindow || overlayWindow.isDestroyed()) return;
+  overlayWindow.webContents.send("overlay:box", overlayBox(overlayDisplay().workArea));
+}
+
 function resolveOverlayBounds() {
   const display = overlayDisplay(), wa = display.workArea;
   const saved = settings.overlayBounds;
-  const live = overlayWindow && !overlayWindow.isDestroyed() ? overlayWindow.getBounds() : saved;
-  const w = clampW(live && live.width), h = clampH(live && live.height, wa);
+  const { width: w, height: h } = overlayBox(wa);
   if (settings.overlayPosition !== "custom" || !saved || !Number.isFinite(saved.x) || !Number.isFinite(saved.y))
     return { display, bounds: boundsFor(settings.overlayPosition, wa, w, h) };
   // Saved x/y are relative to the work area; keep the panel on screen.
@@ -216,21 +227,33 @@ function resolveOverlayBounds() {
   return { display, bounds: { x, y, width: w, height: h } };
 }
 
-/** 1.2 saved a position without saying whether it was dragged; untouched ones move to top centre. */
-function migrateOverlayPosition() {
-  if (settings.overlayPosition) return;
-  const saved = settings.overlayBounds;
-  const found = saved && screen.getAllDisplays().find(d => String(d.id) === String(saved.displayId));
-  if (found && isOldDefault(saved, found.workArea)) {
-    settings.overlayPosition = "top-center";
-    settings.overlayBounds = null;
-  } else settings.overlayPosition = "custom";
-  saveSettings();
+/**
+ * 1.2 saved a position without saying whether it was dragged; untouched ones move to top centre.
+ * The old Small/Large text size becomes a starting window size on the overlay's display.
+ */
+function migrateOverlay() {
+  let changed = false;
+  if (!settings.overlayPosition) {
+    const saved = settings.overlayBounds;
+    const found = saved && screen.getAllDisplays().find(d => String(d.id) === String(saved.displayId));
+    if (found && isOldDefault(saved, found.workArea)) {
+      settings.overlayPosition = "top-center";
+      settings.overlayBounds = null;
+    } else settings.overlayPosition = "custom";
+    changed = true;
+  }
+  if (settings.overlayLegacyTextSize) {
+    if (!settings.overlaySize) settings.overlaySize = defaultSize(overlayDisplay().workArea, settings.overlayLegacyTextSize);
+    settings.overlayLegacyTextSize = null;
+    changed = true;
+  }
+  if (changed) saveSettings();
 }
 
 function applyOverlayPosition() {
   if (!overlayWindow || overlayWindow.isDestroyed()) return;
   overlayWindow.setBounds(resolveOverlayBounds().bounds);
+  sendOverlayBox();
 }
 
 function setOverlayPosition(pos) {
@@ -317,8 +340,10 @@ function setOverlayEnabled(on) {
   updateTrayMenu();
 }
 
+/** Settings → Reset overlay position and size: top centre at the default size for the display. */
 function resetOverlayPosition() {
   settings.overlayBounds = null;
+  settings.overlaySize = null;
   settings.overlayPosition = "top-center";
   saveSettings();
   if (overlayWindow && !overlayWindow.isDestroyed()) {
@@ -530,35 +555,37 @@ function wireIpc() {
         overlayWindow.webContents.send("overlay:state", overlayState);
     } catch (_) { /* ignore */ }
   });
-  ipcMain.on("overlay:resize", (e, size) => {
-    if (!senderIsOverlay(e)) return;
-    if (!overlayWindow || overlayWindow.isDestroyed() || !size) return;
+  // The overlay asks for a narrower window when the default box is wider than its text.
+  ipcMain.on("overlay:fit-width", (e, w) => {
+    if (!senderIsOverlay(e) || !overlayWindow || overlayWindow.isDestroyed() || settings.overlaySize) return;
     try {
-      const b = overlayWindow.getBounds();
-      let wa = null;
-      try { wa = screen.getDisplayMatching(b).workArea; } catch (_) { /* keep unclamped */ }
-      // The window takes the content's height so nothing is cut off; width is capped per text size.
-      const w = clampW(size.w), h = clampH(size.h, wa);
-      if (b.width === w && b.height === h) return;
-      overlayWindow.setBounds(resizeFor(settings.overlayPosition, b, w, h, wa));
-      persistOverlayBounds();
+      const b = overlayWindow.getBounds(), wa = overlayDisplay().workArea, box = overlayBox(wa);
+      const width = Math.min(box.width, Math.max(OVERLAY_LIMITS.minW, Math.round(Number(w) || box.width)));
+      if (b.width === width && b.height === box.height) return;
+      overlayWindow.setBounds(resizeFor(settings.overlayPosition, b, width, box.height, wa));
+    } catch (_) { /* */ }
+  });
+  // Resize grip, only while the overlay is unlocked (move mode). The size is kept from then on.
+  ipcMain.on("overlay:resize", (e, size) => {
+    if (!senderIsOverlay(e) || !overlayWindow || overlayWindow.isDestroyed() || !size) return;
+    if (settings.clickThrough !== false) return;
+    try {
+      const b = overlayWindow.getBounds(), wa = overlayDisplay().workArea;
+      const next = clampSize({ width: size.w, height: size.h }, wa);
+      settings.overlaySize = next;
+      if (b.width !== next.width || b.height !== next.height)
+        overlayWindow.setBounds(resizeFor(settings.overlayPosition, b, next.width, next.height, wa));
+      sendOverlayBox();
+      if (size.done) { persistOverlayBounds(); broadcastStatus(); }
     } catch (_) { /* */ }
   });
   ipcMain.on("overlay:ready", (e) => {
     if (!senderIsOverlay(e)) return;
     if (overlayWindow && !overlayWindow.isDestroyed()) {
-      overlayWindow.webContents.send("overlay:text-size", settings.overlayTextSize || "m");
+      sendOverlayBox();
       overlayWindow.webContents.send("overlay:state", overlayState);
       if (settings.overlayEnabled) setTimeout(() => showOverlayMoveHint(false), 800);
     }
-  });
-  ipcMain.handle("desktop:set-overlay-text-size", (e, size) => {
-    if (!senderIsMain(e)) return settings.overlayTextSize;
-    if (!OVERLAY_TEXT_SIZES.includes(size)) return settings.overlayTextSize;
-    settings.overlayTextSize = size;
-    saveSettings();
-    if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.webContents.send("overlay:text-size", size);
-    return size;
   });
   ipcMain.on("desktop:focus-main", (e) => {
     if (!senderIsMain(e)) return;
@@ -617,7 +644,7 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     loadSettings();
-    migrateOverlayPosition();
+    migrateOverlay();
     wireIpc();
     createMainWindow();
     if (!SMOKE) createTray();
@@ -652,5 +679,5 @@ process.on("uncaughtException", (err) => {
 
 module.exports = {
   setHotkeys, isAppPageUrl, statusPayload, isClientTxtPath, findClientLog, setClickThrough,
-  overlayDefaultBounds, anchoredResize, centeredResize, MINIMAP_GAP,
+  overlayDefaultBounds, anchoredResize, centeredResize, MINIMAP_GAP, maxSize,
 };

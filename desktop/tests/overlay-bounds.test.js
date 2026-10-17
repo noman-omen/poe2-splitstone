@@ -3,7 +3,7 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 const B = require("../src/overlay-bounds");
 const { merge } = require("../src/desktop-settings");
-const { normalise, TIP_MAX, STEP_MAX } = require("../src/overlay-state");
+const { normalise, linesForPanel, STEP_MAX } = require("../src/overlay-state");
 
 const DISPLAYS = [[1280, 720], [1920, 1080], [2560, 1440], [3840, 2160]];
 const wa = (w, h, x = 0) => ({ x, y: 0, width: w, height: h });
@@ -11,7 +11,7 @@ const wa = (w, h, x = 0) => ({ x, y: 0, width: w, height: h });
 describe("overlay placement", () => {
   it("defaults to top centre, below the boss bar band", () => {
     for (const [w, h] of DISPLAYS) {
-      for (const pw of [B.LIMITS.defW, B.PANEL_MAX_W.l + 2 * B.MARGIN]) {
+      for (const pw of [B.defaultSize(wa(w, h)).width, B.LIMITS.maxW]) {
         const b = B.topCenterBounds(wa(w, h), pw, 90);
         assert.ok(Math.abs(b.x + b.width / 2 - w / 2) <= 1, `${w}x${h}: centred (${b.x}+${b.width}/2)`);
         assert.equal(b.y, Math.round(h * B.BOSS_BAR_CLEARANCE));
@@ -58,29 +58,52 @@ describe("overlay placement", () => {
     }
   });
 
-  it("window height follows the content, up to the screen height", () => {
-    assert.equal(B.clampH(480, wa(1920, 1080)), 480);
-    assert.equal(B.clampH(5000, wa(1920, 1080)), 1080);
-    assert.equal(B.clampW(9999), B.PANEL_MAX_W.l + 2 * B.MARGIN);
+  it("default size is small and scales with the display height", () => {
+    assert.deepEqual(B.defaultSize(wa(1920, 1080)), { width: B.BASE.width, height: B.BASE.height });
+    const big = B.defaultSize(wa(2560, 1440)), small = B.defaultSize(wa(1280, 720));
+    assert.ok(big.width > B.BASE.width && small.width < B.BASE.width);
+    assert.ok(Math.abs(big.width / big.height - B.BASE.width / B.BASE.height) < 0.05, "same shape");
+    assert.ok(B.defaultSize(wa(1920, 1080), "l").width > B.BASE.width);
+    assert.ok(B.defaultSize(wa(1920, 1080), "s").width < B.BASE.width);
+  });
+
+  it("a player size is kept inside the limits and the screen", () => {
+    const area = wa(1920, 1080);
+    assert.deepEqual(B.clampSize(null, area), B.defaultSize(area));
+    assert.deepEqual(B.clampSize({ width: 1, height: 1 }, area), { width: B.LIMITS.minW, height: B.LIMITS.minH });
+    assert.deepEqual(B.clampSize({ width: 9999, height: 9999 }, area), B.maxSize(area));
+    assert.ok(B.maxSize(area).width <= B.LIMITS.maxW && B.maxSize(wa(1280, 720)).width <= 1280 * B.LIMITS.maxScreenW);
+    assert.deepEqual(B.clampSize({ width: 500.4, height: 90.6 }, area), { width: 500, height: 91 });
+  });
+
+  it("custom position resizes from its top-left corner", () => {
+    const area = wa(1920, 1080), b = { x: 100, y: 600, width: 400, height: 72 };
+    assert.deepEqual(B.resizeFor("custom", b, 700, 140, area), { x: 100, y: 600, width: 700, height: 140 });
+    const edge = B.resizeFor("custom", { x: 1700, y: 1000, width: 200, height: 60 }, 700, 140, area);
+    assert.ok(edge.x + edge.width <= 1920 && edge.y + edge.height <= 1080);
   });
 });
 
-describe("overlay text is never shortened", () => {
-  it("keeps long hints and steps whole", () => {
-    const tip = "Fight him in the corner opposite the entrance, then walk straight past the blockade into town. ".repeat(4).trim();
-    const st = normalise({ step: "S".repeat(300), tip, nextStep: "N".repeat(300) });
-    assert.equal(st.tip, tip);
-    assert.equal(st.step.length, 300);
-    assert.ok(!st.tip.endsWith("…"));
+describe("overlay shows the current step and the next step only", () => {
+  it("drops hints from the state and the panel rows", () => {
+    const st = normalise({ step: "Kill the Devourer", tip: "Hint text", showTip: true, nextStep: "Talk to Renly" });
+    assert.ok(!("tip" in st) && !("showTip" in st));
+    const rows = linesForPanel({ ...st, tip: "Hint text", showTip: true });
+    assert.deepEqual(rows.map(r => r[0]), ["step", "next"]);
+    assert.ok(!JSON.stringify(rows).includes("Hint text"));
   });
 
-  it("every route step and hint fits the IPC bounds", () => {
+  it("keeps long steps whole", () => {
+    const st = normalise({ step: "S".repeat(300), nextStep: "N".repeat(300) });
+    assert.equal(st.step.length, 300);
+    assert.equal(st.nextStep.length, 300);
+  });
+
+  it("every route step fits the IPC bounds", () => {
     global.window = global;
     require("../../data/campaign.js");
     const D = global.CAMPAIGN_DATA;
-    for (const sec of D.sections) for (const z of sec.zones) for (const s of z.steps) {
+    for (const sec of D.sections) for (const z of sec.zones) for (const s of z.steps)
       assert.ok(s.objective.length <= STEP_MAX, s.id);
-      for (const h of s.hints.concat(s.fastTips.map(t => "Speedrun: " + t))) assert.ok(h.length <= TIP_MAX, s.id + ": " + h);
-    }
   });
 });

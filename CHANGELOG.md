@@ -9,8 +9,10 @@
 - Run panel: zone and progress, the segment timer with run time, live delta and the ghost line, Split with Pause, Undo and New run under it, the current step with one hint and the next step, the act's splits against your PB, and the campaign total with sum of best.
 - New Runs tab with run history, run analytics and CSV, the full Run & Segments table and the ghost race panel. New Character tab with the character details and PoB2 import. Tabs are now Campaign, Runs, Character, Endgame and Tools.
 - Between 860 and 1279px the panel is narrower and the act splits show the current zone and the act total, with a button to show all. On phones the compact now-bar stays at the top with Split and the timers, the act tabs scroll sideways under it, and the act splits sit below the checklist.
-- Desktop overlay: the full hint shows at every text size, with no clipping, and the window grows to fit it. It's centred at the top of the screen, below the boss health bar, and grows downward. Panel width is 440, 520 or 600px for Small, Medium and Large.
-- Settings → Desktop has an overlay position option (Top center, Top right, or where you dragged it). If your overlay was still at the old top-right default, it moves to top centre; a position you chose is kept.
+- Desktop overlay is smaller: it shows only the current step and the next step. Hints stay in the app. The default panel is about 400x72 at 1080p, scaled to the screen height, centred at the top below the boss health bar.
+- Unlock the overlay (`Ctrl+Alt+O` or the tray) to drag it anywhere and resize it from the bottom-right corner. Size and position are remembered. The text scales to fit the window you set; a very long step is cut short only at the smallest text size.
+- The overlay text size option is gone. If you had Small or Large, the overlay starts at a matching smaller or larger size.
+- Settings → Desktop has an overlay position option (Top center, Top right, or where you dragged it) and "Reset overlay position and size". If your overlay was still at the old top-right default, it moves to top centre; a position you chose is kept.
 
 ## 1.2.0 (2026-10-17)
 

@@ -125,11 +125,16 @@ describe("main.js boot (stubbed electron)", () => {
     assert.ok(second.x > 1920, "second monitor offsets are kept");
   });
 
-  it("overlay text size is a known value", () => {
+  it("overlay size settings are sanitised and the old text size only seeds a size", () => {
     const ds = require("../src/desktop-settings");
-    assert.equal(ds.merge({}).overlayTextSize, "m");
-    assert.equal(ds.merge({ overlayTextSize: "l" }).overlayTextSize, "l");
-    assert.equal(ds.merge({ overlayTextSize: "<x>" }).overlayTextSize, "m");
+    assert.equal(ds.merge({}).overlaySize, null);
+    assert.equal(ds.merge({}).overlayTextSize, undefined);
+    assert.equal(ds.merge({ overlayTextSize: "l" }).overlayLegacyTextSize, "l");
+    assert.equal(ds.merge({ overlayTextSize: "m" }).overlayLegacyTextSize, null);
+    assert.equal(ds.merge({ overlayTextSize: "<x>" }).overlayLegacyTextSize, null);
+    assert.equal(ds.merge({ overlayTextSize: "l", overlaySize: { width: 500, height: 90 } }).overlayLegacyTextSize, null);
+    assert.deepEqual(ds.merge({ overlaySize: { width: 500, height: 90 } }).overlaySize, { width: 500, height: 90 });
+    assert.equal(ds.merge({ overlaySize: { width: "big" } }).overlaySize, null);
     assert.equal(ds.merge({ overlayHintShown: "yes" }).overlayHintShown, false);
   });
 });

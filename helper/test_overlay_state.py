@@ -25,7 +25,7 @@ class StateProtocolTest(unittest.TestCase):
         self.assertEqual(s["zoneMs"], 45000)
         self.assertEqual(s["deltaMs"], -3000)
         self.assertTrue(s["running"])
-        self.assertLessEqual(len(s["tip"]), 100)
+        self.assertNotIn("tip", s)
 
     def test_normalise_rejects_non_object(self):
         with self.assertRaises(ValueError):
@@ -47,18 +47,14 @@ class StateProtocolTest(unittest.TestCase):
             "showTip": True,
         }))
         roles = [r for r, _ in rows]
-        self.assertEqual(roles, ["step", "tip", "next"])
+        self.assertEqual(roles, ["step", "next"])
         self.assertNotIn("zone", roles)
         self.assertNotIn("seg", roles)
         self.assertNotIn("run", roles)
         self.assertNotIn("delta", roles)
         self.assertIn("Activate waypoint", rows[0][1])
-        self.assertIn("Hug the walls", rows[1][1])
-        self.assertTrue(rows[2][1].startswith("Next · "))
-        # Tip hard-cap
-        long = normalise({"tip": "x" * 200})
-        self.assertLessEqual(len(long["tip"]), 100)
-        self.assertTrue(long["tip"].endswith("…"))
+        self.assertNotIn("Hug the walls", " ".join(t for _, t in rows))
+        self.assertTrue(rows[1][1].startswith("Next · "))
 
 
 class HelperStateEndpointTest(unittest.TestCase):

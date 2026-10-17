@@ -1,17 +1,16 @@
 """Shared state protocol between the Splitstone browser app and the helper overlay.
 
 Browser POSTs JSON to http://127.0.0.1:8766/state. Overlay paints a compact
-top-right race panel showing only: current step, optional hint, next step.
+panel showing only the current step and the next step. Hints stay in the app.
 
 Schema (version 1):
 {
   "v": 1,
-  "step": "...", "tip": "...", "nextStep": "...",
-  "showTip": true,
+  "step": "...", "nextStep": "...",
   "opacity": 0.8, "clickThrough": true,
   # legacy fields still accepted but ignored by the minimal panel:
   "zone", "section", "nextZone", "zoneMs", "runMs", "deltaMs",
-  "running", "paused", "finished", "progress", "hotkeys"
+  "running", "paused", "finished", "progress", "hotkeys", "tip", "showTip"
 }
 """
 from __future__ import annotations
@@ -20,7 +19,6 @@ import copy
 from typing import Any, Optional
 
 SCHEMA_VERSION = 1
-TIP_MAX = 100
 STEP_MAX = 120
 NEXT_MAX = 100
 DEFAULT_OPACITY = 0.80
@@ -31,7 +29,6 @@ EMPTY: dict[str, Any] = {
     "zone": "—",
     "section": "",
     "step": "Open Splitstone and enable Auto-split",
-    "tip": "",
     "nextStep": "",
     "nextZone": "",
     "zoneMs": 0,
@@ -41,7 +38,6 @@ EMPTY: dict[str, Any] = {
     "paused": False,
     "finished": False,
     "progress": "",
-    "showTip": True,
     "opacity": DEFAULT_OPACITY,
     "clickThrough": True,
     "hotkeys": {"split": " ", "pause": "p", "undo": "u"},
@@ -64,7 +60,7 @@ def format_delta(ms: Optional[float]) -> str:
     return sign + format_ms(abs(ms))
 
 
-def ellipsis(text: str, limit: int = TIP_MAX) -> str:
+def ellipsis(text: str, limit: int = STEP_MAX) -> str:
     text = (text or "").strip()
     if len(text) <= limit:
         return text
@@ -87,8 +83,6 @@ def normalise(raw: Any) -> dict[str, Any]:
     for key in ("zone", "section", "step", "nextStep", "nextZone", "progress"):
         if key in raw and raw[key] is not None:
             out[key] = str(raw[key])[:240]
-    if raw.get("tip") is not None:
-        out["tip"] = ellipsis(str(raw["tip"]), TIP_MAX)
     out["step"] = ellipsis(out.get("step") or "", STEP_MAX)
     out["nextStep"] = ellipsis(out.get("nextStep") or "", NEXT_MAX)
     for key in ("zoneMs", "runMs"):
@@ -99,8 +93,6 @@ def normalise(raw: Any) -> dict[str, Any]:
     for key in ("running", "paused", "finished"):
         if key in raw:
             out[key] = bool(raw[key])
-    if "showTip" in raw:
-        out["showTip"] = bool(raw["showTip"])
     if "opacity" in raw and raw["opacity"] is not None:
         try:
             out["opacity"] = max(0.30, min(1.0, float(raw["opacity"])))
@@ -117,14 +109,10 @@ def normalise(raw: Any) -> dict[str, Any]:
 
 
 def lines_for_panel(state: dict[str, Any]) -> list[tuple[str, str]]:
-    """Minimal rows: step, optional tip, next. No timers/delta/zone chrome."""
+    """Minimal rows: step and next. No hints, timers, delta or zone chrome."""
     rows: list[tuple[str, str]] = []
     step = ellipsis(state.get("step") or "—", STEP_MAX)
     rows.append(("step", step))
-    if state.get("showTip", True):
-        tip = ellipsis(state.get("tip") or "", TIP_MAX)
-        if tip:
-            rows.append(("tip", tip))
     nxt = ellipsis(state.get("nextStep") or "", NEXT_MAX)
     if nxt:
         rows.append(("next", "Next · " + nxt))

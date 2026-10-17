@@ -16,11 +16,12 @@ contextBridge.exposeInMainWorld("splitstoneOverlay", {
     ipcRenderer.on("overlay:toast", h);
     return () => ipcRenderer.removeListener("overlay:toast", h);
   },
-  onTextSize: (cb) => {
-    const h = (_e, size) => cb(size);
-    ipcRenderer.on("overlay:text-size", h);
-    return () => ipcRenderer.removeListener("overlay:text-size", h);
+  onBox: (cb) => {
+    const h = (_e, box) => cb(box);
+    ipcRenderer.on("overlay:box", h);
+    return () => ipcRenderer.removeListener("overlay:box", h);
   },
   ready: () => ipcRenderer.send("overlay:ready"),
-  resize: (w, h) => ipcRenderer.send("overlay:resize", { w, h }),
+  fitWidth: (w) => ipcRenderer.send("overlay:fit-width", Number(w)),
+  resize: (w, h, done) => ipcRenderer.send("overlay:resize", { w: Number(w), h: Number(h), done: !!done }),
 });

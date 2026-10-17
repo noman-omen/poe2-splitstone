@@ -55,25 +55,27 @@ describe("overlay-state", () => {
       zoneMs: 1200,
       deltaMs: -500,
       tip: "x".repeat(200),
+      showTip: true,
       evil: "nope",
       settings: { url: "http://evil" },
       hotkeys: { split: " ", pause: "p", undo: "u", extra: "x" },
     });
     assert.equal(st.zone, "Clearfell");
     assert.equal(st.zoneMs, 1200);
-    assert.equal(st.tip, "x".repeat(200));
+    assert.equal(st.tip, undefined, "hints never reach the overlay");
+    assert.equal(st.showTip, undefined);
     assert.equal(st.evil, undefined);
     assert.equal(st.settings, undefined);
     assert.deepEqual(Object.keys(st.hotkeys).sort(), ["pause", "split", "undo"]);
   });
 
-  it("linesForPanel builds minimal rows (step / tip / next only)", () => {
+  it("linesForPanel builds minimal rows (step / next only)", () => {
     const rows = linesForPanel(normalise({
       step: "Do the thing", tip: "A tip", nextStep: "Next thing", showTip: true,
       zone: "Z", zoneMs: 999, runMs: 999, deltaMs: 5, paused: true,
     }));
     assert.ok(rows.some((r) => r[0] === "step" && r[1].includes("Do the thing")));
-    assert.ok(rows.some((r) => r[0] === "tip"));
+    assert.ok(!rows.some((r) => r[0] === "tip"));
     assert.ok(rows.some((r) => r[0] === "next" && r[1].includes("Next")));
     assert.ok(!rows.some((r) => r[0] === "zone"));
     assert.ok(!rows.some((r) => r[0] === "status"));
