@@ -179,7 +179,7 @@ Tests write screenshots to `test-output/`. Run with `SPLITSTONE_UPDATE_SHOTS=1` 
 
 ## Contributing
 
-Issues and pull requests are welcome. For route or area-ID fixes, say which patch you checked against. Keep the web app static, with no required build step.
+Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) for setup, tests and how route data works. Questions, run feedback and ideas go in [Discussions](https://github.com/noman-omen/poe2-splitstone/discussions).
 
 ## License
 

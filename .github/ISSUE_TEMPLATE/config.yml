@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/noman-omen/poe2-splitstone/discussions
+    about: Ask a question, share a run or float an idea in Discussions.

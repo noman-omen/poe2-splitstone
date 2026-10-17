@@ -1,0 +1,70 @@
+name: Bug report
+description: Something in Splitstone doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. If your character names or account name are private, blank them out in text and screenshots before posting.
+  - type: input
+    id: version
+    attributes:
+      label: Splitstone version
+      description: Desktop app → Settings → Desktop or the tray menu. For the web app, the date you loaded it.
+      placeholder: "1.3.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: app
+    attributes:
+      label: Desktop app or web app
+      options:
+        - Desktop app
+        - Web app (browser)
+        - Web app with the Python helper
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Windows version or browser
+      placeholder: "Windows 11 23H2 / Firefox 131 / Chrome 130"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start a run on Normal clear
+        2. Split into The Grelwood
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+    validations:
+      required: true
+  - type: dropdown
+    id: clienttxt
+    attributes:
+      label: Is it about Client.txt (auto-split, zone or level detection)?
+      options:
+        - "No"
+        - "Yes"
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshot, log lines or anything else
+      description: Optional. For Client.txt problems, paste the few lines around the zone change, with character names removed if private.

@@ -1,0 +1,50 @@
+name: Route correction
+description: A step, zone, level or area id in the route is wrong or out of date.
+labels: ["route-data"]
+body:
+  - type: markdown
+    attributes:
+      value: Route fixes are the most useful reports we get, especially around patches. Please say what you checked against.
+  - type: dropdown
+    id: act
+    attributes:
+      label: Act
+      options:
+        - Act 1
+        - Act 2
+        - Act 3
+        - Act 4
+        - Interlude 1
+        - Interlude 2
+        - Interlude 3
+        - Other or new content
+    validations:
+      required: true
+  - type: input
+    id: zone
+    attributes:
+      label: Zone
+      placeholder: "The Grelwood"
+    validations:
+      required: true
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What's wrong
+      description: Quote the step as Splitstone shows it, then what it should say. Wrong order, missing step, wrong level, wrong reward and wrong area id all count.
+    validations:
+      required: true
+  - type: input
+    id: patch
+    attributes:
+      label: Patch you checked on
+      placeholder: "0.5.5"
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source
+      description: Your own run, a Client.txt "Generating level" line, a patch note, poe2db or a guide link.
+    validations:
+      required: true

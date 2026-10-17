@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest a change or a new feature.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: For open-ended ideas, [Discussions → Ideas](https://github.com/noman-omen/poe2-splitstone/discussions/categories/ideas) is a good place to start.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The problem or the moment in a run where this would help.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like Splitstone to do?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or workarounds
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Campaign / run panel
+        - Timer and splits
+        - In-game overlay
+        - Runs, ghost race or analytics
+        - Endgame
+        - Tools
+        - Desktop app
+        - Other
