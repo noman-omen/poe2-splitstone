@@ -88,6 +88,9 @@
 
   const expandedZones = new Set();       // UI-only: completed zones opened again
   let actSplitsOpen = false;              // UI-only: all act splits on mid-width and phone layouts
+  let ghostPopOpen = false;               // UI-only: ghost picker popover on the run panel
+  let routeEditOpen = false;              // UI-only: full route bar opened during a run
+  let levelSeen = null;                   // UI-only: last Client.txt level-up for a name not yet linked to this character
   let pobError = "";
   let asStatus = AutoSplit.status(), lastAuto = "";
   const openDetails = new Set();          // UI-only: <details data-keep> that stay open across re-renders
@@ -180,43 +183,72 @@
     pushOverlay();
   }
 
-  /** Phone: the header scrolls away, the tab row, now-bar and act strip stick. The bars wrap, so offsets are measured. */
+  /**
+   * One column (phones, narrow windows): the header scrolls away and the now-bar and act strip stick. The tab row
+   * sticks too, but slides away while scrolling down and comes back on the way up. The bars wrap, so offsets are measured.
+   */
+  const ONE_COLUMN = "(max-width: 959px)";
+  let tabsAway = false;
   function layoutSticky() {
     const top = $(".topbar"), now = $("#now"), acts = $("#actTabs");
     if (!top || !now) return;
     const tabs = top.querySelector(".views");
-    if (!matchMedia("(max-width: 860px)").matches || !tabs) {
+    if (!matchMedia(ONE_COLUMN).matches || !tabs) {
       top.style.top = now.style.top = "";
       if (acts) acts.style.top = "";
       return;
     }
-    const tabsH = tabs.offsetHeight;
+    const tabsH = tabsAway ? 0 : tabs.offsetHeight;
     top.style.top = -(top.offsetHeight - tabsH) + "px";
     now.style.top = tabsH + "px";
     if (acts) acts.style.top = tabsH + now.offsetHeight + "px";
   }
   window.addEventListener("resize", () => layoutSticky());
+  let lastScrollY = 0, autoScrollUntil = 0;
+  window.addEventListener("scroll", () => {
+    if (!matchMedia(ONE_COLUMN).matches) return;
+    const y = window.scrollY, dy = y - lastScrollY;
+    if (Math.abs(dy) < 6) return;
+    lastScrollY = y;
+    if (Date.now() < autoScrollUntil) return;   // the app moved to the current zone; only the player's scrolling hides the tabs
+    const away = dy > 0 && y > $(".topbar").offsetHeight;
+    if (away !== tabsAway) { tabsAway = away; layoutSticky(); }
+  }, { passive: true });
   // Recalc after fonts/layout settle when focus mode toggles.
   const _layoutStickySoon = () => requestAnimationFrame(() => requestAnimationFrame(layoutSticky));
 
-  /** Big current-step block: objective, hints (unless hidden) and key route info (unless hidden). */
-  function nowStepHTML(c, s) {
+  /**
+   * Current step in the run panel: the objective and one hint, and "+N more" for the rest (gear checkpoints, other hints,
+   * route info, class notes and the zone's other open steps), which the checklist shows in full anyway.
+   */
+  function nowStepHTML(c, s, others) {
     if (!s) return "";
-    const hints = stepHints(c, s), info = [];
-    if (s.rewards.length) info.push(s.rewards.map(r => `<span class="reward${r.must ? " must" : ""}">${r.must ? "★ " : ""}${esc(r.label)}</span>`).join(""));
-    if (s.waypoint) info.push(`<span class="k">Waypoint</span> ${esc(s.waypoint === true ? "Yes" : s.waypoint)}`);
-    if (s.skip.length) info.push(`<span class="k">Skip</span> ${esc(s.skip.join("; "))}`);
-    if (s.warning) info.push(`<span class="warn">${Icons.icon("warn")} ${esc(s.warning)}</span>`);
-    const more = hints.length > 1 ? hints.length - 1 : 0;
+    const s0 = state.settings, hints = s0.hideHints ? [] : stepHints(c, s), info = [];
+    if (!s0.hideExtra) {
+      if (s.rewards.length) info.push(s.rewards.map(r => `<span class="reward${r.must ? " must" : ""}">${r.must ? "★ " : ""}${esc(r.label)}</span>`).join(""));
+      if (s.waypoint) info.push(`<span class="k">Waypoint</span> ${esc(s.waypoint === true ? "Yes" : s.waypoint)}`);
+      if (s.skip.length) info.push(`<span class="k">Skip</span> ${esc(s.skip.join("; "))}`);
+      if (s.warning) info.push(`<span class="warn">${Icons.icon("warn")} ${esc(s.warning)}</span>`);
+    }
+    if (s0.focusMode) info.length = 0;
+    const notes = s0.hideHints ? [] : classNotesFor(c.classId, s.id);
+    const shownOthers = s0.focusMode ? [] : others;
+    const gear = s0.hideHints || s0.hideExtra ? "" : gearNowHTML(c.classId, s.id);
+    const more = Math.max(0, hints.length - 1) + (info.length ? 1 : 0) + notes.length + shownOthers.length + (gear ? 1 : 0);
+    const cr = currentCustom(c), note = cr && cr.notes && cr.notes[s.id];
     return `<div class="now-step">
       <label class="now-objective"><input type="checkbox" data-action="step" data-id="${esc(s.id)}"${c.done[s.id] ? " checked" : ""}>
         <span>${esc(s.objective)}${s.level ? ` <span class="lvl">lvl ${esc(s.level)}</span>` : ""}${s.optional ? ' <span class="optional">optional</span>' : ""}</span></label>
-      ${hints.length ? `<ul class="now-hints"><li>${esc(hints[0])}</li></ul>
-        ${more ? `<details class="now-more-tips"><summary>+${more} more tip${more > 1 ? "s" : ""}</summary>
-          <ul class="now-hints">${hints.slice(1).map(h => `<li>${esc(h)}</li>`).join("")}</ul></details>` : ""}` : ""}
-      ${(() => { const cr = currentCustom(c); return cr && cr.notes && cr.notes[s.id]
-        ? `<div class="custom-note now-custom">${esc(cr.notes[s.id])}</div>` : ""; })()}
-      ${info.length ? `<div class="now-info">${info.map(x => `<div>${x}</div>`).join("")}</div>` : ""}
+      ${hints.length ? `<ul class="now-hints"><li>${esc(hints[0])}</li></ul>` : ""}
+      ${note ? `<div class="custom-note now-custom">${esc(note)}</div>` : ""}
+      ${more ? `<details class="now-more-box" data-keep="now-more"${openDetails.has("now-more") ? " open" : ""}><summary>+${more} more</summary>
+        ${gear}
+        ${hints.length > 1 ? `<ul class="now-hints">${hints.slice(1).map(h => `<li>${esc(h)}</li>`).join("")}</ul>` : ""}
+        ${info.length ? `<div class="now-info">${info.map(x => `<div>${x}</div>`).join("")}</div>` : ""}
+        ${notes.length ? `<div class="now-class">${classNoteHTML(c, s.id)}</div>` : ""}
+        ${shownOthers.length ? `<ul class="now-more">${shownOthers.map(x => `<li><label><input type="checkbox" data-action="step" data-id="${esc(x.id)}"${c.done[x.id] ? " checked" : ""}>
+          ${esc(x.objective)}${x.optional ? ' <span class="optional">optional</span>' : ""}</label></li>`).join("")}</ul>` : ""}
+      </details>` : ""}
     </div>`;
   }
 
@@ -289,16 +321,10 @@
           const cr = currentCustom(c);
           if (cr) bits.push(`<span class="custom-pill" title="Custom route — PB is separate per variant">${esc(cr.name)}</span>`);
           return bits.length ? bits.join(" · ") + " · " : "";
-        })()}${esc(cur.section.name)} · zone ${posInAct}/${inAct.length}
+        })()}${esc(actShort(cur.section))} · zone ${posInAct}/${inAct.length}
           <span class="now-overall" title="Zone ${cur.index + 1} of ${Run.order(c).length} on this route">(${cur.index + 1}/${Run.order(c).length})</span>${paused ? ' · <span class="behind">PAUSED</span>' : ""}</div>
         <div class="now-zone">${esc(z.name)}</div>
-        ${(() => {
-          const info = Levels.zoneLevelInfo(z), st = Levels.status(Levels.charLevel(c), info);
-          if (!info) return "";
-          if (!st) return `<div class="now-lvl muted small lvl-cue">Route lvl ${esc(info.label)}</div>`;
-          if (st.kind === "ok") return `<div class="now-lvl muted small lvl-cue" title="${esc(st.detail)}">${esc(st.text)}</div>`;
-          return `<div class="now-lvl lvl-cue ${st.kind}" title="${esc(st.detail)}">${esc(st.text)}</div>`;
-        })()}
+        ${levelCueHTML(c, z)}
         <div class="now-clock">
           <div class="big mono" data-timer="zone:${esc(z.id)}">${fmt(Run.zoneMs(c, z.id))}</div>
           <div class="now-run mono">Run ${sumTimer("total", "run", Run.totalMs(c))}
@@ -316,14 +342,42 @@
         </div>
       </div>
       <div class="now-detail">
-        ${step ? gearNowHTML(c.classId, step.id) : ""}
-        ${nowStepHTML(c, step)}
-        ${step ? `<div class="now-class">${classNoteHTML(c, step.id)}</div>` : ""}
-        ${others.length ? `<ul class="now-more">${others.map(x => `<li><label><input type="checkbox" data-action="step" data-id="${esc(x.id)}"${c.done[x.id] ? " checked" : ""}>
-          ${esc(x.objective)}${x.optional ? ' <span class="optional">optional</span>' : ""}</label></li>`).join("")}</ul>` : ""}
-        <div class="now-next">${nextStep ? `<div><span class="k">Next step</span> ${esc(nextStep.objective)}</div>` : ""}
-          ${next ? `<div><span class="k">Next zone</span> ${esc(next.zone.name)}${next.section !== cur.section ? ` (${esc(next.section.name)})` : ""}</div>` : ""}</div>
-      </div>`;
+        ${nowStepHTML(c, step, others)}
+      </div>
+      ${nextStep || next ? `<div class="now-next">${nextStep ? `<div><span class="k">Next step</span> ${esc(nextStep.objective)}</div>` : ""}
+        ${next ? `<div><span class="k">Next zone</span> ${esc(next.zone.name)}${next.section !== cur.section ? ` (${esc(next.section.name)})` : ""}</div>` : ""}</div>` : ""}`;
+    if (ghostPopOpen) wireGhostPop();
+  }
+
+  /** Level cue for the zone with a −/+ stepper, and the "use this level-up?" prompt from Client.txt. */
+  function levelCueHTML(c, z) {
+    const info = Levels.zoneLevelInfo(z), lvl = Levels.charLevel(c), st = Levels.status(lvl, info);
+    const stepper = `<span class="lvl-step"><button type="button" class="tiny" data-action="lvl-step" data-d="-1" aria-label="Level down"${lvl === 1 ? " disabled" : ""}>−</button>`
+      + `<button type="button" class="tiny" data-action="lvl-step" data-d="1" aria-label="Level up"${lvl >= 100 ? " disabled" : ""}>+</button></span>`;
+    const seen = levelSeen && levelSeen.charId === c.id ? `<div class="lvl-seen lvl-cue" role="status">Level-up seen for <b>${esc(levelSeen.name)}</b> (lvl ${esc(levelSeen.level)}).
+      <button type="button" class="link-btn" data-action="lvl-link">Use as this character</button>
+      <button type="button" class="link-btn" data-action="lvl-ignore">Ignore</button></div>` : "";
+    const you = lvl ? `<span class="mono" title="Your level${c.level != null ? "" : " (from PoB)"}">Lvl ${esc(lvl)}</span>` : "";
+    let cue;
+    if (!info) cue = `<div class="now-lvl muted small lvl-cue">${you || "Level"} ${stepper}</div>`;
+    else if (!st) cue = `<div class="now-lvl muted small lvl-cue">Route lvl ${esc(info.label)} ${stepper}</div>`;
+    else cue = `<div class="now-lvl lvl-cue${st.kind === "ok" ? " muted small" : " " + st.kind}" title="${esc(st.detail)}">${you} <span>· ${st.kind === "ok" ? "zone " : ""}${esc(st.text)}</span> ${stepper}</div>`;
+    return cue + seen;
+  }
+
+  /** Client.txt "Name (Class) is now level N": only the character linked by in-game name is updated. */
+  function onLevelUp(ev) {
+    const name = ev && ev.name, level = ev && ev.level;
+    if (typeof name !== "string" || !/^[A-Za-z0-9_]{3,23}$/.test(name) || !Number.isInteger(level) || level < 1 || level > 100) return;
+    const c = char();
+    if (c.ign && c.ign === name) {
+      if (c.level === level) return;
+      c.level = level; levelSeen = null; commit();
+      toast(`${name} is level ${level}`);
+    } else if (!c.ign) {
+      levelSeen = { charId: c.id, name, level };
+      renderNow();
+    }
   }
 
   /** The selected act's zones with now / PB / Δ, the act total vs PB. Scrolls inside the panel. */
@@ -340,7 +394,7 @@
     });
     const d = segDeltaVsPb(c, "section", sec.id), pbSec = p && p.sections[sec.id];
     $("#actSplits").classList.toggle("open", actSplitsOpen);
-    $("#actSplits").innerHTML = `<header><h2>${esc(sec.name)} splits</h2>
+    $("#actSplits").innerHTML = `<header><h2>${esc(actShort(sec))} splits</h2>
         <button type="button" class="link-btn act-splits-toggle" data-action="act-splits-toggle" aria-expanded="${actSplitsOpen}" aria-controls="actSplitsTable">${actSplitsOpen ? "Current zone only" : `All ${zones.length} zones`}</button></header>
       <div class="act-splits-body" role="region" tabindex="0" aria-label="Act splits table"><table class="seg" id="actSplitsTable"><thead><tr><th>Zone</th><th>Now</th><th>PB</th><th>Δ</th></tr></thead>
       <tbody>${rows.join("")}</tbody>
@@ -371,12 +425,17 @@
     const prac = Run.route(c).practice;
     const scopeGroups = new Set(Run.order(c).map(o => o.group));
     const scopeSecs = new Set(Run.order(c).map(o => o.section.id));
-    const rows = [];
-    DATA.groups.filter(g => !prac || scopeGroups.has(g.id)).forEach(g => {
-      const secs = DATA.sections.filter(s => s.group === g.id && (!prac || scopeSecs.has(s.id)));
-      rows.push(row(g.name, "group", g.id, Run.groupMs(c, g.id), p && p.groups[g.id], bests["group:" + g.id], "grp"));
-      if (secs.length > 1) secs.forEach(s =>
-        rows.push(row("└ " + s.name.replace(/^.*· /, ""), "section", s.id, Run.sectionMs(c, s.id), p && p.sections[s.id], bests["section:" + s.id], "sub")));
+    // Route order, as in the act strip: a split interlude lists each part where it's played, then its total after the last part.
+    const rows = [], order = actList(c).filter(s => !prac || scopeSecs.has(s.id));
+    const groupRow = g => row(g.name + (DATA.sections.filter(s => s.group === g.id).length > 1 ? " total" : ""),
+      "group", g.id, Run.groupMs(c, g.id), p && p.groups[g.id], bests["group:" + g.id], "grp");
+    order.forEach(s => {
+      const g = DATA.groups.find(x => x.id === s.group);
+      if (!g || (prac && !scopeGroups.has(g.id))) return;
+      const parts = order.filter(x => x.group === g.id);
+      if (DATA.sections.filter(x => x.group === g.id).length === 1) { rows.push(groupRow(g)); return; }
+      rows.push(row(actShort(s), "section", s.id, Run.sectionMs(c, s.id), p && p.sections[s.id], bests["section:" + s.id], "sub"));
+      if (parts[parts.length - 1] === s) rows.push(groupRow(g));
     });
     const actsMs = DATA.groups.filter(g => g.kind === "act" && (!prac || scopeGroups.has(g.id))).reduce((a, g) => a + Run.groupMs(c, g.id), 0);
     const intMs = DATA.groups.filter(g => g.kind === "interlude" && (!prac || scopeGroups.has(g.id))).reduce((a, g) => a + Run.groupMs(c, g.id), 0);
@@ -386,7 +445,7 @@
     $("#totals").innerHTML = `<h2>Run &amp; segments${prac ? " <span class=\"practice-pill\">practice</span>" : ""}</h2>
       <div>${done} / ${steps.length} steps · ${Run.order(c).filter(o => c.split[o.zone.id]).length}/${Run.order(c).length} zones split${prac ? " · <span class=\"muted\">full-campaign PB untouched</span>" : ""}</div>
       <div class="progress"><div style="width:${(100 * done / Math.max(1, steps.length)).toFixed(1)}%"></div></div>
-      <table class="seg"><thead><tr><th></th><th>Now</th><th>Δ</th><th>PB</th><th>Best</th></tr></thead><tbody>
+      <table class="seg"><thead><tr><th><span class="sr-only">Segment</span></th><th>Now</th><th>Δ</th><th>PB</th><th>Best</th></tr></thead><tbody>
       ${rows.join("")}
       ${prac ? "" : `<tr class="sum"><th>Acts</th><td><span class="timer" data-sum="acts:">${fmt(actsMs)}</span></td><td></td><td></td><td></td></tr>
       <tr class="sum"><th>Interludes</th><td><span class="timer" data-sum="interludes:">${fmt(intMs)}</span></td><td></td><td></td><td></td></tr>`}
@@ -422,17 +481,52 @@
   const deltaSpan = (ms, extra = "") => ms === null || ms === undefined
     ? `<span class="muted">–</span>` : `<span class="mono ${deltaClass(ms)}"${extra}>${fmtDelta(ms)}</span>`;
 
-  /** Short line for the now bar: where the ghost is and the running delta. */
-  function ghostNowHTML(c, now = Date.now()) {
-    if (!ghostOn()) return "";
+  /** Short line for the run panel: where the ghost is and the running delta. tick() refreshes it. */
+  function ghostLineHTML(c, now = Date.now()) {
     const g = currentGhost(c);
-    if (!g) return `<div class="now-ghost muted" data-ghost-now>Ghost: no comparison yet</div>`;
+    if (!g) return `<span class="muted" data-ghost-now>Pick a ghost on Runs</span>`;
     const order = Run.order(c), cmp = Ghost.compare(order, ghostMine(c, now), g);
     const pos = Ghost.position(order, g, Run.totalMs(c, now));
-    const where = !pos ? "" : pos.finished ? "Ghost finished" : `Ghost in <b>${esc(zoneName(pos.zid))}</b>`;
+    const where = !pos ? "Ghost ready" : pos.finished ? "Ghost finished" : `Ghost in <b>${esc(zoneName(pos.zid))}</b>`;
     // Racing the PB: the run delta beside the timer already is the ghost delta, so don't repeat it.
     const showDelta = g.source !== "pb" && cmp.cum !== null;
-    return `<div class="now-ghost" data-ghost-now>${where}${showDelta ? ` <span class="ghost-delta">${deltaSpan(cmp.cum)} ${aheadWord(cmp.cum)}</span>` : ""}</div>`;
+    return `<span data-ghost-now>${where}${showDelta ? ` <span class="ghost-delta">${deltaSpan(cmp.cum)} ${aheadWord(cmp.cum)}</span>` : ""}</span>`;
+  }
+
+  /** The ghost line is a button: it opens a small picker, with the full ghost panel one click away on Runs. */
+  function ghostNowHTML(c) {
+    if (!ghostOn()) return "";
+    const pop = ghostPopOpen ? `<div class="ghost-pop" id="ghostPop" role="dialog" aria-label="Ghost race">
+        <label>Race against <select id="ghostPickNow">${ghostOptionsHTML(c)}</select></label>
+        <div class="row"><button type="button" class="link-btn" data-action="ghost-more">More on Runs</button>
+          <button type="button" class="tiny" data-action="ghost-pop" aria-label="Close ghost picker">Close</button></div></div>` : "";
+    return `<div class="now-ghost-wrap"><button type="button" class="now-ghost" data-action="ghost-pop" aria-expanded="${ghostPopOpen}"
+      aria-haspopup="dialog" title="Change the ghost">${ghostLineHTML(c)}</button>${pop}</div>`;
+  }
+  function setGhostPop(open, refocus = true) {
+    if (ghostPopOpen === open) return;
+    ghostPopOpen = open;
+    renderNow();
+    if (open) { const sel = $("#ghostPickNow"); if (sel) sel.focus(); }
+    else if (refocus) { const b = $(".now-ghost"); if (b) b.focus(); }
+  }
+  function wireGhostPop() {
+    const pop = $("#ghostPop");
+    if (pop) pop.addEventListener("keydown", ev => { if (ev.key === "Escape") { ev.stopPropagation(); setGhostPop(false); } });
+  }
+  document.addEventListener("pointerdown", ev => {
+    if (ghostPopOpen && !ev.target.closest(".now-ghost-wrap")) setGhostPop(false, false);
+  });
+
+  /** Ghost choices: PB, best segments, past runs and imported ghosts. Shared by the Runs panel and the run panel picker. */
+  function ghostOptionsHTML(c) {
+    const st = ghostState(c), p = Run.pb(c), runs = Run.runsOf(c).slice(0, 30);
+    const opt = (v, label, dis) => `<option value="${esc(v)}"${st.pick === v ? " selected" : ""}${dis ? " disabled" : ""}>${esc(label)}</option>`;
+    return `${opt("pb", p ? `Personal best (${fmt(p.total)})` : "Personal best (none yet)", !p)}
+        ${opt("sob", "Best segments")}
+        ${runs.length ? `<optgroup label="Past runs">${runs.map(h => opt("run:" + h.id,
+          `${new Date(h.finished).toLocaleDateString()} · ${fmt(h.total)}${h.complete ? "" : ` · reset ${h.splitsDone}/${h.zonesTotal}`}`)).join("")}</optgroup>` : ""}
+        ${st.imported.length ? `<optgroup label="Imported">${st.imported.map(x => opt("imp:" + x.id, `${x.name} · ${fmt(x.total)}`)).join("")}</optgroup>` : ""}`;
   }
 
   /** Live part of the ghost panel; re-rendered by tick() only when it changes. */
@@ -459,18 +553,10 @@
     if (!el) return;
     el.hidden = !ghostOn();
     if (!ghostOn()) { el.innerHTML = ""; return; }
-    const st = ghostState(c), p = Run.pb(c), g = currentGhost(c);
-    const runs = Run.runsOf(c).slice(0, 30);
-    const opt = (v, label, dis) => `<option value="${esc(v)}"${st.pick === v ? " selected" : ""}${dis ? " disabled" : ""}>${esc(label)}</option>`;
+    const st = ghostState(c), g = currentGhost(c);
     const pick = (g && g.source === "pb" && st.pick !== "pb") ? "pb" : st.pick;
     el.innerHTML = `<h2>Ghost race</h2>
-      <label class="ghost-pick">Race against <select id="ghostPick">
-        ${opt("pb", p ? `Personal best (${fmt(p.total)})` : "Personal best (none yet)", !p)}
-        ${opt("sob", "Best segments")}
-        ${runs.length ? `<optgroup label="Past runs">${runs.map(h => opt("run:" + h.id,
-          `${new Date(h.finished).toLocaleDateString()} · ${fmt(h.total)}${h.complete ? "" : ` · reset ${h.splitsDone}/${h.zonesTotal}`}`)).join("")}</optgroup>` : ""}
-        ${st.imported.length ? `<optgroup label="Imported">${st.imported.map(x => opt("imp:" + x.id, `${x.name} · ${fmt(x.total)}`)).join("")}</optgroup>` : ""}
-      </select></label>
+      <label class="ghost-pick">Race against <select id="ghostPick">${ghostOptionsHTML(c)}</select></label>
       ${pick !== st.pick ? `<div class="muted small">That run is gone; racing your PB instead.</div>` : ""}
       <div id="ghostLive">${ghostLiveHTML(c)}</div>
       <details class="ghost-io" data-keep="ghost-io"${openDetails.has("ghost-io") ? " open" : ""}><summary>Import or share a ghost</summary>
@@ -553,7 +639,6 @@
         <span class="muted">${isPracticeRun(h) ? `<span title="Practice">${Icons.icon("target")}</span> ` : ""}${(h.variant || "normal").startsWith("fast") ? `<span title="Speedrun route">${Icons.icon("bolt")}</span>` : ""}${h.complete ? (hp && h.id !== hp.id ? `<span class="behind">${fmtDelta(h.total - hp.total)}</span>` : "PB") : `reset ${h.splitsDone}/${h.zonesTotal}`}</span>
         <span class="muted small">${new Date(h.finished).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</span>
         <button class="icon danger" data-action="run-delete" data-id="${esc(h.id)}" title="Delete run" aria-label="Delete run">${Icons.icon("x")}</button></li>`; }).join("")}</ol>` : `<div class="empty">No runs in this filter.</div>`}
-      <div class="row"><a href="#stats" class="small">${Icons.icon("chart")} Run analytics &amp; CSV</a></div>
       ${filtered.length > runs.length ? `<div class="muted small">+${filtered.length - runs.length} older in this filter</div>` : ""}`;
   }
 
@@ -580,6 +665,11 @@
           const src = c.level != null ? "manual" : "PoB";
           return `Using ${eff} (${src})${w != null ? ` · XP window ±${w}` : ""}`;
         })()}</span>
+      </div>
+      <div class="char-level"><label for="charIgn">In-game name</label>
+        <input type="text" id="charIgn" maxlength="23" size="16" spellcheck="false" autocomplete="off" value="${esc(c.ign || "")}"
+          placeholder="optional" title="The character's name in PoE2. The desktop app then reads its level-ups from Client.txt.">
+        <span class="muted small">${window.splitstoneDesktop ? "Level-ups for this name in Client.txt set the level." : "Used by the desktop app to read level-ups from Client.txt."}</span>
       </div>
       ${b ? `<dl class="kv">
         <dt>Class</dt><dd>${esc(b.className)}</dd>
@@ -688,7 +778,11 @@
     for (const [k, v] of Object.entries(saved)) if (DATA.sections.some(x => x.id === v)) actPick[k] = v;
   } catch (_) {}
   function saveActPicks() { try { localStorage.setItem(ACT_UI_KEY, JSON.stringify({ acts: actPick })); } catch (_) {} }
-  const actShort = sec => sec.name.replace(" · part ", " · ");
+  /** "Interlude 2 (1/2)": parts of a split interlude say which part of how many. */
+  function actShort(sec) {
+    const parts = DATA.sections.filter(x => x.group === sec.group);
+    return parts.length > 1 ? `${GROUP_NAME[sec.group] || sec.name} (${parts.indexOf(sec) + 1}/${parts.length})` : sec.name;
+  }
   /** Sections in the order this route plays them, so interlude parts sit where they're played. */
   function actList(c) {
     const seen = new Set(), out = [];
@@ -716,8 +810,10 @@
   }
   const ACT_STATE_ICON = { done: "check", current: "play", upcoming: "circle" };
   function actTabsHTML(c, sel) {
-    const cur = Run.current(c);
-    const tabs = actList(c).map(sec => {
+    const cur = Run.current(c), acts = actList(c), prac = Run.route(c).practice;
+    // One act or zone to practise: a label, not a lone tab that reads as a button.
+    if (acts.length === 1) return `<div class="act-single">${prac ? `Practice: ${esc(Run.practiceLabel(prac.kind, prac.id))}` : esc(actShort(sel))}</div>`;
+    const tabs = acts.map(sec => {
       const zones = actZones(c, sec);
       const st = cur && cur.section.id === sec.id ? "current" : zones.length && zones.every(z => c.split[z.id]) ? "done" : "upcoming";
       const ms = Run.sectionMs(c, sec.id), d = segDeltaVsPb(c, "section", sec.id);
@@ -738,26 +834,53 @@
     if (l < strip.scrollLeft) strip.scrollLeft = l - 8;
     else if (r > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = r - strip.clientWidth + 8;
   }
+  /** Fades whichever edge of the act strip has more tabs past it. */
+  function updateActFade() {
+    const strip = $("#actTabs .act-tabs");
+    if (!strip) return;
+    const max = strip.scrollWidth - strip.clientWidth;
+    strip.classList.toggle("more-l", max > 1 && strip.scrollLeft > 1);
+    strip.classList.toggle("more-r", max > 1 && strip.scrollLeft < max - 1);
+  }
+  window.addEventListener("resize", updateActFade);
 
   function renderCampaign() {
     const c = char(), cur = Run.current(c);
     const r = Run.route(c), sec = selectedAct(c);
     $("#actTabs").innerHTML = actTabsHTML(c, sec);
     revealActTab(sec.id);
+    const strip = $("#actTabs .act-tabs");
+    if (strip) { strip.addEventListener("scroll", updateActFade, { passive: true }); updateActFade(); }
+    const single = !strip;
     const zones = actZones(c, sec);
     const steps = zones.flatMap(z => visibleSteps(c, z)), done = steps.filter(s => c.done[s.id]).length;
     const isCur = cur && cur.section.id === sec.id;
-    const actPanel = `<section class="section practice-scope${isCur ? " current" : ""}" data-section="${esc(sec.id)}" id="actPanel" role="tabpanel" aria-labelledby="act-tab-${esc(sec.id)}">
+    const actPanel = `<section class="section practice-scope${isCur ? " current" : ""}" data-section="${esc(sec.id)}" id="actPanel"
+        ${single ? `aria-label="${esc(actShort(sec))}"` : `role="tabpanel" aria-labelledby="act-tab-${esc(sec.id)}"`}>
         <header>
-          <h2>${esc(sec.name)}<small>${esc(sec.region || "")}${sec.levels ? " · lvl " + esc(sec.levels) : ""}</small></h2>
-          <span class="badge">${done}/${steps.length}</span>
+          <h2>${esc(actShort(sec))}<small>${esc(sec.region || "")}${sec.levels ? " · lvl " + esc(sec.levels) : ""}</small></h2>
+          <span class="badge" title="Steps done in this act">${done}/${steps.length} steps</span>
           ${!r.practice ? `<button type="button" class="practice-btn" data-action="practice-group" data-id="${esc(sec.group)}" title="Practice this act / interlude">Practice</button>` : ""}
           <span class="tw">${sumTimer("section", sec.id, Run.sectionMs(c, sec.id))}</span>
         </header>
         <div class="zones">${zones.map(z => zoneHTML(z, c, cur)).join("") || `<div class="empty">No zones of ${esc(sec.name)} on this route.</div>`}</div></section>`;
 
     const v = DATA.variants[r.mode] || {};
+    // During a run the route rarely changes: one line, with Edit to open the full bar.
+    const running = Run.isStarted(c) && !!cur;
+    if (running && !routeEditOpen) {
+      const cr = currentCustom(c), cls = classMeta(c.classId);
+      const line = [v.label, r.practice ? `Practice · ${Run.practiceLabel(r.practice.kind, r.practice.id)}` : "Full campaign",
+        cr && `Custom · ${cr.name}`, r.requiredOnly && "Required steps only", cls && cls.name].filter(Boolean).join(" · ");
+      $("#campaign").innerHTML = `<section class="card route-bar route-summary" aria-label="Route">
+        <span class="route-line" title="${esc(line)}">${esc(line)}</span><span data-as-pill>${statusPill()}</span>
+        ${lastAuto ? `<span class="muted small" data-as-last>${esc(lastAuto)}</span>` : ""}
+        ${r.practice ? `<button type="button" data-action="practice-exit" class="practice-exit">Exit practice</button>` : ""}
+        <button type="button" class="link-btn" data-action="route-edit" aria-expanded="false">Edit ▸</button></section>` + actPanel;
+      return;
+    }
     const routeBar = `<section class="card route-bar" aria-label="Route">
+      ${running ? `<button type="button" class="link-btn route-done" data-action="route-edit" aria-expanded="true">Done ▴</button>` : ""}
       <label>Class <select id="routeClass" title="Basic class notes">
         <option value="">None</option>
         ${(CLASS_NOTES.classes || []).map(x =>
@@ -1068,7 +1191,7 @@
     }
     if (ghostOn() && Run.runningZone(c)) {
       const gn = document.querySelector("[data-ghost-now]");
-      if (gn) { const h = ghostNowHTML(c, now); if (gn.outerHTML !== h) gn.outerHTML = h; }
+      if (gn) { const h = ghostLineHTML(c, now); if (gn.outerHTML !== h) gn.outerHTML = h; }
       const gl = $("#ghostLive");
       if (gl) { const h = ghostLiveHTML(c, now); if (gl.innerHTML !== h) gl.innerHTML = h; }
     }
@@ -1085,10 +1208,22 @@
     if (firstRunVisible()) { col.scrollTop = 0; window.scrollTo(0, 0); return; }
     if (!el) return;
     if (col.scrollHeight > col.clientHeight && getComputedStyle(col).overflowY === "auto") {
-      const top = el.getBoundingClientRect().top - col.getBoundingClientRect().top + col.scrollTop;
-      const head = el.closest(".section").querySelector("header").offsetHeight;
-      col.scrollTo({ top: Math.max(0, top - Math.max(head + 12, (col.clientHeight - el.offsetHeight) / 3)), behavior });
-    } else el.scrollIntoView({ behavior, block: "center" });
+      const y = n => n.getBoundingClientRect().top - col.getBoundingClientRect().top + col.scrollTop;
+      const sec = el.closest(".section"), head = sec.querySelector("header").offsetHeight;
+      const top = y(el), want = top - Math.max(head + 12, (col.clientHeight - el.offsetHeight) / 3);
+      let to;
+      // Close enough to the top that the whole zone fits: show the route bar whole instead of cutting it.
+      if (want <= y(sec) || top + el.offsetHeight <= col.clientHeight) to = 0;
+      else {
+        // Otherwise land on a zone boundary, so the row at the top sits fully under the sticky act header.
+        const edge = [...sec.querySelectorAll(".zone")].map(z => y(z) - head).filter(t => t <= want).pop();
+        to = edge === undefined ? want : edge;
+      }
+      col.scrollTo({ top: Math.max(0, Math.round(to)), behavior });
+    } else {
+      autoScrollUntil = Date.now() + 1000;
+      el.scrollIntoView({ behavior, block: "center" });
+    }
   }
   /** C: back to the current act, then its current zone. */
   function jumpToCurrent() {
@@ -1455,6 +1590,30 @@
       const btn = document.querySelector(`.zone-toggle[data-id="${cssEsc(id)}"]`);
       if (btn) btn.focus();
     },
+    "ghost-pop"() { setGhostPop(!ghostPopOpen); },
+    "ghost-more"() {
+      ghostPopOpen = false;
+      state.settings.view = "runs"; commit(); window.scrollTo({ top: 0 });
+      const sel = $("#ghostPick"); if (sel) { sel.scrollIntoView({ block: "nearest" }); sel.focus(); }
+    },
+    "lvl-step"(el) {
+      const c = char(), d = Number(el.dataset.d), z = Run.current(c) && Run.current(c).zone;
+      const lvl = Levels.charLevel(c), info = z && Levels.zoneLevelInfo(z);
+      c.level = Math.min(100, Math.max(1, lvl ? lvl + d : (info && info.recLow) || 1));
+      commit();
+      const b = document.querySelector(`[data-action="lvl-step"][data-d="${d}"]`); if (b && !b.disabled) b.focus();
+    },
+    "lvl-link"() {
+      const c = char();
+      if (!levelSeen || levelSeen.charId !== c.id) return;
+      c.ign = levelSeen.name; c.level = levelSeen.level; levelSeen = null; commit();
+      toast(`Linked to ${c.ign}: level-ups update this character`);
+    },
+    "lvl-ignore"() { levelSeen = null; renderNow(); },
+    "route-edit"() {
+      routeEditOpen = !routeEditOpen; renderCampaign();
+      const b = $("#campaign [data-action=\"route-edit\"]"); if (b) b.focus();
+    },
     "act-splits-toggle"() { actSplitsOpen = !actSplitsOpen; renderActSplits(); $("#actSplits .act-splits-toggle").focus(); },
     async "storage-overwrite"() {
       const msg = Storage2.status.blocked === "unreadable"
@@ -1577,6 +1736,13 @@
   };
 
   document.addEventListener("click", ev => {
+    // A folded zone opens from anywhere on its row; the name stays a button for keyboard users.
+    const fold = ev.target.closest(".zone.folded .zone-head");
+    if (fold && !ev.target.closest("button, a, input, select, label")) {
+      const t = fold.querySelector(".zone-toggle");
+      if (t) actions["zone-toggle"](t);
+      return;
+    }
     const el = ev.target.closest("[data-action]");
     if (!el || el.dataset.action === "step" || el.dataset.action === "custom-hide-step") return;
     const fn = actions[el.dataset.action];
@@ -1652,6 +1818,13 @@
       historyFilter = ["campaign", "practice", "all"].includes(el.value) ? el.value : "campaign";
       renderHistory(); renderStats();
     }
+    else if (el.id === "charIgn") {
+      const v = el.value.trim(), c = char();
+      if (v && !/^[A-Za-z0-9_]{3,23}$/.test(v)) { toast("Names are 3–23 letters, digits or _"); render(); return; }
+      c.ign = v || null;
+      if (levelSeen && levelSeen.charId === c.id && levelSeen.name === c.ign) { c.level = levelSeen.level; levelSeen = null; }
+      commit();
+    }
     else if (el.id === "charLevel") {
       const raw = el.value.trim();
       const c = char();
@@ -1700,6 +1873,12 @@
     }
     else if (el.id === "ghostModeSetting") { state.settings.ghostMode = el.checked; commit(); toast(el.checked ? "Ghost race on" : "Ghost race off"); }
     else if (el.id === "ghostPick") { ghostState(char()).pick = el.value; commit(); }
+    else if (el.id === "ghostPickNow") {
+      ghostState(char()).pick = el.value; commit();
+      const g = currentGhost(char());
+      if (g) toast(`Racing ${g.name || "the ghost"}`);
+      $("#ghostPickNow") && $("#ghostPickNow").focus();
+    }
     else if (el.id === "ghostFile" && el.files[0]) {
       const f = el.files[0]; el.value = "";
       if (f.size > Ghost.MAX_JSON_CHARS) { toast("File is too large to import as a ghost"); return; }
@@ -1966,6 +2145,7 @@
       } else if (m.action === "finish") doSplit();
       else document.querySelectorAll("[data-as-last]").forEach(el => { el.textContent = lastAuto; });
     },
+    onLevel: onLevelUp,
     onHotkey(action) {
       const map = {
         split: doSplit, undo: actions.undo, pause: actions.pause,

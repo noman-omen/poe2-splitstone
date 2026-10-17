@@ -7,6 +7,9 @@
   "author": "Splitstone <noman-omen@users.noreply.github.com>",
   "license": "MIT",
   "main": "src/main.js",
+  "engines": {
+    "node": ">=22"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/noman-omen/poe2-splitstone.git"

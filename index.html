@@ -70,15 +70,16 @@
       <button data-action="help" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
     </div>
     <nav class="views" role="tablist" aria-label="View">
-      <button role="tab" data-action="view" data-view="campaign" id="tab-campaign">Campaign</button>
-      <button role="tab" data-action="view" data-view="runs" id="tab-runs">Runs</button>
-      <button role="tab" data-action="view" data-view="character" id="tab-character">Character</button>
-      <button role="tab" data-action="view" data-view="endgame" id="tab-endgame">Endgame</button>
-      <button role="tab" data-action="view" data-view="tools" id="tab-tools">Tools</button>
+      <button role="tab" data-action="view" data-view="campaign" id="tab-campaign" aria-controls="viewCampaign">Campaign</button>
+      <button role="tab" data-action="view" data-view="runs" id="tab-runs" aria-controls="viewRuns">Runs</button>
+      <button role="tab" data-action="view" data-view="character" id="tab-character" aria-controls="viewCharacter">Character</button>
+      <button role="tab" data-action="view" data-view="endgame" id="tab-endgame" aria-controls="viewEndgame">Endgame</button>
+      <button role="tab" data-action="view" data-view="tools" id="tab-tools" aria-controls="viewTools">Tools</button>
     </nav>
   </header>
 
 
+  <main id="views">
   <div id="viewCampaign" class="campaign-view" role="tabpanel" aria-labelledby="tab-campaign">
     <aside id="play" class="play" aria-label="Run">
       <section id="now" class="now" aria-label="Current zone"></section>
@@ -89,12 +90,12 @@
       <div id="actTabs" class="act-bar"></div>
       <div id="checklistScroll" class="checklist-scroll">
         <div id="firstRun" class="first-run-slot"></div>
-        <main id="campaign"></main>
+        <div id="campaign"></div>
       </div>
     </div>
   </div>
 
-  <main id="viewRuns" class="view-page runs-page" role="tabpanel" aria-labelledby="tab-runs" hidden>
+  <div id="viewRuns" class="view-page runs-page" role="tabpanel" aria-labelledby="tab-runs" hidden>
     <div class="runs-grid">
       <div class="runs-main">
         <section class="card" id="totals" aria-label="Run and segments"></section>
@@ -105,12 +106,13 @@
         <section class="card" id="history" aria-label="Run history"></section>
       </div>
     </div>
-  </main>
-  <main id="viewCharacter" class="view-page" role="tabpanel" aria-labelledby="tab-character" hidden>
+  </div>
+  <div id="viewCharacter" class="view-page" role="tabpanel" aria-labelledby="tab-character" hidden>
     <div id="character" class="char-page"></div>
+  </div>
+  <div id="viewEndgame" class="view-page" role="tabpanel" aria-labelledby="tab-endgame" hidden></div>
+  <div id="viewTools" class="view-page" role="tabpanel" aria-labelledby="tab-tools" hidden></div>
   </main>
-  <main id="viewEndgame" class="view-page" role="tabpanel" aria-labelledby="tab-endgame" hidden></main>
-  <main id="viewTools" class="view-page" role="tabpanel" aria-labelledby="tab-tools" hidden></main>
 
   <dialog id="help" class="help card panel-dialog" tabindex="-1" aria-label="Help">
     <h2>How a run works</h2>

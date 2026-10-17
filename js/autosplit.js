@@ -55,6 +55,7 @@
 
   function dispatch(ev) {
     if (ev.type === "zone") handlers.onZone && handlers.onZone(ev);
+    else if (ev.type === "level") handlers.onLevel && handlers.onLevel(ev);
     else if (ev.type === "hotkey") handlers.onHotkey && handlers.onHotkey(ev.action);
     else if (ev.type === "hello") setStatus({ state: "connected",
       detail: ev.log_exists ? `watching ${ev.log}` : `waiting for ${ev.log}` });

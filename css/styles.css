@@ -75,6 +75,8 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.45; }
+/* Header, tabs and every view share one centred column. */
+:root { --page-max: 1840px; --page-pad: 20px; --page-inset: max(var(--page-pad), calc((100% - var(--page-max)) / 2 + var(--page-pad))); }
 button, select, input[type=text], textarea {
   font: inherit; color: var(--text); background: var(--panel-2);
   border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px;
@@ -86,7 +88,7 @@ button.primary { background: var(--primary-bg); border-color: var(--gold); color
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
 .topbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 12px 24px;
-  align-items: center; padding: 10px 20px; background: linear-gradient(var(--topbar-from), var(--topbar-to));
+  align-items: center; padding: 10px var(--page-inset); background: linear-gradient(var(--topbar-from), var(--topbar-to));
   border-bottom: 1px solid var(--line); }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand .logo { display: inline-flex; color: var(--gold-2); flex: none; width: 28px; height: 28px; }
@@ -94,6 +96,7 @@ button.primary { background: var(--primary-bg); border-color: var(--gold); color
 .brand h1 { margin: 0; font-size: 18px; color: var(--gold-2); letter-spacing: .5px; }
 .brand .sub { color: var(--muted); font-size: 12px; }
 .char-controls, .io, .toggles { display: flex; gap: 6px; align-items: center; }
+.topbar .io { margin-left: auto; }
 .toggles { gap: 14px; }
 .switch { display: flex; gap: 6px; align-items: center; cursor: pointer; color: var(--muted); }
 .switch input { accent-color: var(--gold); }
@@ -289,6 +292,7 @@ table.seg td.behind, table.seg .behind { color: var(--bad); }
 /* Level / XP cues (hide-extra respects .lvl-cue) */
 .char-level { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 12px; }
 .char-level input { width: 72px; }
+.char-level #charIgn { width: 14em; }
 .zone-lvl { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
 .zone-lvl.warn, .now-lvl.warn { color: var(--gold-2, var(--gold)); border-color: var(--gold); background: color-mix(in srgb, var(--gold) 12%, transparent); }
 .zone-lvl.bad, .now-lvl.bad { color: var(--bad); border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); font-weight: 650; }
@@ -411,7 +415,7 @@ body:not(.is-desktop) .desktop-only { display: none !important; }
 .views { display: flex; gap: 4px; padding: 6px 20px 0; max-width: 1400px; margin: 0 auto; border-bottom: 1px solid var(--line); }
 .views button { border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0; background: transparent; padding: 8px 16px; }
 .views button[aria-selected="true"] { border-color: var(--line); background: var(--panel); color: var(--gold-2); margin-bottom: -1px; }
-.view-page { padding: 20px; max-width: 1400px; margin: 0 auto; }
+.view-page { padding: 20px var(--page-pad); max-width: var(--page-max); margin: 0 auto; }
 .card-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
 .card-head h2 { margin: 0; font-size: 16px; color: var(--gold-2); flex: 1; }
 .view-page h3 { font-size: 13px; color: var(--muted); margin: 16px 0 6px; text-transform: uppercase; letter-spacing: .5px; }
@@ -460,13 +464,16 @@ abbr.unverified { text-decoration: none; border: 1px solid var(--line); border-r
 .help { max-height: calc(100vh - 100px); overflow: auto; }
 
 /* Tabs live in the sticky top bar; campaign-only toggles hide on other tabs */
-.topbar .views { flex-basis: 100%; padding: 0; margin: 0 -20px -10px; padding: 0 20px; max-width: none; border-bottom: 0; }
+.topbar .views { flex-basis: 100%; margin: 0 0 -10px; padding: 0; max-width: none; border-bottom: 0;
+  overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
+.topbar .views::-webkit-scrollbar { display: none; }
+.topbar .views button { flex: none; scroll-snap-align: start; }
 .topbar .views button[aria-selected="true"] { margin-bottom: 0; background: var(--bg); }
 body:not(.view-campaign) .topbar .toggles { display: none; }
 .more-btn { display: none; }
 @media (max-width: 860px) {
-  .topbar { gap: 8px 12px; padding: 8px 12px; }
-  .topbar .views { margin: 0 -12px -8px; padding: 0 12px; }
+  .topbar { gap: 8px 12px; padding: 8px 12px; transition: top .15s; }
+  .topbar .views { margin: 0 -12px -8px; padding: 0 12px; scroll-padding: 0 12px; }
   .more-btn { display: inline-block; }
   .char-controls > button:not(.more-btn), .topbar .toggles, .topbar .io { display: none; }
   .topbar.menu-open .char-controls > button, .topbar.menu-open .io { display: flex; }
@@ -475,6 +482,11 @@ body:not(.view-campaign) .topbar .toggles { display: none; }
   .topbar .char-controls { flex-wrap: wrap; flex: 1; }
   .topbar .io { flex-wrap: wrap; }
   .brand .sub { display: none; }
+}
+/* Phones: five tabs fit from about 380px; narrower screens scroll the row */
+@media (max-width: 480px) {
+  .topbar .views { gap: 0; }
+  .topbar .views button { padding: 8px 8px; }
 }
 input[type=number] { font: inherit; color: var(--text); background: var(--panel-2);
   border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; }
@@ -553,31 +565,41 @@ dialog.panel-dialog::backdrop { background: rgba(0, 0, 0, .6); }
 }
 
 /* ---------- Campaign: checklist column and run panel ----------
-   1280px and up: flexible checklist + 360px panel. 861-1279px: 320px panel. 860px and under: one column. */
+   1280px and up: flexible checklist + 360px panel (400px from 1800). 960-1279px: 320px panel. Under 960px: one column,
+   so the checklist never drops below 560px. */
 .campaign-view { display: grid; grid-template-columns: minmax(560px, 1fr) var(--panel-w); grid-template-areas: "list play";
-  --panel-w: 360px; gap: 16px; max-width: 1600px; margin: 0 auto; padding: 12px 20px; }
+  --panel-w: 360px; gap: 16px; max-width: var(--page-max); margin: 0 auto; padding: 12px var(--page-pad); }
+@media (min-width: 1800px) { .campaign-view { --panel-w: 400px; } }
 .campaign-view[hidden] { display: none; }
 .checklist { grid-area: list; min-width: 0; min-height: 0; display: flex; flex-direction: column; container-type: inline-size; }
 .checklist-scroll { min-height: 0; }
 .checklist-scroll .zone { scroll-margin-top: 52px; }
 .play { grid-area: play; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
 .play > section { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
-@media (min-width: 861px) {
+@media (min-width: 960px) {
   /* The page doesn't scroll on the campaign view: the checklist and the act splits scroll inside their columns. */
   body.view-campaign { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
   body.view-campaign .topbar { position: relative; }
+  body.view-campaign #views { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   body.view-campaign #viewCampaign { flex: 1; min-height: 0; width: 100%; }
   .campaign-view { height: 100%; grid-template-rows: minmax(0, 1fr); }
   .checklist-scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; scroll-padding: 12px; }
 }
-@media (min-width: 861px) and (max-width: 1279px) {
-  .campaign-view { --panel-w: 320px; grid-template-columns: minmax(0, 1fr) var(--panel-w); padding: 10px 14px; }
+@media (min-width: 960px) and (max-width: 1279px) {
+  :root { --page-pad: 14px; }
+  .campaign-view { --panel-w: 320px; padding-top: 10px; padding-bottom: 10px; }
 }
 
 /* Act strip: one act or interlude part at a time, in play order */
 .act-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex: none; }
 .act-tabs { display: flex; flex: 1; min-width: 0; gap: 2px; padding: 3px; overflow-x: auto; scrollbar-width: thin;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; --fade-l: 0px; --fade-r: 0px;
+  mask-image: linear-gradient(to right, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent); }
+/* More tabs off to one side: fade that edge so a cut-off label reads as "scroll for more" */
+.act-tabs.more-l { --fade-l: 40px; }
+.act-tabs.more-r { --fade-r: 40px; }
+.act-single { flex: 1; min-width: 0; padding: 6px 12px; font-size: 13px; color: var(--gold-2); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .act-tab { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 10px;
   border: 0; border-radius: 6px; background: transparent; color: var(--muted); white-space: nowrap; font-size: 13px; }
 .act-tab.done .ico { color: var(--ok); }
@@ -593,11 +615,15 @@ dialog.panel-dialog::backdrop { background: rgba(0, 0, 0, .6); }
 .section h2 { font-size: 15px; }
 .zone { padding: 8px 14px 4px; }
 .zone.folded { padding: 4px 14px; }
+.zone.folded .zone-head { cursor: pointer; }
 .zone-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; }
 .zone-toggle .ico { color: var(--ok); }
 .zone.folded .zone-head h3 { font-weight: 500; color: var(--muted); }
 .zone-head h3 > .ico { color: var(--run-bright); }
 .route-bar { gap: 6px 14px; margin-bottom: 12px; padding: 10px 14px; font-size: 13px; }
+/* During a run the route bar is one line until Edit opens it */
+.route-summary { display: flex; align-items: center; flex-wrap: nowrap; padding: 6px 14px; }
+.route-summary .route-line { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
 /* Wide checklist: route extras sit beside the steps, so the reading column stays about 820px. */
 @container (min-width: 1040px) {
   .step { grid-template-columns: 22px minmax(0, 760px) minmax(220px, 1fr); }
@@ -623,22 +649,34 @@ dialog.panel-dialog::backdrop { background: rgba(0, 0, 0, .6); }
 .now-actions-row button { padding: 5px 4px; font-size: 13px; white-space: nowrap; }
 .now-actions-row kbd { margin-left: 2px; }
 .now-detail { flex: 0 1 auto; min-height: 3.5em; overflow-y: auto; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.now-lvl { display: flex; align-items: center; gap: 6px; }
+.lvl-step { display: inline-flex; gap: 2px; }
+.lvl-step button { min-width: 26px; padding: 0 6px; line-height: 20px; font-size: 13px; }
+.lvl-seen { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 12px; color: var(--info); }
 .now-objective { display: flex; gap: 8px; align-items: flex-start; font-size: 16px; line-height: 1.3; color: var(--text-bright); font-weight: 600; cursor: pointer; }
 .now-objective input { width: 18px; height: 18px; margin-top: 1px; flex: none; accent-color: var(--ok); }
 .now-objective .lvl { font-size: 12px; font-weight: normal; color: var(--muted); }
 .now-hints { margin: 4px 0 0 26px; padding: 0; list-style: none; font-size: 14px; line-height: 1.4; color: var(--hint-strong); }
 .now-hints li::before { content: "➤ "; color: var(--gold); }
-.now-more-tips { margin: 2px 0 0 26px; font-size: 12px; color: var(--muted); }
-.now-more-tips summary { margin-top: 2px; color: var(--gold); }
+.now-more-box { margin: 2px 0 0 26px; font-size: 12px; color: var(--muted); }
+.now-more-box summary { margin-top: 2px; color: var(--gold); }
+.now-more-box .now-hints, .now-more-box .now-info, .now-more-box .now-class, .now-more-box .now-more { margin-left: 0; }
 .now-info { margin: 6px 0 0 26px; font-size: 13px; color: var(--info); display: flex; flex-direction: column; gap: 2px; }
 .now-info .reward { font-size: 12px; }
 .now-info .k, .now-next .k, .run-foot .k { color: var(--key-label); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-right: 4px; }
 .now-class { margin: 4px 0 0 26px; }
 .now-more { margin: 6px 0 0 26px; padding: 0; list-style: none; font-size: 13px; color: var(--info); }
-.now-next { margin-top: 8px; font-size: 13px; color: var(--info); display: grid; gap: 2px; }
-.now-ghost { font-size: 14px; margin-top: 4px; }
+.now-next { flex: none; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 13px; color: var(--info); display: grid; gap: 2px; }
+.now-ghost-wrap { position: relative; margin-top: 4px; }
+.now-ghost { display: block; width: 100%; text-align: left; font-size: 14px; padding: 2px 6px; margin-left: -6px; border: 1px solid transparent; background: none; color: inherit; }
+.now-ghost:hover, .now-ghost[aria-expanded="true"] { border-color: var(--line); background: var(--panel-2); color: inherit; }
 .now-ghost .ghost-delta .mono { font-size: 18px; }
-body.hide-hints .now-hints, body.hide-hints .now-more-tips { display: none; }
+.ghost-pop { position: absolute; z-index: 6; top: calc(100% + 4px); left: -6px; right: -6px; display: grid; gap: 8px; padding: 10px 12px;
+  background: var(--panel); border: 1px solid var(--gold); border-radius: 8px; box-shadow: 0 8px 24px #0008; font-size: 13px; }
+.ghost-pop label { display: grid; gap: 4px; }
+.ghost-pop select { width: 100%; }
+.ghost-pop .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+body.hide-hints .now-hints { display: none; }
 body.hide-extra .now-info { display: none; }
 
 /* Act splits: scroll inside the panel so the controls above never move */
@@ -658,15 +696,17 @@ body.hide-extra .now-info { display: none; }
 .run-foot { flex: none; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 8px 12px; font-size: 14px; }
 .run-foot .timer { color: var(--gold-2); }
 
-/* Mid widths: act splits show the current zone and the act total until opened */
-@media (min-width: 861px) and (max-width: 1279px) {
+/* Mid widths and short windows: act splits show the current zone and the act total until opened */
+@media (min-width: 960px) and (max-width: 1279px), (min-width: 960px) and (max-height: 820px) {
   .act-splits-toggle { display: inline; }
   .act-splits:not(.open) { flex: none; min-height: 0; }
   .act-splits:not(.open) tbody tr:not(.cur) { display: none; }
+}
+@media (min-width: 960px) and (max-width: 1279px) {
   .now-clock .big { font-size: 44px; }
 }
-/* Short windows (1280x720, 1366x768): tighter panel so Split and the step stay on screen */
-@media (min-width: 861px) and (max-height: 820px) {
+/* Short windows (1280x720, 1366x768): tighter panel so Split, the step and Next step stay on screen */
+@media (min-width: 960px) and (max-height: 820px) {
   .campaign-view { padding-top: 8px; padding-bottom: 8px; }
   .now { padding: 8px 12px; }
   .now-zone { font-size: 20px; }
@@ -678,6 +718,11 @@ body.hide-extra .now-info { display: none; }
   .now-actions-row { gap: 4px; }
   .now-actions-row button { padding: 3px 4px; }
   .now-detail { margin-top: 8px; padding-top: 8px; }
+  .now-next { margin-top: 6px; padding-top: 4px; }
+  /* PB and best segment for the zone are on its act splits row */
+  .now-cmp { display: none; }
+  /* Folded act splits: two rows don't need the column heads on screen (kept for screen readers) */
+  .act-splits:not(.open) thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .now-objective { font-size: 15px; }
   .now-hints { font-size: 13px; }
   .act-bar { margin-bottom: 8px; }
@@ -685,8 +730,17 @@ body.hide-extra .now-info { display: none; }
   .play { gap: 8px; }
 }
 
-/* Phone: compact sticky now-bar, sticky act chips, act splits below the checklist */
-@media (max-width: 860px) {
+/* 1280x720 and shorter: smaller clock and zone name */
+@media (min-width: 960px) and (max-height: 740px) {
+  .now-zone { font-size: 18px; }
+  .now-clock { margin-top: 2px; }
+  .now-clock .big { font-size: 34px; }
+  .big-btn { padding: 5px 14px; }
+  .lvl-step button { line-height: 16px; }
+}
+
+/* Phone and narrow windows: compact sticky now-bar, sticky act chips, act splits below the checklist */
+@media (max-width: 959px) {
   .campaign-view { grid-template-columns: minmax(0, 1fr); grid-template-areas: none; gap: 10px; padding: 0 10px 12px; }
   .play { display: contents; }
   .now { order: 0; position: sticky; z-index: 4; margin: 0 -10px; padding: 8px 12px; border-width: 0 0 2px !important; border-radius: 0; }
@@ -701,12 +755,13 @@ body.hide-extra .now-info { display: none; }
   .now-zone { font-size: 18px; }
   .now-clock .big { font-size: 30px; }
   #liveDelta { font-size: 15px; }
-  .now-cmp, .now-lvl, .now-ghost, .now-actions kbd { display: none; }
+  .now-cmp, .now-lvl, .now-ghost-wrap, .now-actions kbd { display: none; }
   .big-btn { font-size: 16px; padding: 8px; }
-  .now-detail { display: none; }
-  .act-bar { position: sticky; z-index: 3; margin: 0 -10px 8px; padding: 6px 10px; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .now-detail, .now-next { display: none; }
+  .now { transition: top .15s; }
+  .act-bar { position: sticky; z-index: 3; margin: 0 -10px 8px; padding: 4px 10px; background: var(--bg); border-bottom: 1px solid var(--line); transition: top .15s; }
   .act-tabs { gap: 6px; padding: 0; border: 0; background: none; }
-  .act-tab { flex: none; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
+  .act-tab { flex: none; padding: 4px 10px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
   .act-splits-toggle { display: inline; }
   .act-splits:not(.open) .act-splits-body tbody { display: none; }
 }
@@ -718,6 +773,6 @@ body.focus-mode .now-info, body.focus-mode .now-more, body.focus-mode #firstRun 
 /* ---------- Runs and Character tabs ---------- */
 .runs-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); gap: 16px; align-items: start; }
 .runs-main, .runs-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.char-page { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start; max-width: 1100px; }
+.char-page { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; align-items: start; }
 .char-page .card h2 + .muted { margin-top: 0; }
-@media (max-width: 860px) { .runs-grid { grid-template-columns: 1fr; } }
+@media (max-width: 860px) { .runs-grid { grid-template-columns: 1fr; } .char-page { grid-template-columns: minmax(0, 1fr); } }

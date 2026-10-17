@@ -33,6 +33,7 @@
       history: [],  // finished / abandoned runs, newest first (see Run.finish)
       bests: dict(),    // { variant: { "zone:<id>" | "section:<id>" | "group:<id>": best ms ever } }
       level: null,  // manual character level (number) or null — PoB may also set build.level
+      ign: null,    // in-game character name; desktop level-ups from Client.txt update this character only when it matches
       customRoutes: dict(), // id -> custom route definition (see custom_route.js)
       ghost: global.Ghost ? Ghost.blankState() : { pick: "pb", imported: [] }, // race comparison (see ghost.js)
     };
@@ -233,6 +234,7 @@
         if (v === null || v === undefined || v === "") out[k] = null;
         else { const n = Number(v); out[k] = Number.isFinite(n) && n >= 1 && n <= 100 ? Math.floor(n) : null; }
       }
+      else if (k === "ign") out[k] = typeof v === "string" && /^[A-Za-z0-9_]{3,23}$/.test(v) ? v : null;
       else if (k === "build") out[k] = cleanBuild(v);
       else if (k === "ghost") out[k] = global.Ghost ? Ghost.normaliseState(v, knownZoneIds()) : base[k];
       else if (k === "paused") out[k] = cleanPaused(v);
