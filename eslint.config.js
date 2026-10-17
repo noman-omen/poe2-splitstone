@@ -5,7 +5,7 @@ const globals = require("globals");
 // Browser modules attach themselves to window and use each other as globals.
 const APP_GLOBALS = Object.fromEntries([
   "Run", "Timers", "Storage2", "Ghost", "Endgame", "AutoSplit", "Charts", "CustomRoute", "Gear",
-  "Icons", "Levels", "PoB", "CAMPAIGN", "CLASS_NOTES", "ENDGAME", "GEAR_CHECKPOINTS", "TOOLS",
+  "Clean", "Icons", "Levels", "PoB", "CAMPAIGN", "CLASS_NOTES", "ENDGAME", "GEAR_CHECKPOINTS", "TOOLS",
 ].map(n => [n, "readonly"]));
 
 const RULES = {
@@ -20,7 +20,7 @@ module.exports = [
   js.configs.recommended,
   {
     files: ["js/**/*.js", "data/**/*.js", "desktop/overlay/**/*.js"],
-    languageOptions: { sourceType: "script", globals: { ...globals.browser, ...APP_GLOBALS, module: "readonly" } },
+    languageOptions: { sourceType: "script", globals: { ...globals.browser, ...APP_GLOBALS, module: "readonly", require: "readonly" } },
     rules: RULES,
   },
   {

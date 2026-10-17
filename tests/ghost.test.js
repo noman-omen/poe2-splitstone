@@ -126,3 +126,10 @@ test("a ghost's total must agree with its zone times", async () => {
   const code = await G.encode({ name: "x", total: s(1), zones: { a1: s(60) } });
   assert.strictEqual((await G.parse(code, { knownZones: KNOWN })).total, s(60));
 });
+
+test("ghost names use the character-name cleaner (N2)", () => {
+  const evil = "A\u061cB\u00adC\u202eD\u2066E\u200fF\u0007";
+  const g = G.normaliseGhost(Object.assign({}, GHOST, { name: evil }), KNOWN);
+  assert.equal(g.name, "ABCDEF");
+  assert.equal(g.name, require("../js/clean.js").name(evil, "Ghost"));
+});

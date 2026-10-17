@@ -9,6 +9,8 @@
   // 2: endgame tracking replaced maps/mapHistory (migrated on load).
   const SCHEMA = 2;
 
+  /** Maps keyed by ids from saves or imports have no prototype, so "__proto__" is just a key. */
+  const dict = () => Object.create(null);
   const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
   function newCharacter(name) {
@@ -16,22 +18,22 @@
       id: uid(),
       name: name || "New character",
       created: new Date().toISOString(),
-      done: {},     // stepId -> true
-      timers: {},   // timerKey -> { elapsed: ms, startedAt: epoch ms | null }
+      done: dict(),     // stepId -> true
+      timers: dict(),   // timerKey -> { elapsed: ms, startedAt: epoch ms | null }
       endgame: global.Endgame ? Endgame.blank() : { runs: [], active: null, sessions: [], sessionId: null, atlas: {} }, // see endgame.js
       classId: null, // basic class id (warrior|…|witch) or null — see data/class_notes.js
       build: null,  // parsed PoB2 summary (see pob.js)
       // Speedrun bookkeeping (see run.js)
       route: { mode: "normal", requiredOnly: false }, // route variant filter (run.js)
-      split: {},    // zoneId -> epoch ms when the zone was split (= completed in this run)
+      split: dict(),    // zoneId -> epoch ms when the zone was split (= completed in this run)
       undo: [],     // stack of { zone, autoMarked[], prevBests{}, golds[] } for undo-split
-      golds: {},    // zoneId -> true when this run's segment beat the previous best
+      golds: dict(),    // zoneId -> true when this run's segment beat the previous best
       paused: null, // timer keys that were running when the run was paused
       runStarted: null, // ISO time of the first timer start in this run
       history: [],  // finished / abandoned runs, newest first (see Run.finish)
-      bests: {},    // { variant: { "zone:<id>" | "section:<id>" | "group:<id>": best ms ever } }
+      bests: dict(),    // { variant: { "zone:<id>" | "section:<id>" | "group:<id>": best ms ever } }
       level: null,  // manual character level (number) or null — PoB may also set build.level
-      customRoutes: {}, // id -> custom route definition (see custom_route.js)
+      customRoutes: dict(), // id -> custom route definition (see custom_route.js)
       ghost: global.Ghost ? Ghost.blankState() : { pick: "pb", imported: [] }, // race comparison (see ghost.js)
     };
   }
@@ -100,14 +102,9 @@
   /* ---------- Untrusted-data helpers (saves and imports) ---------- */
   const MAX_CHARACTERS = 100;
   const BAD_KEYS = new Set(["__proto__", "constructor", "prototype"]);
-  // Control chars, soft hyphen, Arabic letter mark, zero-width and bidi controls.
-  const INVISIBLE = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u206f\ufeff]/g;
-  function cleanText(v, max, fallback = "") {
-    if (typeof v !== "string" && typeof v !== "number") return fallback;
-    const s = String(v).replace(INVISIBLE, "").replace(/\s+/g, " ").trim().slice(0, max);
-    return s || fallback;
-  }
-  const cleanName = (v, fallback) => cleanText(v, 80, fallback);
+  // Shared with ghost.js (see clean.js): control chars, soft hyphen, ALM, zero-width and bidi controls.
+  const cleanText = (v, max, fallback = "") => Clean.text(v, max, fallback);
+  const cleanName = (v, fallback) => Clean.name(v, fallback);
   const safeId = v => typeof v === "string" && /^[A-Za-z0-9_-]{1,40}$/.test(v) && !BAD_KEYS.has(v);
   const isoOrNull = v => (typeof v === "string" && v.length <= 40 && Number.isFinite(Date.parse(v)) ? v : null);
   const MAX_MS = 30 * 24 * 3600 * 1000;
@@ -115,7 +112,7 @@
   const intIn = (v, lo, hi) => { const n = Number(v); return Number.isInteger(n) && n >= lo && n <= hi ? n : null; };
   /** { key: ms } with string keys only, sane numbers, capped size. */
   function msMap(v, maxKeys = 600) {
-    const out = {};
+    const out = dict();
     let n = 0;
     for (const [k, ms] of Object.entries(asObject(v))) {
       if (n >= maxKeys) break;
@@ -126,7 +123,7 @@
     return out;
   }
   function boolMap(v, maxKeys = 5000) {
-    const out = {};
+    const out = dict();
     let n = 0;
     for (const [k, x] of Object.entries(asObject(v))) {
       if (n >= maxKeys) break;
@@ -136,7 +133,7 @@
     return out;
   }
   function timerMap(v) {
-    const out = {};
+    const out = dict();
     for (const [k, t] of Object.entries(asObject(v))) {
       if (k.length > 100 || BAD_KEYS.has(k) || !t || typeof t !== "object") continue;
       const elapsed = msOrNull(t.elapsed) ?? 0;
@@ -144,6 +141,13 @@
       out[k] = { elapsed, startedAt };
     }
     return out;
+  }
+  /** Paused timer keys: only "zone:<known zone id>", no duplicates; null when none survive. */
+  function cleanPaused(v) {
+    if (!Array.isArray(v)) return null;
+    const keep = [...new Set(v.slice(0, 500).filter(k => typeof k === "string" && k.startsWith("zone:")
+      && !BAD_KEYS.has(k) && knownZoneIds().has(k.slice(5))))];
+    return keep.length ? keep : null;
   }
   function cleanPractice(pr) {
     if (!pr || typeof pr !== "object" || typeof pr.kind !== "string" || typeof pr.id !== "string") return null;
@@ -172,7 +176,7 @@
   function cleanUndoEntry(e) {
     if (!e || typeof e !== "object" || typeof e.zone !== "string" || !knownZoneIds().has(e.zone)) return null;
     const strs = v => asArray(v).filter(x => typeof x === "string" && x.length <= 80).slice(0, 2000);
-    const prev = {};
+    const prev = dict();
     for (const [k, v] of Object.entries(asObject(e.prevBests))) {
       if (BAD_KEYS.has(k) || k.length > 80) continue;
       if (v === undefined || v === null) prev[k] = undefined; else { const x = msOrNull(v); if (x !== null) prev[k] = x; }
@@ -201,7 +205,7 @@
       passives: intIn(b.passives, 0, 5000) ?? 0,
       items: intIn(b.items, 0, 500) ?? 0,
       stats,
-      notes: typeof b.notes === "string" ? b.notes.replace(INVISIBLE, "").slice(0, 600) : "",
+      notes: typeof b.notes === "string" ? b.notes.replace(Clean.INVISIBLE, "").slice(0, 600) : "",
       imported: isoOrNull(b.imported),
     };
   }
@@ -231,7 +235,7 @@
       }
       else if (k === "build") out[k] = cleanBuild(v);
       else if (k === "ghost") out[k] = global.Ghost ? Ghost.normaliseState(v, knownZoneIds()) : base[k];
-      else if (k === "paused") out[k] = Array.isArray(v) || v === null ? v : null;
+      else if (k === "paused") out[k] = cleanPaused(v);
       else if (k === "route") {
         const r = asObject(v);
         let practice = null;
@@ -255,15 +259,16 @@
       else if (k === "bests") {
         // { variant: { "zone:<id>" | "section:<id>" | "group:<id>": ms } }; older flat saves are migrated by Run.prune.
         const flat = Object.keys(asObject(v)).some(x => x.includes(":"));
-        out[k] = {};
+        out[k] = dict();
         if (flat) out[k] = msMap(v, 2000);
         else for (const [variant, m] of Object.entries(asObject(v)).slice(0, 200))
           if (!BAD_KEYS.has(variant) && variant.length <= 120) out[k][variant] = msMap(m, 2000);
       }
       else if (k === "customRoutes") {
-        out[k] = {};
+        out[k] = dict();
         const srcR = asObject(v);
         Object.keys(srcR).slice(0, 30).forEach(id => {
+          if (BAD_KEYS.has(id)) return;
           try {
             if (global.CustomRoute) out[k][id] = CustomRoute.normalise(Object.assign({}, srcR[id], { id }));
             else out[k][id] = srcR[id];
@@ -477,7 +482,7 @@
   }
 
   global.Storage2 = {
-    previewImport, MAX_IMPORT_CHARS, cleanBuild, cleanHistoryEntry, cleanName,
+    previewImport, MAX_IMPORT_CHARS, cleanBuild, cleanHistoryEntry, cleanName, cleanText, cleanPaused, dict,
     KEY, LEGACY_KEYS, BACKUP_KEY, status, load, save, hasBackup, backupState, unblock, exportJSON, importJSON, newCharacter, uid,
     isLocalHelperUrl, isLocalHelperHost, canonicalHelperUrl, sanitizeAutoSplit, normalise, defaultSettings,
   };

@@ -121,7 +121,7 @@
     return orderCache.get(key);
   }
   const inOrder = (c, zid) => order(c).find(o => o.zone.id === zid);
-  const bestsFor = (c, variant = variantKey(route(c))) => (c.bests[variant] || (c.bests[variant] = {}));
+  const bestsFor = (c, variant = variantKey(route(c))) => (c.bests[variant] || (c.bests[variant] = Object.create(null)));
 
   /* ---------- Times ---------- */
   const zoneMs = (c, zid, now) => T.value(c, zoneKey(zid), now);
@@ -182,7 +182,7 @@
     if (!o) return null;
     const zid = o.zone.id, r = route(c), custom = getCustom(c, r.customId);
     const wasRunning = T.isRunning(c, zoneKey(zid));
-    const entry = { zone: zid, autoMarked: [], prevBests: {}, golds: [], wasRunning, extra: [] };
+    const entry = { zone: zid, autoMarked: [], prevBests: Object.create(null), golds: [], wasRunning, extra: [] };
     requiredSteps(o.zone, r, custom).forEach(s => { if (!c.done[s.id]) { c.done[s.id] = true; entry.autoMarked.push(s.id); } });
     T.stop(c, zoneKey(zid));
     c.split[zid] = Date.now();
@@ -226,7 +226,7 @@
   function togglePause(c) {
     if (isPaused(c)) {
       const keys = c.paused; c.paused = null;
-      keys.forEach(k => T.start(c, k));
+      keys.filter(k => typeof k === "string" && k.startsWith("zone:") && BY_ZONE[k.slice(5)]).forEach(k => T.start(c, k));
       return "resumed";
     }
     const running = Object.keys(c.timers).filter(k => k.startsWith("zone:") && T.isRunning(c, k));
@@ -277,7 +277,7 @@
   function newRun(c) {
     stopAllZones(c);
     ALL.forEach(o => T.reset(c, zoneKey(o.zone.id)));
-    Object.assign(c, { done: {}, split: {}, undo: [], golds: {}, paused: null, runStarted: null, finishedId: null });
+    Object.assign(c, { done: Object.create(null), split: Object.create(null), undo: [], golds: Object.create(null), paused: null, runStarted: null, finishedId: null });
   }
 
   const runsOf = (c, variant = variantKey(route(c))) => c.history.filter(h => (h.variant || "normal") === variant);
@@ -327,7 +327,7 @@
       if (k.startsWith("section:") || (k.startsWith("zone:") && !BY_ZONE[k.slice(5)])) delete c.timers[k];
     });
     Object.keys(c.split).forEach(z => { if (!BY_ZONE[z]) delete c.split[z]; });
-    if (Object.keys(c.bests).some(k => k.includes(":") || k === "total")) c.bests = { normal: c.bests };
+    if (Object.keys(c.bests).some(k => k.includes(":") || k === "total")) c.bests = Object.assign(Object.create(null), { normal: c.bests });
     // Saves before 1.2 kept a "total" best; the PB comes from history instead.
     Object.values(c.bests).forEach(b => { if (b && typeof b === "object") delete b.total; });
     c.route = route(c);

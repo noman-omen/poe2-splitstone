@@ -158,6 +158,36 @@ with sync_playwright() as p:
     check("no JS errors (clock jumps)", not errs, errs)
     ctx.close()
 
+    # --- N1: a paused "__proto__" key must never reach Object.prototype ---
+    ctx, page, errs = fresh(b, viewport={"width": 1366, "height": 900})
+    proto = lambda: page.evaluate("[({}).startedAt, ({}).elapsed, Object.prototype.hasOwnProperty('startedAt')]")
+    import_file(page, {"characters": {"evil": {"name": "F", "paused": ["__proto__"]}}})
+    for _ in range(3):  # optional confirms
+        try: answer(page, True)
+        except Exception: break
+    page.wait_for_timeout(300)
+    ids = [o for o in page.eval_on_selector_all("#charSelect option", "os => os.map(o => [o.value, o.textContent])") if o[1].strip() == "F"]
+    check("N1 repro character imported", bool(ids), page.text_content("#charSelect"))
+    if ids: page.select_option("#charSelect", ids[0][0])
+    st = saved(page); ec = st["characters"].get(st["activeId"], {})
+    check("N1 bad paused entry dropped on import", not ec.get("paused"), ec.get("paused"))
+    page.evaluate("document.activeElement && document.activeElement.blur()")
+    page.keyboard.press("p"); page.wait_for_timeout(100); page.keyboard.press("p"); page.wait_for_timeout(100)
+    check("N1 pressing P leaves Object.prototype alone", proto() == [None, None, False], proto())
+    # The same key written straight into the save (no import step), then reload.
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('splitstone:v1'));
+      s.characters[s.activeId].paused = ['__proto__', 'constructor', 'zone:nope', 7];
+      localStorage.setItem('splitstone:v1', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_timeout(200)
+    page.evaluate("document.activeElement && document.activeElement.blur()")
+    page.keyboard.press("p"); page.wait_for_timeout(100); page.keyboard.press("p"); page.wait_for_timeout(100)
+    check("N1 after reload, P still leaves Object.prototype alone", proto() == [None, None, False], proto())
+    check("N1 Timers.start/stop refuse prototype keys", page.evaluate("""() => { const c = { timers: {} };
+      Timers.start(c, '__proto__'); Timers.stop(c, 'constructor'); Timers.toggle(c, '__proto__');
+      return ({}).startedAt === undefined && !Object.keys(c.timers).length; }"""))
+    check("no JS errors (N1)", not errs, errs)
+    ctx.close()
+
     # --- p3: two tabs ---
     ctx = b.new_context()
     a = ctx.new_page(); a.goto(URL); a.evaluate("localStorage.clear()"); a.reload()

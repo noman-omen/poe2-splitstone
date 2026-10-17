@@ -1072,7 +1072,7 @@
   }
 
   function ensureCustomRoutes(c) {
-    if (!c.customRoutes || typeof c.customRoutes !== "object") c.customRoutes = {};
+    if (!c.customRoutes || typeof c.customRoutes !== "object") c.customRoutes = Object.create(null);
   }
 
   function touchCustom(c, id) {

@@ -39,3 +39,14 @@ test("stop after a backwards jump keeps elapsed time", () => {
     assert.strictEqual(c.timers.z.elapsed, 3000);
   } finally { Date.now = realNow; }
 });
+
+test("prototype keys never reach Object.prototype (N1)", () => {
+  const c = { timers: {} };
+  for (const k of ["__proto__", "constructor", "prototype"]) {
+    T.start(c, k); T.stop(c, k); T.toggle(c, k); T.reset(c, k);
+    assert.equal(T.value(c, k), 0);
+    assert.equal(T.isRunning(c, k), false);
+  }
+  assert.equal(({}).startedAt, undefined);
+  assert.equal(Object.keys(c.timers).length, 0);
+});

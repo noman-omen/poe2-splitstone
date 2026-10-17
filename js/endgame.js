@@ -21,7 +21,7 @@
   const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
   function blank() {
-    return { runs: [], active: null, sessions: [], sessionId: null, atlas: {} };
+    return { runs: [], active: null, sessions: [], sessionId: null, atlas: Object.create(null) };
   }
 
   function normaliseRun(r) {
@@ -64,7 +64,10 @@
       .map(s => ({ id: s.id.slice(0, 40), started: s.started, ended: isoOrNull(s.ended) }));
     out.sessionId = typeof src.sessionId === "string" && out.sessions.some(s => s.id === src.sessionId) ? src.sessionId : null;
     const atlas = src.atlas && typeof src.atlas === "object" ? src.atlas : {};
-    Object.keys(atlas).slice(0, 200).forEach(k => { const d = isoOrNull(atlas[k]); if (d) out.atlas[k.slice(0, 64)] = d; });
+    Object.keys(atlas).slice(0, 200).forEach(k => {
+      const key = k.slice(0, 64), d = isoOrNull(atlas[k]);
+      if (d && key !== "__proto__" && key !== "constructor" && key !== "prototype") out.atlas[key] = d;
+    });
     return out;
   }
 

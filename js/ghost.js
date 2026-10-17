@@ -25,11 +25,9 @@
   const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
   const uid = () => "g" + Math.random().toString(36).slice(2, 10);
 
-  function cleanName(v, fallback) {
-    const s = String(v ?? "").replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, "")
-      .replace(/\s+/g, " ").trim().slice(0, MAX_NAME);
-    return s || fallback || "Ghost";
-  }
+  // Same cleaner as character names (clean.js), capped at the ghost name length.
+  const Clean = global.Clean || (typeof require === "function" ? require("./clean.js") : null);
+  const cleanName = (v, fallback) => Clean.name(v, fallback || "Ghost", MAX_NAME);
   const cleanVariant = v => (typeof v === "string" && /^[A-Za-z0-9:+_.-]{1,80}$/.test(v) ? v : "normal");
   const cleanMs = (v, max) => {
     const n = Number(v);

@@ -4,8 +4,12 @@
 (function (global) {
   "use strict";
 
-  const get = (c, key) => c.timers[key] || (c.timers[key] = { elapsed: 0, startedAt: null });
-  const isRunning = (c, key) => !!(c.timers[key] && c.timers[key].startedAt);
+  // Timer keys come from saves and imports: never let one reach Object.prototype.
+  const BAD_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+  const ok = key => typeof key === "string" && !BAD_KEYS.has(key);
+  const own = (c, key) => (ok(key) && c.timers && Object.prototype.hasOwnProperty.call(c.timers, key) ? c.timers[key] : undefined);
+  const get = (c, key) => own(c, key) || (c.timers[key] = { elapsed: 0, startedAt: null });
+  const isRunning = (c, key) => !!(own(c, key) && own(c, key).startedAt);
 
   /* Wall-clock timestamps survive reloads, but the clock can jump (NTP, DST fixes,
    * a manual change). A running segment never counts negative time, and a jump
@@ -13,13 +17,14 @@
   const since = (t, now) => (t.startedAt ? Math.max(0, now - t.startedAt) : 0);
 
   function value(c, key, now = Date.now()) {
-    const t = c.timers[key];
+    const t = own(c, key);
     if (!t) return 0;
     return Math.max(0, t.elapsed || 0) + since(t, now);
   }
 
-  function start(c, key) { const t = get(c, key); if (!t.startedAt) t.startedAt = Date.now(); }
+  function start(c, key) { if (!ok(key)) return; const t = get(c, key); if (!t.startedAt) t.startedAt = Date.now(); }
   function stop(c, key) {
+    if (!ok(key)) return;
     const t = get(c, key);
     if (t.startedAt) { t.elapsed = Math.max(0, t.elapsed || 0) + since(t, Date.now()); t.startedAt = null; }
   }
@@ -38,7 +43,7 @@
     return back;
   }
   function toggle(c, key) { isRunning(c, key) ? stop(c, key) : start(c, key); }
-  function reset(c, key) { delete c.timers[key]; }
+  function reset(c, key) { if (ok(key)) delete c.timers[key]; }
 
   /** Sum of every timer whose key starts with `prefix`. */
   function sum(c, prefix, now = Date.now()) {
