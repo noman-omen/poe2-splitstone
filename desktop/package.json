@@ -1,6 +1,7 @@
 {
   "name": "splitstone",
   "productName": "Splitstone",
+  "desktopName": "splitstone.desktop",
   "version": "1.2.0",
   "description": "Path of Exile 2 campaign speedrun tracker — install and play, no setup.",
   "author": "Splitstone <noman-omen@users.noreply.github.com>",
@@ -84,7 +85,8 @@
       ],
       "category": "Game",
       "icon": "build/icon.png",
-      "artifactName": "Splitstone-${version}.${ext}"
+      "artifactName": "Splitstone-${version}.${ext}",
+      "syncDesktopName": true
     },
     "publish": [
       {
@@ -95,10 +97,10 @@
     ]
   },
   "dependencies": {
-    "electron-updater": "^6.3.9"
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron": "^44.8.0",
+    "electron-builder": "^26.15.3"
   }
 }

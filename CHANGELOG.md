@@ -22,6 +22,9 @@
 - Timers never go negative. If the system clock jumps backwards, running timers keep the time already counted.
 - A ghost code whose total doesn't match its zone times is rejected.
 - 1.0 saves with a map in progress keep that map's timer when migrated.
+- Desktop: Electron 44 and electron-builder 26. npm audit has no critical or high findings.
+- Releases: a Linux AppImage and a `SHA256SUMS` file alongside the Windows builds. The release workflow builds with read-only access and creates a draft release, which I publish after checking the assets.
+- Removed dead code. The PB always comes from run history; saves no longer store a separate best total. Added an ESLint config (`npm run lint`).
 
 ## 1.1.0 (2026-10-16)
 
