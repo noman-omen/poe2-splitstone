@@ -27,7 +27,7 @@ Global hotkeys. Change them under Settings → Desktop → Global hotkeys in the
 | `Ctrl+Alt+P` | Pause / resume |
 | `Ctrl+Alt+R` | New run (press twice within 3 s) |
 | `Ctrl+Alt+H` | Show / hide hints |
-| `Ctrl+Alt+O` | Lock / unlock the overlay (unlocked = drag to move) |
+| `Ctrl+Alt+O` | Lock / unlock the overlay (unlocked = drag to move, corner to resize) |
 
 Auto-update is on by default (Settings → Desktop to turn off). Full releases only get full releases; prerelease builds also see prereleases. A build that crashes on launch can't update itself, so reinstall from the link above.
 
@@ -37,14 +37,14 @@ Auto-update is on by default (Settings → Desktop to turn off). Full releases o
 
 | | |
 | --- | --- |
-| **Run panel** | Zone, timers, Split, current objective, hint and next step beside the checklist, readable from a second monitor |
+| **Run panel** | Zone, timers, Split, current objective with one hint, and the next step beside the checklist, readable from a second monitor. The ghost line opens a picker; −/+ on the level cue |
 | **One act at a time** | Act and interlude tabs in route order; follows your run, C jumps back to the current zone |
 | **Splits and timers** | Per-zone segments, act and interlude totals, pause, undo, auto-advance |
 | **Routes** | Normal or speedrun route, required-steps-only, practice a single act or zone, custom shareable routes |
 | **History and PBs** | Per-character runs, PBs, gold segments, live delta, trend charts, CSV export |
 | **Ghost race** | Race your PB, best segments, any past run or a friend's ghost: ahead/behind per split, where the ghost is now, time gained or lost per act |
 | **Auto-split** | Splits on zone changes from PoE2's `Client.txt` |
-| **Cues** | Basic-class notes, level/XP warnings, gear and gem checkpoints |
+| **Cues** | Basic-class notes, level/XP warnings, gear and gem checkpoints. The desktop app can keep your level from your own level-ups in `Client.txt` |
 | **Overlay** | Small panel at the top centre with the current step and the next step; move it, resize it, the text scales to fit |
 | **Endgame** | Map runs with tier, mods, deaths and loot; session stats; atlas progress checklist |
 | **Tools** | One-click links to trade, poe2db, the wiki, PoB2, poe.ninja and more |
@@ -56,9 +56,13 @@ A browser tab can't sit on top of a fullscreen game, so the desktop app draws a 
 
 ![Overlay](screenshots/overlay-top-center.png)
 
+### Character level from Client.txt
+
+Put your character's in-game name on the Character tab and the desktop app sets the level whenever `Client.txt` logs "<name> (<class>) is now level N". Without a name, the run panel asks the first time it sees a level-up whether that's the character you're playing. Only the game's own level-up line is read: chat can't fake it, and other players' level-ups are ignored. Nothing is sent anywhere and nothing is written to the game. You can also nudge the level with −/+ on the run panel.
+
 ### Endgame
 
-Log each map with its tier and waystone mods, then mark it completed or failed, count deaths and note any loot worth remembering. Sessions give you maps per hour, average map time and totals, and the atlas checklist tracks the Fortress, pinnacle bosses and atlas masters. Endgame data belongs to the selected character. In the desktop app, auto-detect can start and finish map runs from the zone changes it already reads for auto-split; it doesn't read anything new from Client.txt. Everything stays in local storage and goes into the JSON export; map timers from 1.0 are carried over.
+Log each map with its tier and waystone mods, then mark it completed or failed, count deaths and note any loot worth remembering. Sessions give you maps per hour, average map time and totals, and the atlas checklist tracks the Fortress, pinnacle bosses and atlas masters. Endgame data belongs to the selected character. In the desktop app, auto-detect can start and finish map runs from the zone changes it already reads for auto-split. Everything stays in local storage and goes into the JSON export; map timers from 1.0 are carried over.
 
 ![Endgame](screenshots/endgame.png)
 
@@ -66,7 +70,7 @@ The checklist lives in `data/endgame.js`. Items I couldn't confirm in patch note
 
 ### Ghost race
 
-Turn it on under Settings → Ghost race. Pick what to race on the Runs tab: your PB (default), your best segments, any saved run of this character, or a ghost a friend sent you. You get the delta for every split and in total, a line under the run timer saying which zone the ghost would be in right now, and how much you gained or lost in each act and interlude. To share a ghost, copy its code (`SSG1.…`) from the panel; to race someone, paste their code or load their Splitstone export file. Only zone times are taken from imports. The overlay stays current step and next step only.
+Turn it on under Settings → Ghost race. Pick what to race on the Runs tab, or click the ghost line under the run timer: your PB (default), your best segments, any saved run of this character, or a ghost a friend sent you. You get the delta for every split and in total, a line under the run timer saying which zone the ghost would be in right now, and how much you gained or lost in each act and interlude. To share a ghost, copy its code (`SSG1.…`) from the panel; to race someone, paste their code or load their Splitstone export file. Only zone times are taken from imports. The overlay stays current step and next step only.
 
 ![Ghost race](screenshots/ghost-mode.png)
 

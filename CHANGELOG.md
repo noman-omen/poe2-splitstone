@@ -2,13 +2,24 @@
 
 ## Unreleased
 
-- Campaign page uses the full window: the checklist on the left and a run panel on the right, in a centred column up to 1600px wide. On desktop the page doesn't scroll; the checklist and the act splits scroll inside their own areas.
+- Campaign page uses the full window: the checklist on the left and a run panel on the right, in a centred column up to 1840px wide, with the header and tabs lined up with it. The run panel is 400px wide from 1800px. On desktop the page doesn't scroll; the checklist and the act splits scroll inside their own areas.
 - One act at a time. A tab strip above the checklist lists the acts and interludes in the order the route plays them, each marked done, current or upcoming, with that act's time and delta in the tooltip. Arrow keys, Home and End move between tabs.
 - The current act is selected on load and whenever a split takes you into a new act. Browsing another act doesn't snap back; a "Current act" button and the C hotkey go back to the current act and zone. The act you picked is remembered per character, outside the save file.
-- Completed zones fold to one line (name, time, delta); click to open one. The current and upcoming zones stay open.
+- Completed zones fold to one line (name, time, delta); click anywhere on the row to open one. The current and upcoming zones stay open.
+- Act tabs read "Interlude 2 (1/2)" and "(2/2)", and the Runs table lists acts and interludes in the same route order, with the Interlude 2 total after its second part. The act badge says "4/23 steps".
+- When the act strip doesn't fit, the edge with more tabs fades. Practising a single act or zone shows "Practice: …" instead of a lone tab.
+- Jumping to the current zone lands on a zone boundary under the act header, or at the top when the zone fits there.
+- During a run the route bar is one line ("Normal clear · Full campaign · Edit ▸"); Edit opens the full bar.
 - Run panel: zone and progress, the segment timer with run time, live delta and the ghost line, Split with Pause, Undo and New run under it, the current step with one hint and the next step, the act's splits against your PB, and the campaign total with sum of best.
+- The panel shows the step's objective and one hint; gear checkpoints, other hints, route info, class notes and the zone's other steps sit behind "+N more". Next step is always on screen, also at 1280x720 and 1366x768, where the act splits fold to the current zone and the act total.
+- Click the ghost line to pick a different ghost without leaving Campaign; "More on Runs" opens the full ghost panel. With nothing to race it says "Pick a ghost on Runs".
+- The level cue on the panel has −/+. In the desktop app, set your in-game name on the Character tab and the level follows your level-ups in Client.txt. Only the game's own "is now level" line for that name is read; chat and other players are ignored. Without a name, the panel asks before using a level-up.
 - New Runs tab with run history, run analytics and CSV, the full Run & Segments table and the ghost race panel. New Character tab with the character details and PoB2 import. Tabs are now Campaign, Runs, Character, Endgame and Tools.
-- Between 860 and 1279px the panel is narrower and the act splits show the current zone and the act total, with a button to show all. On phones the compact now-bar stays at the top with Split and the timers, the act tabs scroll sideways under it, and the act splits sit below the checklist.
+- Between 960 and 1279px the panel is narrower and the act splits show the current zone and the act total, with a button to show all. Under 960px there's one column, so the checklist never drops below 560px: the compact now-bar stays at the top with Split and the timers, the act tabs scroll sideways under it, and the act splits sit below the checklist.
+- Phones: all five tabs fit from about 380px wide, and the row scrolls sideways on narrower screens. The tab row slides away while you scroll down and comes back when you scroll up.
+- Runs: the "Run analytics & CSV" link (to the same page) is gone. Character and the other tabs use the same centred container as Campaign.
+- Accessibility: one main landmark around the tab panels, and the Runs table's first column header is labelled.
+- Desktop: `desktop/package.json` declares Node 22 or newer for development.
 - Desktop overlay is smaller: it shows only the current step and the next step. Hints stay in the app. The default panel is about 400x72 at 1080p, scaled to the screen height, centred at the top below the boss health bar.
 - Unlock the overlay (`Ctrl+Alt+O` or the tray) to drag it anywhere and resize it from the bottom-right corner. Size and position are remembered. The text scales to fit the window you set; a very long step is cut short only at the smallest text size.
 - The overlay text size option is gone. If you had Small or Large, the overlay starts at a matching smaller or larger size.
