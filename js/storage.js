@@ -49,6 +49,7 @@
              endgameAutoDetect: false, // desktop: start/stop map runs from Client.txt
              view: "campaign",         // campaign | endgame | tools
              ghostMode: false,         // race against a ghost (PB, best segments, a past or imported run)
+             seen: { firstRunTip: false, ghostHint: false }, // one-time tips already shown or dismissed
              hotkeys: {} };  // action -> key overrides; defaults live in app.js (HOTKEY_DEFS)
   }
 
@@ -294,6 +295,8 @@
     opacity = Math.min(1, Math.max(0.3, opacity));
     out.endgameAutoDetect = asBool(src.endgameAutoDetect);
     out.ghostMode = asBool(src.ghostMode);
+    const seen = asObject(src.seen);
+    out.seen = { firstRunTip: seen.firstRunTip === true, ghostHint: seen.ghostHint === true };
     out.view = ["campaign", "endgame", "tools"].includes(src.view) ? src.view : "campaign";
     out.overlay = {
       opacity,

@@ -133,9 +133,9 @@
     el.innerHTML = msg ? `${esc(msg)} <button type="button" data-action="export">Export JSON</button>${st.blocked ? ` <button type="button" class="danger" data-action="storage-overwrite">Start saving anyway</button>` : ""}` : "";
   }
 
-  function toast(msg) {
+  function toast(msg, ms = 2400) {
     const t = $("#toast"); t.textContent = msg; t.classList.add("show");
-    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2400);
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), ms);
   }
 
   /* ---------- Small widgets ---------- */
@@ -145,7 +145,7 @@
       <span class="timer" data-timer="${esc(key)}">${fmt(Timers.value(c, key))}</span>
       ${opts.noButtons ? "" : `<button class="tt" data-action="timer-toggle" data-key="${esc(key)}"
         aria-label="${run ? "Stop" : "Start"} ${esc(label)} timer">${run ? "Stop" : "Start"}</button>
-      <button data-action="timer-reset" data-key="${esc(key)}" title="Reset" aria-label="Reset ${esc(label)} timer">↺</button>`}
+      <button data-action="timer-reset" data-key="${esc(key)}" title="Reset" aria-label="Reset ${esc(label)} timer">${Icons.icon("refresh")}</button>`}
     </span>`;
   }
   /** Derived (sum) timer: section / group totals, refreshed by tick(). */
@@ -206,7 +206,7 @@
     if (s.rewards.length) info.push(s.rewards.map(r => `<span class="reward${r.must ? " must" : ""}">${r.must ? "★ " : ""}${esc(r.label)}</span>`).join(""));
     if (s.waypoint) info.push(`<span class="k">Waypoint</span> ${esc(s.waypoint === true ? "Yes" : s.waypoint)}`);
     if (s.skip.length) info.push(`<span class="k">Skip</span> ${esc(s.skip.join("; "))}`);
-    if (s.warning) info.push(`<span class="warn">⚠ ${esc(s.warning)}</span>`);
+    if (s.warning) info.push(`<span class="warn">${Icons.icon("warn")} ${esc(s.warning)}</span>`);
     const more = hints.length > 1 ? hints.length - 1 : 0;
     return `<div class="now-step">
       <label class="now-objective"><input type="checkbox" data-action="step" data-id="${esc(s.id)}"${c.done[s.id] ? " checked" : ""}>
@@ -227,7 +227,7 @@
     const ov = (state.settings && state.settings.overlay) || { opacity: 0.8, clickThrough: true };
     const showTip = !(state.settings && state.settings.hideHints);
     if (!cur) {
-      const last = c.history[0];
+      const last = c.history[0], prac = Run.route(c).practice;
       return {
         v: 1,
         step: last ? `Finished · ${Timers.format(last.total)}` : "Campaign complete",
@@ -267,8 +267,8 @@
     const c = char(), cur = Run.current(c), running = Run.runningZone(c), paused = Run.isPaused(c);
     const p = Run.pb(c);
     if (!cur) {
-      const last = c.history[0];
-      $("#now").innerHTML = `<div class="now-main"><div class="now-zone">🏁 Campaign complete</div>
+      const last = c.history[0], prac = Run.route(c).practice;
+      $("#now").innerHTML = `<div class="now-main"><div class="now-zone now-finish">${Icons.icon("flag")} ${prac ? `Practice complete · ${esc(Run.practiceLabel(prac.kind, prac.id))}` : "Campaign complete"}</div>
         <div class="now-sub">${last ? `Final time <b class="mono">${fmt(last.total)}</b>${p && p.id === last.id ? " · <span class='ahead'>New PB!</span>" : ""}` : ""}</div></div>
         <div class="now-actions"><button data-action="undo">Undo split <kbd>${esc(keyName(bindings().undo))}</kbd></button>
         <button class="primary" data-action="new-run">New run <kbd>${esc(keyName(bindings().newRun))}</kbd></button>
@@ -384,6 +384,8 @@
   }
   const ghostMine = (c, now) => ({ ms: z => Run.zoneMs(c, z, now), split: z => !!c.split[z], live: Run.runningZone(c) });
   const zoneName = zid => (Run.BY_ZONE[zid] ? Run.BY_ZONE[zid].zone.name : zid);
+  /** Colour-blind safe: say it in words as well as colour and sign. */
+  const aheadWord = ms => (ms === null || ms === undefined ? "" : `<span class="dword">${ms < 0 ? "ahead" : ms > 0 ? "behind" : "even"}</span>`);
   const deltaSpan = (ms, extra = "") => ms === null || ms === undefined
     ? `<span class="muted">–</span>` : `<span class="mono ${deltaClass(ms)}"${extra}>${fmtDelta(ms)}</span>`;
 
@@ -391,11 +393,13 @@
   function ghostNowHTML(c, now = Date.now()) {
     if (!ghostOn()) return "";
     const g = currentGhost(c);
-    if (!g) return `<div class="now-ghost muted small" data-ghost-now>Ghost: no comparison yet</div>`;
+    if (!g) return `<div class="now-ghost muted" data-ghost-now>Ghost: no comparison yet</div>`;
     const order = Run.order(c), cmp = Ghost.compare(order, ghostMine(c, now), g);
     const pos = Ghost.position(order, g, Run.totalMs(c, now));
-    const where = !pos ? "" : pos.finished ? "Ghost finished" : `Ghost in ${esc(zoneName(pos.zid))}`;
-    return `<div class="now-ghost small" data-ghost-now>${where}${cmp.cum !== null ? " · " + deltaSpan(cmp.cum) : ""}</div>`;
+    const where = !pos ? "" : pos.finished ? "Ghost finished" : `Ghost in <b>${esc(zoneName(pos.zid))}</b>`;
+    // Racing the PB: the run delta beside the timer already is the ghost delta, so don't repeat it.
+    const showDelta = g.source !== "pb" && cmp.cum !== null;
+    return `<div class="now-ghost" data-ghost-now>${where}${showDelta ? ` <span class="ghost-delta">${deltaSpan(cmp.cum)} ${aheadWord(cmp.cum)}</span>` : ""}</div>`;
   }
 
   /** Live part of the ghost panel; re-rendered by tick() only when it changes. */
@@ -410,11 +414,11 @@
       <td>${cmp.live.mine > cmp.live.theirs ? deltaSpan(cmp.live.seg) : `<span class="muted mono">${fmt(cmp.live.theirs - cmp.live.mine)} left</span>`}</td><td>${deltaSpan(cmp.live.cum)}</td></tr>`);
     const posText = !pos ? "" : pos.finished ? "The ghost has finished"
       : `The ghost is in <b>${esc(zoneName(pos.zid))}</b> <span class="muted small">(${fmt(pos.intoMs)} of ${fmt(pos.zoneMs)})</span>`;
-    return `<div class="ghost-head"><span>${posText}</span>${deltaSpan(cmp.cum, ' data-ghost-cum title="Ahead (−) or behind (+) the ghost"')}</div>
+    return `<div class="ghost-head"><span>${posText}</span><span class="ghost-cum">${deltaSpan(cmp.cum, ' data-ghost-cum title="Ahead (−) or behind (+) the ghost"')} ${aheadWord(cmp.cum)}</span></div>
       ${rows.length ? `<table class="seg ghost-splits"><thead><tr><th>Split</th><th>Segment</th><th>Total</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
         : `<div class="muted small">Split a zone to see the race.</div>`}
       ${sums.length ? `<h3>Acts and interludes</h3><ul class="ghost-acts">${sums.map(x => `<li><span>${esc(GROUP_NAME[x.group] || x.group)}${x.done ? "" : ` <span class="muted small">so far</span>`}</span>
-        ${deltaSpan(x.delta)} <span class="muted small">${x.delta < 0 ? "gained" : x.delta > 0 ? "lost" : "even"}</span></li>`).join("")}</ul>` : ""}`;
+        ${deltaSpan(x.delta)} ${aheadWord(x.delta)}</li>`).join("")}</ul>` : ""}`;
   }
 
   function renderGhost() {
@@ -475,16 +479,25 @@
       <option value="practice"${historyFilter === "practice" ? " selected" : ""}>Practice</option>
       <option value="all"${historyFilter === "all" ? " selected" : ""}>All</option>
     </select></label>`;
-    $("#history").innerHTML = `<h2>Run history</h2>
+    const tip = !state.settings.seen.firstRunTip && !(c.history || []).length ? `<div class="first-run" role="note">
+        <h3>How a run works</h3>
+        <ol>
+          <li><b>Start run</b> (${esc(keyName(bindings().split))}) starts the clock on the first zone.</li>
+          <li><b>Split</b> each time you enter the next zone. The big clock is the zone, <b>Run</b> is the total.</li>
+          <li>Your first finished run becomes your <b>PB</b>. A full campaign is ${Run.ALL.length} zones; to see a finish now, practise one zone.</li>
+        </ol>
+        <div class="row"><button type="button" class="primary" data-action="tip-practice">Try a one-zone practice</button>
+          <button type="button" data-action="tip-dismiss">Got it</button></div></div>` : "";
+    $("#history").innerHTML = `<h2>Run history</h2>${tip}
       ${filterSel}
       <div class="muted small">${historyFilter === "all" ? "All variants" : historyFilter === "practice" ? "Practice runs only" : "Campaign runs (no practice)"} · ${esc(Run.variantLabel(Run.variantKey(Run.route(c))))}</div>
       ${p ? `<div class="pb">PB <b class="mono">${fmt(p.total)}</b> <span class="muted">${new Date(p.finished).toLocaleDateString()}</span></div>` : '<div class="muted">No completed run in this filter.</div>'}
       ${runs.length ? `<ol class="runs">${runs.map(h => { const hp = pbOf(h); return `<li class="${hp && h.id === hp.id ? "is-pb" : ""}" title="${esc(Run.variantLabel(h.variant || "normal"))}">
         <span class="mono">${fmt(h.total)}</span>
-        <span class="muted">${isPracticeRun(h) ? "◎ " : ""}${(h.variant || "normal").startsWith("fast") ? "⚡" : ""}${h.complete ? (hp && h.id !== hp.id ? `<span class="behind">${fmtDelta(h.total - hp.total)}</span>` : "PB") : `reset ${h.splitsDone}/${h.zonesTotal}`}</span>
+        <span class="muted">${isPracticeRun(h) ? `<span title="Practice">${Icons.icon("target")}</span> ` : ""}${(h.variant || "normal").startsWith("fast") ? `<span title="Speedrun route">${Icons.icon("bolt")}</span>` : ""}${h.complete ? (hp && h.id !== hp.id ? `<span class="behind">${fmtDelta(h.total - hp.total)}</span>` : "PB") : `reset ${h.splitsDone}/${h.zonesTotal}`}</span>
         <span class="muted small">${new Date(h.finished).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</span>
-        <button class="icon danger" data-action="run-delete" data-id="${esc(h.id)}" title="Delete run" aria-label="Delete run">✕</button></li>`; }).join("")}</ol>` : `<div class="empty">No runs in this filter.</div>`}
-      <div class="row"><a href="#stats" class="small">📈 Run analytics &amp; CSV</a></div>
+        <button class="icon danger" data-action="run-delete" data-id="${esc(h.id)}" title="Delete run" aria-label="Delete run">${Icons.icon("x")}</button></li>`; }).join("")}</ol>` : `<div class="empty">No runs in this filter.</div>`}
+      <div class="row"><a href="#stats" class="small">${Icons.icon("chart")} Run analytics &amp; CSV</a></div>
       ${filtered.length > runs.length ? `<div class="muted small">+${filtered.length - runs.length} older in this filter</div>` : ""}`;
   }
 
@@ -564,8 +577,8 @@
     return recs.map(n => `<span class="class-rec"><span class="for">Recommended for ${esc(name)}</span>${esc(n.reward)}</span>`).join("");
   }
 
-  /** Layout hints, plus the speedrun tips (⚡) when the fast route is selected. */
-  const stepHints = (c, s) => s.hints.concat(Run.route(c).mode === "fast" ? s.fastTips.map(t => "⚡ " + t) : []);
+  /** Layout hints, plus the speedrun tips when the fast route is selected. */
+  const stepHints = (c, s) => s.hints.concat(Run.route(c).mode === "fast" ? s.fastTips.map(t => "Speedrun: " + t) : []);
 
   function stepHTML(s, c) {
     const done = !!c.done[s.id];
@@ -576,7 +589,7 @@
     if (s.rewards.length) extra.push(`<li>${s.rewards.map(r =>
       `<span class="reward${r.must ? " must" : ""}">${r.must ? "★ " : ""}${esc(r.label)}</span>`).join("")}${classRecHTML(c, s.id)}</li>`);
     else if (classRecsFor(c.classId, s.id).length) extra.push(`<li>${classRecHTML(c, s.id)}</li>`);
-    if (s.warning) extra.push(`<li class="warn">⚠ ${esc(s.warning)}</li>`);
+    if (s.warning) extra.push(`<li class="warn">${Icons.icon("warn")} ${esc(s.warning)}</li>`);
     return `<div class="step${done ? " done" : ""}">
       <input type="checkbox" id="st-${esc(s.id)}" data-action="step" data-id="${esc(s.id)}"${done ? " checked" : ""}>
       <label for="st-${esc(s.id)}"><span class="objective">${esc(s.objective)}</span>
@@ -746,7 +759,7 @@
           <span>${esc(r.map)} ${r.tier ? `<span class="muted">${tierLabel(r.tier)}</span>` : ""}${isPb ? " · PB" : ""}${r.completed ? "" : " · failed"}${r.deaths ? ` · ${r.deaths} death${r.deaths > 1 ? "s" : ""}` : ""}
             ${r.loot ? `<br><span class="small">${esc(r.loot)}</span>` : ""}${r.mods ? `<br><span class="muted small">${esc(r.mods)}</span>` : ""}${r.notes ? `<br><span class="muted small">${esc(r.notes)}</span>` : ""}</span>
           <button class="icon" data-action="eg-run-complete" data-id="${esc(r.id)}" title="${r.completed ? "Mark failed" : "Mark completed"}" aria-label="${r.completed ? "Mark failed" : "Mark completed"}">${r.completed ? "✓" : "○"}</button>
-          <button class="icon danger" data-action="eg-run-delete" data-id="${esc(r.id)}" title="Delete map run" aria-label="Delete map run">✕</button></li>`;
+          <button class="icon danger" data-action="eg-run-delete" data-id="${esc(r.id)}" title="Delete map run" aria-label="Delete map run">${Icons.icon("x")}</button></li>`;
       }).join("")}</ol>` : `<div class="empty">${eg.sessions.length
         ? "No map runs in this session yet."
         : "Type a map and press Start map; a session opens automatically. End the session to see your maps per hour. Map runs and atlas progress are kept per character."}</div>`;
@@ -962,7 +975,8 @@
   function scrollToCurrent(smooth = true) {
     const cur = Run.current(char());
     const el = cur && document.querySelector("#zone-" + cssEsc(cur.zone.id));
-    if (el) el.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "center" });
+    const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (el) el.scrollIntoView({ behavior: smooth && !reduce ? "smooth" : "auto", block: "center" });
   }
 
   /* ---------- Actions ---------- */
@@ -975,11 +989,25 @@
     }
     const res = Run.split(c);
     commit();
-    if (res === "finished") {
-      const p = Run.pb(c), last = c.history[0];
-      toast(p && last && p.id === last.id ? `New PB! ${fmt(last.total)}` : `Run finished: ${fmt(last.total)}`);
-    }
+    if (res === "finished") onRunFinished(c);
     scrollToCurrent();
+  }
+
+  /** After a finish: show the run in history (practice or campaign) and nudge toward ghost race once. */
+  function onRunFinished(c) {
+    const p = Run.pb(c), last = c.history[0];
+    if (!last) return;
+    historyFilter = isPracticeRun(last) ? "practice" : "campaign";
+    const seen = state.settings.seen;
+    const isPb = p && p.id === last.id;
+    let msg = isPb ? `New PB! ${fmt(last.total)}` : `Run finished: ${fmt(last.total)}`;
+    if (isPb && !ghostOn() && !seen.ghostHint) {
+      seen.ghostHint = true;
+      msg += " · Race it next time: Settings → Ghost race";
+    }
+    seen.firstRunTip = true;
+    commit();
+    toast(msg, isPb && seen.ghostHint ? 6000 : undefined);
   }
 
 
@@ -1425,6 +1453,17 @@
       if (!g || !(await openModal(`Remove the ghost "${g.name}"?`, { okLabel: "Remove" }))) return;
       Ghost.removeImported(st, id); commit(); toast("Ghost removed");
     },
+    "skip-to-timer"(el, ev) {
+      if (ev) ev.preventDefault();
+      if (state.settings.view !== "campaign") { state.settings.view = "campaign"; commit(); }
+      const b = $('#now [data-action="split"]') || $('#now [data-action="new-run"]');
+      if (b) b.focus();
+    },
+    "tip-dismiss"() { state.settings.seen.firstRunTip = true; commit(); },
+    "tip-practice"() {
+      const c = char(), first = Run.order(c)[0] || Run.ALL[0];
+      actions["practice-zone"]({ dataset: { id: Run.current(c) ? Run.current(c).zone.id : first.zone.id } });
+    },
     help() { if ($("#help").open) closePanel("help"); else openPanel("help"); },
     "header-menu"() { setHeaderMenu(!$(".topbar").classList.contains("menu-open"), true); },
     async "pob-import"() {
@@ -1554,6 +1593,10 @@
     else if (el.dataset && el.dataset.egField) { Endgame.updateActive(EG(), { [el.dataset.egField]: el.value }); persist(); }
     else if (el.id === "egSession") { egShowSession = el.value || null; renderViews(); }
     else if (el.id === "egAutoDetect") { state.settings.endgameAutoDetect = el.checked; commit(); }
+    else if (el.id === "overlayTextSize") {
+      if (window.splitstoneDesktop && window.splitstoneDesktop.setOverlayTextSize)
+        window.splitstoneDesktop.setOverlayTextSize(el.value).then(v => { window.__desktopTextSize = v; toast("Overlay text: " + el.selectedOptions[0].textContent); });
+    }
     else if (el.id === "ghostModeSetting") { state.settings.ghostMode = el.checked; commit(); toast(el.checked ? "Ghost race on" : "Ghost race off"); }
     else if (el.id === "ghostPick") { ghostState(char()).pick = el.value; commit(); }
     else if (el.id === "ghostFile" && el.files[0]) {
@@ -1725,6 +1768,8 @@
           const pct = Math.round((Number(ov.opacity) || 0.8) * 100);
           if (op) op.value = String(pct);
           if (ovl) ovl.textContent = pct + "%";
+          const ts = $("#overlayTextSize");
+          if (ts) ts.value = window.__desktopTextSize || "m";
           const ct = $("#desktopClickThrough");
           if (ct) ct.checked = ov.clickThrough !== false;
           const ovs = $("#desktopOverlaySettings");
@@ -1736,7 +1781,11 @@
     },
     "settings-close"() { capturing = null; closePanel("settings"); },
     "key-change"(el) { capturing = capturing === el.dataset.id ? null : el.dataset.id; $("#keyError").textContent = ""; renderHelp(); },
-    "keys-reset"() { state.settings.hotkeys = {}; capturing = null; $("#keyError").textContent = ""; commit(); toast("Hotkeys reset"); },
+    async "keys-reset"() {
+      if (!Object.keys(state.settings.hotkeys || {}).length) return toast("Hotkeys are already the defaults");
+      if (!(await askConfirm("Reset all in-app hotkeys to the defaults? Your custom keys will be lost."))) return;
+      state.settings.hotkeys = {}; capturing = null; $("#keyError").textContent = ""; commit(); toast("Hotkeys reset");
+    },
     "set-theme"(el) {
       applyTheme(el.dataset.id);
       Storage2.save(state);
@@ -1797,7 +1846,7 @@
       else if (m.action === "split") {
         const res = Run.split(c, { to: m.to, start: true });
         commit(); scrollToCurrent();
-        if (res === "finished") toast("Run finished");
+        if (res === "finished") onRunFinished(c);
       } else if (m.action === "finish") doSplit();
       else document.querySelectorAll("[data-as-last]").forEach(el => { el.textContent = lastAuto; });
     },
@@ -1872,6 +1921,7 @@
       if (st && st.watching && st.logExists) hideDesktopSetup();
       if (st && typeof st.overlayEnabled === "boolean") {
         window.__desktopOverlayEnabled = st.overlayEnabled;
+    if (st.overlayTextSize) window.__desktopTextSize = st.overlayTextSize;
         const a = $("#desktopOverlay"), b = $("#desktopOverlaySettings");
         if (a) a.checked = st.overlayEnabled;
         if (b) b.checked = st.overlayEnabled;

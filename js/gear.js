@@ -4,8 +4,8 @@
 
   const DATA = () => global.GEAR_CHECKPOINTS || { shared: {}, byClass: {}, meta: {} };
   const KIND_ICON = {
-    weapon: "⚔", gem: "💎", support: "◆", vendor: "🏪", craft: "⚒",
-    respec: "↺", spirit: "✦", tip: "·",
+    weapon: "sword", gem: "gem", support: "support", vendor: "shop", craft: "hammer",
+    respec: "refresh", spirit: "spark", tip: "dot",
   };
 
   function forStep(classId, stepId) {
@@ -40,7 +40,8 @@
     return out;
   }
 
-  function icon(kind) { return KIND_ICON[kind] || "·"; }
+  /** Inline SVG markup (trusted, from icons.js); falls back to a dot. */
+  function icon(kind) { return global.Icons ? Icons.icon(KIND_ICON[kind] || "dot") : ""; }
 
   global.Gear = { forStep, forZone, icon, data: DATA };
 })(window);

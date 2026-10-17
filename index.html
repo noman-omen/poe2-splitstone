@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+  <a class="skip-link" href="#now" data-action="skip-to-timer">Skip to timer</a>
   <div id="desktopSetup" class="desktop-setup" hidden>
     <div class="desktop-setup-inner">
       <strong>Welcome to Splitstone</strong>
@@ -51,7 +52,7 @@
     <div class="char-controls">
       <label for="charSelect" class="sr-only">Character</label>
       <select id="charSelect" title="Switch character"></select>
-      <button type="button" class="more-btn" data-action="header-menu" aria-expanded="false" aria-label="More options" title="More options">⋯</button>
+      <button type="button" class="more-btn" data-action="header-menu" aria-expanded="false" aria-label="More options" title="More options"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
       <button data-action="char-new" title="Create a new character">New</button>
       <button data-action="char-rename">Rename</button>
       <button data-action="char-delete" class="danger">Delete</button>
@@ -65,7 +66,7 @@
       <button data-action="export">Export JSON</button>
       <button data-action="import">Import JSON</button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
-      <button data-action="settings" title="Change hotkeys" aria-label="Settings (theme & hotkeys)">⌨</button>
+      <button data-action="settings" title="Settings" aria-label="Settings"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></button>
       <button data-action="help" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
     </div>
     <nav class="views" role="tablist" aria-label="View">
@@ -110,6 +111,7 @@
       <p class="muted small">These apply only in the Splitstone Windows/Linux app. Global hotkeys use Ctrl+Alt combos so they do not steal Space/letters from the game.</p>
       <label class="switch"><input type="checkbox" id="desktopOverlaySettings"> Overlay on</label>
       <label>Overlay opacity <input type="range" id="overlayOpacity" min="30" max="100" step="5" value="80"> <span id="overlayOpacityVal">80%</span></label>
+      <label>Overlay text size <select id="overlayTextSize"><option value="s">Small</option><option value="m">Medium</option><option value="l">Large (1440p / 4K)</option></select></label>
       <label class="switch" title="When on, clicks pass through to the game. Unlock with Ctrl+Alt+O or the tray to drag the overlay."><input type="checkbox" id="desktopClickThrough" checked> Click-through (lock overlay)</label>
       <button type="button" data-action="overlay-reset-pos">Reset overlay position</button>
       <label class="switch"><input type="checkbox" id="desktopAutoUpdateSettings"> Auto-update from GitHub Releases</label>
@@ -156,6 +158,7 @@
   <script src="data/endgame.js"></script>
   <script src="data/tools.js"></script>
   <script src="js/endgame.js"></script>
+  <script src="js/icons.js"></script>
   <script src="js/ghost.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/timers.js"></script>
