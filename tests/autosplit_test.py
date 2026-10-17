@@ -84,6 +84,8 @@ try:
         check("last event shown", "Clearfell" in page.text_content("[data-as-last]"))
         page.reload()
         page.wait_for_selector(".pill.as-connected", timeout=5000)
+        check("route bar is one line during the run, with the status pill", page.locator("#campaign .route-summary .pill.as-connected").count() == 1)
+        page.click('#campaign .route-summary [data-action="route-edit"]')
         check("toggle persisted + reconnects after reload", page.is_checked("#autoSplit"))
         page.uncheck("#autoSplit")
         enter("G1_town", "Clearfell Encampment")

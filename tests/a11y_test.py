@@ -1,4 +1,5 @@
-"""axe-core WCAG 2 A/AA scan per theme (campaign with ghost race on, runs, character, endgame, tools, settings, phone campaign).
+"""axe-core WCAG 2 A/AA scan per theme (campaign with ghost race on, runs, character, endgame, tools, settings, phone campaign),
+plus the landmark and table-header rules on every tab.
 Needs the app on TRACKER_URL and axe-core: set AXE_PATH to axe.min.js, or
 `npm i axe-core` somewhere and point AXE_PATH at node_modules/axe-core/axe.min.js.
 Skips (exit 0) when axe-core isn't found. CSP is bypassed only to inject axe."""
@@ -25,11 +26,17 @@ def check(name, ok, info=""):
     print(("PASS " if ok else "FAIL ") + name + (f"  [{info}]" if info and not ok else ""))
 
 
-def scan(page):
-    page.add_script_tag(path=AXE)
-    res = page.evaluate("""() => axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] },
+LANDMARK_RULES = ["landmark-one-main", "landmark-no-duplicate-main", "landmark-unique", "region", "aria-allowed-role",
+                  "empty-table-header"]
+
+
+def scan(page, rules=None):
+    if not page.evaluate("!!window.axe"):
+        page.add_script_tag(path=AXE)
+    only = {"type": "rule", "values": rules} if rules else {"type": "tag", "values": ["wcag2a", "wcag2aa"]}
+    res = page.evaluate("""(only) => axe.run(document, { runOnly: only,
         resultTypes: ['violations'] }).then(r => r.violations.map(v => ({ id: v.id, n: v.nodes.length,
-        sample: v.nodes.slice(0, 3).map(x => x.target.join(' ') + ' :: ' + (x.failureSummary || '').split('\\n').slice(-1)[0]) })))""")
+        sample: v.nodes.slice(0, 3).map(x => x.target.join(' ') + ' :: ' + (x.failureSummary || '').split('\\n').slice(-1)[0]) })))""", only)
     return res
 
 
@@ -52,6 +59,10 @@ with sync_playwright() as p:
             v = scan(page)
             summary = ", ".join(f"{x['id']}×{x['n']}" for x in v)
             check(f"{theme}/{view}: no WCAG A/AA violations", not v, summary + " | " + json.dumps([x["sample"] for x in v])[:600])
+            if theme == "ember" and view != "settings":
+                v = scan(page, LANDMARK_RULES)
+                check(f"{view} tab: one main landmark, everything inside a landmark, no empty table headers", not v,
+                      json.dumps(v)[:600])
             if view == "settings":
                 page.keyboard.press("Escape")
         if theme == "ember":

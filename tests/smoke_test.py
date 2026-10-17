@@ -36,6 +36,13 @@ def new_run(page):
     except Exception:
         pass  # nothing to confirm (fresh run)
 
+def route_edit(page):
+    """During a run the route bar is one line; open it to reach the route controls."""
+    btn = page.locator('#campaign .route-summary [data-action="route-edit"]')
+    if btn.count():
+        btn.click()
+
+
 def show(page, sel):
     """Click a tab, then drop focus so Space goes to the split hotkey, not the button."""
     page.click(sel)
@@ -84,7 +91,7 @@ with sync_playwright() as p:
     # --- Structure: interludes split into their own sections, one act on screen ---
     names = page.locator("#actTabs [role=tab]").all_text_contents()
     check("8 act tabs in play order", [n.split(",")[0] for n in names] == [
-        "Act 1", "Act 2", "Act 3", "Act 4", "Interlude 2 · 1", "Interlude 3", "Interlude 2 · 2", "Interlude 1"], names)
+        "Act 1", "Act 2", "Act 3", "Act 4", "Interlude 2 (1/2)", "Interlude 3", "Interlude 2 (2/2)", "Interlude 1"], names)
     check("one act rendered", page.locator("#campaign .section").count() == 1
           and page.locator("#campaign .section").get_attribute("data-section") == "act1")
     seg = page.text_content("#totals")
@@ -223,6 +230,7 @@ with sync_playwright() as p:
     # --- Route variants (per character) ---
     new_run(page)
     n_normal = js(page, "Run.order(state_c()).length")
+    route_edit(page)
     page.select_option("#routeMode", "fast")
     c = char(page)
     check("route mode persisted on character", c["route"]["mode"] == "fast")
@@ -230,9 +238,11 @@ with sync_playwright() as p:
     check(f"fast route drops normal-only zones ({n_normal}->{n_fast})", n_fast < n_normal)
     check("normal-only step hidden in fast route", page.locator('input[data-id="act1-15"]').count() == 0)
     check("fast tips marked in fast route", page.locator(".zone .hints li", has_text="Speedrun:").count() > 0)
+    route_edit(page)
     page.check("#requiredOnly")
     check("required-only hides optional steps", page.locator('input[data-id="interludes-20"]').count() == 0
           and js(page, "Run.order(state_c()).length") <= n_fast)
+    route_edit(page)
     page.uncheck("#requiredOnly")
     for _ in range(200):
         if page.locator("#now .now-finish").count():
@@ -245,6 +255,7 @@ with sync_playwright() as p:
           js(page, "Run.pb(state_c(), 'fast').id") == c["history"][0]["id"]
           and js(page, "Run.pb(state_c(), 'normal').id") != c["history"][0]["id"])
     new_run(page)
+    route_edit(page)
     page.select_option("#routeMode", "normal")
 
     # --- Persistence ---
@@ -363,6 +374,7 @@ with sync_playwright() as p:
 
     # --- Class-aware campaign notes ---
     show(page, "#act-tab-act1")
+    route_edit(page)
     page.select_option("#routeClass", "monk")
     accept_if_modal(page)
     check("class persisted on character", char(page).get("classId") == "monk")
@@ -371,9 +383,11 @@ with sync_playwright() as p:
     page.check("#hideHints")
     check("hide-hints hides class notes", not page.locator(".class-note").first.is_visible())
     page.uncheck("#hideHints")
+    route_edit(page)
     page.select_option("#routeClass", "mercenary")
     accept_if_modal(page)
     check("mercenary Renly tip is Explosive Grenade", page.locator(".class-note", has_text="Explosive Grenade").count() >= 1)
+    route_edit(page)
     page.select_option("#routeClass", "warrior")
     accept_if_modal(page)
     check("warrior Rolling Slam tip shown", page.locator(".class-note", has_text="Rolling Slam").count() >= 1)
@@ -382,6 +396,7 @@ with sync_playwright() as p:
     exp = json.loads(Path(dl.value.path()).read_text())
     check("classId in JSON export", any(c.get("classId") == "warrior" for c in exp["characters"].values()))
     check("JSON export never carries the helper token", "token" not in exp["settings"].get("autoSplit", {}))
+    route_edit(page)
     page.select_option("#routeClass", "")
     accept_if_modal(page)
     check("class can be cleared to None", char(page).get("classId") in (None, ""))

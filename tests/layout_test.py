@@ -8,7 +8,7 @@ from modal_helpers import auto_accept_modals
 from tracker_url import TRACKER_URL
 
 URL = TRACKER_URL
-SIZES = [(1280, 720), (1366, 768), (1280, 800), (1920, 1080), (390, 844)]
+SIZES = [(1280, 720), (1366, 768), (1280, 800), (1024, 768), (900, 700), (1920, 1080), (2560, 1440), (390, 844)]
 PLAY_ORDER = ["act1", "act2", "act3", "act4", "int2a", "int3", "int2b", "int1"]
 results = []
 
@@ -115,6 +115,12 @@ with sync_playwright() as p:
     first = page.locator(".zone.complete >> nth=0")
     check("clicking a folded zone opens it", first.locator(".step").count() > 0
           and first.locator("[data-action=zone-toggle]").get_attribute("aria-expanded") == "true")
+    page.click('.zone.folded >> nth=0 >> .timer')
+    second = page.locator(".zone.complete >> nth=1")
+    check("a folded row opens from its time too, not only the name", second.locator(".step").count() > 0
+          and second.locator("[data-action=zone-toggle]").get_attribute("aria-expanded") == "true")
+    badge = page.text_content("#actPanel .badge")
+    check("act badge says it counts steps", badge.endswith(" steps"), badge)
     check("current zone stays open", page.locator(".zone.current .step").count() > 0)
     page.click("#act-tab-act3"); blur(page)
     split(page)
@@ -170,13 +176,23 @@ with sync_playwright() as p:
         check(f"{w}x{h}: exactly one act's zones rendered and visible", acts["rendered"] == ["act2"] and acts["visible"] == ["act2"], acts)
         check(f"{w}x{h}: Split visible without scrolling", pg.evaluate(SPLIT_IN_VIEW) == "ok", pg.evaluate(SPLIT_IN_VIEW))
         check(f"{w}x{h}: no sideways overflow", pg.evaluate("document.documentElement.scrollWidth - innerWidth") <= 1)
-        if w >= 861:
+        list_w = pg.evaluate("document.querySelector('.checklist').getBoundingClientRect().width")
+        if w >= 900:
+            check(f"{w}x{h}: checklist at least 560 px wide", list_w >= 560, list_w)
+        if w >= 960:
             check(f"{w}x{h}: page doesn't scroll, the columns do",
                   pg.evaluate("document.documentElement.scrollHeight") <= h + 1)
+            want = 400 if w >= 1800 else 360 if w >= 1280 else 320
             panel = pg.evaluate("() => { const r = document.querySelector('#play').getBoundingClientRect(); return [r.width, r.bottom]; }")
-            check(f"{w}x{h}: side panel {'360' if w >= 1280 else '320'} px, inside the window",
-                  round(panel[0]) == (360 if w >= 1280 else 320) and panel[1] <= h + 1, panel)
-        else:
+            check(f"{w}x{h}: side panel {want} px, inside the window", round(panel[0]) == want and panel[1] <= h + 1, panel)
+            edges = pg.evaluate("""() => { const x = s => document.querySelector(s).getBoundingClientRect();
+              return { brand: x('.brand').left, tabs: x('#tab-campaign').left, list: x('.checklist').left,
+                io: x('.topbar .io').right, play: x('#play').right, view: x('#viewCampaign').width }; }""")
+            check(f"{w}x{h}: header and tabs line up with the content", abs(edges["brand"] - edges["list"]) <= 1
+                  and abs(edges["tabs"] - edges["list"]) <= 1 and abs(edges["io"] - edges["play"]) <= 1, edges)
+            if w >= 1920:
+                check(f"{w}x{h}: wide container (up to 1840 px)", round(edges["view"]) == min(1840, w), edges)
+        if w < 960:
             order = pg.evaluate("""() => ['.checklist', '#actSplits'].map(s => document.querySelector(s).getBoundingClientRect())
               .map(r => [r.top, r.bottom])""")
             check("phone: act splits below the checklist", order[0][1] <= order[1][0], order)
@@ -189,6 +205,11 @@ with sync_playwright() as p:
             check("phone: act splits collapsed to the current zone", pg.locator("#actSplits tbody tr").first.is_hidden())
         pg.close()
 
+    # Short windows: act splits fold too, so the panel keeps its room for the step
+    page.set_viewport_size({"width": 1366, "height": 768}); page.wait_for_timeout(200)
+    shown = [r for r in page.locator("#actSplits tbody tr").all() if r.is_visible()]
+    check("short window: act splits show the current zone and the total", len(shown) == 1 and page.locator("#actSplits tfoot").is_visible())
+
     # Mid width: act splits fold to the current zone plus the total
     page.set_viewport_size({"width": 1024, "height": 768}); page.wait_for_timeout(200)
     rows = page.locator("#actSplits tbody tr")
@@ -198,6 +219,108 @@ with sync_playwright() as p:
     check("mid width: expand shows every zone", all(r.is_visible() for r in page.locator("#actSplits tbody tr").all()))
     page.click('[data-action="act-splits-toggle"]')
     page.set_viewport_size({"width": 1280, "height": 800})
+
+    # Act strip: labels, route-order totals, edge fade at narrow widths
+    labels = page.evaluate("() => [...document.querySelectorAll('#actTabs [role=tab]')].map(t => t.querySelector('span:not(.sr-only)').textContent)")
+    check("interlude parts read 1/2 and 2/2", "Interlude 2 (1/2)" in labels and "Interlude 2 (2/2)" in labels, labels)
+    page.click("#tab-runs")
+    rows = page.evaluate("() => [...document.querySelectorAll('#totals tbody tr:not(.sum):not(.grand) th')].map(t => t.textContent.trim())")
+    check("Runs totals follow the route order", rows == ["Act 1", "Act 2", "Act 3", "Act 4", "Interlude 2 (1/2)", "Interlude 3",
+                                                         "Interlude 2 (2/2)", "Interlude 2 total", "Interlude 1"], rows)
+    check("Runs: no link back to the same page", page.locator('#history a[href="#stats"]').count() == 0)
+    page.click("#tab-character")
+    edges = page.evaluate("() => [document.querySelector('#character').getBoundingClientRect().left, document.querySelector('.brand').getBoundingClientRect().left]")
+    check("Character page sits in the same container as the header", abs(edges[0] - edges[1]) <= 1, edges)
+    page.click("#tab-campaign")
+    page.set_viewport_size({"width": 1000, "height": 760}); page.wait_for_timeout(200)
+    page.evaluate("document.querySelector('#actTabs .act-tabs').scrollLeft = 0"); page.wait_for_timeout(100)
+    fade = page.evaluate("() => { const t = document.querySelector('#actTabs .act-tabs'); return [t.scrollWidth > t.clientWidth, t.className]; }")
+    check("act strip: an overflowing edge fades", not fade[0] or ("more-r" in fade[1] and "more-l" not in fade[1]), fade)
+    page.set_viewport_size({"width": 1280, "height": 800}); page.wait_for_timeout(200)
+
+    # Route bar: one line during a run, Edit opens it
+    check("route bar collapses to one line during a run", page.locator("#campaign .route-summary").is_visible()
+          and page.locator("#routeMode").count() == 0, page.text_content("#campaign .route-bar"))
+    line = page.text_content("#campaign .route-summary .route-line")
+    check("route summary names the route", line.startswith("Normal clear · Full campaign"), line)
+    page.click('#campaign .route-summary [data-action="route-edit"]')
+    check("Edit opens the full route bar", page.locator("#routeMode").is_visible())
+    page.click('#campaign [data-action="route-edit"]')
+    check("Done folds it again", page.locator("#campaign .route-summary").is_visible())
+
+    # Auto-scroll lands on a zone boundary, under the sticky act header
+    page.set_viewport_size({"width": 1920, "height": 1080}); page.wait_for_timeout(150)
+    page.click("#act-tab-act3"); page.click('[data-action="act-current"]'); page.wait_for_timeout(200)
+    snap = page.evaluate("""() => { const col = document.querySelector('#checklistScroll'), c = col.getBoundingClientRect();
+      const head = document.querySelector('#actPanel > header').getBoundingClientRect();
+      const cut = [...col.querySelectorAll('.zone, .route-bar')].map(z => z.getBoundingClientRect())
+        .filter(r => (r.top < head.bottom - 1 && r.bottom > head.bottom + 1 && col.scrollTop > 0) || (r.top < c.top - 1 && r.bottom > c.top + 1));
+      return { top: col.scrollTop, cut: cut.length }; }""")
+    check("auto-scroll leaves no row half under the act header or the column top", snap["cut"] == 0, snap)
+    page.set_viewport_size({"width": 1280, "height": 800})
+
+    # Single-section practice: a label instead of one lone tab
+    auto_accept_modals(page)  # the reload above dropped it
+    page.click('#campaign .route-summary [data-action="route-edit"]')
+    page.select_option("#practiceScope", "zone:act1-z02"); page.wait_for_timeout(800)
+    check("single practice: no tab strip, a Practice label", page.locator("#actTabs [role=tab]").count() == 0
+          and page.text_content("#actTabs .act-single").startswith("Practice: "), page.text_content("#actTabs"))
+    page.select_option("#practiceScope", ""); page.wait_for_timeout(200)
+
+    # M1: every header tab is reachable on a phone
+    ph = ctx.new_page()
+    ph.on("pageerror", lambda e: errs.append(str(e)))
+    ph.set_viewport_size({"width": 390, "height": 844})
+    ph.goto(URL); ph.wait_for_timeout(200)
+    for t in ["campaign", "runs", "character", "endgame", "tools"]:
+        ph.click(f"#tab-{t}", timeout=3000)
+        box = ph.locator(f"#tab-{t}").bounding_box()
+        check(f"390x844: {t} tab clickable and on screen", ph.get_attribute(f"#tab-{t}", "aria-selected") == "true"
+              and box and box["x"] >= 0 and box["x"] + box["width"] <= 390, box)
+    ph.close()
+
+    # M2: a class, the ghost and The Grelwood on short screens: step, hint and Next step all fully visible
+    VISIBLE = """(sel) => { const e = document.querySelector(sel); if (!e) return 'missing';
+      const r = e.getBoundingClientRect(); if (!r.height) return 'hidden';
+      for (let a = e.parentElement; a; a = a.parentElement) {
+        const cs = getComputedStyle(a);
+        if (cs.overflowY !== 'visible' || cs.overflowX !== 'visible') { const q = a.getBoundingClientRect();
+          if (r.top < q.top - 0.5 || r.bottom > q.bottom + 0.5) return 'clipped by ' + (a.id || a.className); }
+      }
+      return r.top >= 0 && r.bottom <= innerHeight ? 'ok' : 'off screen ' + r.bottom; }"""
+    for w, h in [(1280, 720), (1366, 768)]:
+        pg = ctx.new_page()
+        pg.on("pageerror", lambda e: errs.append(str(e)))
+        pg.clock.install()
+        pg.set_viewport_size({"width": w, "height": h})
+        pg.goto(URL)
+        pg.evaluate("""() => { localStorage.clear(); const s = Storage2.load(), c = s.characters[s.activeId];
+          c.classId = 'warrior'; s.settings.ghostMode = true; s.settings.seen.firstRunTip = true;
+          localStorage.setItem('splitstone:v1', JSON.stringify(s)); }""")
+        pg.reload(); pg.wait_for_timeout(200)
+        pg.keyboard.press("Space"); split(pg, 3)
+        zone = pg.text_content("#now .now-zone")
+        res = {sel: pg.evaluate(VISIBLE, sel) for sel in ("#now .now-objective", "#now .now-hints li", "#now .now-next")}
+        check(f"{w}x{h} Warrior, ghost on, {zone}: step, hint and Next step fully visible",
+              zone == "The Grelwood" and all(v == "ok" for v in res.values()), res)
+        more = pg.locator("#now .now-more-box summary")
+        check(f"{w}x{h}: the rest is behind +N more", more.count() == 1 and more.text_content().startswith("+")
+              and pg.locator("#now .now-detail > .now-step > .now-class").count() == 0)
+        if w == 1280:
+            # m1: the ghost line opens a picker
+            pg.click("#now .now-ghost")
+            check("ghost line opens a picker with focus on it", pg.locator("#ghostPickNow").is_visible()
+                  and pg.evaluate("document.activeElement.id") == "ghostPickNow")
+            pg.select_option("#ghostPickNow", "sob"); pg.wait_for_timeout(100)
+            pick = pg.evaluate("() => { const s = Storage2.load(); return s.characters[s.activeId].ghost.pick; }")
+            check("picking in the popover changes the ghost", pick == "sob", pick)
+            pg.keyboard.press("Escape")
+            check("Esc closes the picker", pg.locator("#ghostPickNow").count() == 0
+                  and pg.evaluate("document.activeElement.classList.contains('now-ghost')"))
+            pg.click("#now .now-ghost"); pg.click('#ghostPop [data-action="ghost-more"]')
+            check("More on Runs opens the Runs tab", pg.get_attribute("#tab-runs", "aria-selected") == "true"
+                  and pg.evaluate("document.activeElement.id") == "ghostPick")
+        pg.close()
 
     check("no JS errors", not errs, errs)
     b.close()

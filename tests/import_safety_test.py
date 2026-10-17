@@ -104,7 +104,7 @@ with sync_playwright() as p:
     check("negative / junk timers clamped", evil["timers"]["zone:act1-z01"] == {"elapsed": 0, "startedAt": None})
     check("non-numeric bests dropped", evil["bests"]["normal"] == {"zone:act1-z02": 1000})
     page.keyboard.press("u"); page.wait_for_timeout(100)
-    page.click("#tab-runs"); page.click('a[href="#stats"]'); page.wait_for_timeout(200)
+    page.click("#tab-runs"); page.locator("#stats").scroll_into_view_if_needed(); page.wait_for_timeout(200)
     check("history, analytics and undo render with odd data", not errs, errs)
     ctx.close()
 

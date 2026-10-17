@@ -17,7 +17,7 @@ with sync_playwright() as p:
     page.evaluate("localStorage.clear()")
     page.reload()
     page.select_option("#routeClass", "monk")
-    page.wait_for_selector(".class-note")
+    page.wait_for_selector(".zone .class-note")
     # Scroll so Renly + Finn areas are in view — focus Act 1 top
     page.locator('.zone[data-zone="act1-z02"]').scroll_into_view_if_needed()
     page.screenshot(path=str(SHOT))
