@@ -100,6 +100,7 @@ button.primary { background: var(--primary-bg); border-color: var(--gold); color
 .toggles { gap: 14px; }
 .switch { display: flex; gap: 6px; align-items: center; cursor: pointer; color: var(--muted); }
 .switch input { accent-color: var(--gold); }
+label.is-disabled { opacity: .55; cursor: default; }
 
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
 .card h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--gold); }

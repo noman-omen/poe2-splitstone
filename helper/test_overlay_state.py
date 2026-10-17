@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from overlay_state import EMPTY, format_delta, format_ms, lines_for_panel, normalise
+from overlay_state import EMPTY, OPACITY_MIN, THEMES, format_delta, format_ms, lines_for_panel, normalise
 
 
 class StateProtocolTest(unittest.TestCase):
@@ -30,6 +30,19 @@ class StateProtocolTest(unittest.TestCase):
     def test_normalise_rejects_non_object(self):
         with self.assertRaises(ValueError):
             normalise([1, 2])
+
+    def test_theme_allowlist(self):
+        self.assertEqual(normalise({})["theme"], "ember")
+        for name in ("ember", "slate", "crimson", "parchment"):
+            self.assertEqual(normalise({"theme": name})["theme"], name)
+        for bad in ("neon", "Slate", "", None, 3, {"x": 1}, "ember;color:red"):
+            self.assertEqual(normalise({"theme": bad})["theme"], "ember")
+        self.assertEqual(sorted(THEMES), ["crimson", "ember", "parchment", "slate"])
+
+    def test_opacity_floor(self):
+        self.assertEqual(normalise({"opacity": 0.1})["opacity"], OPACITY_MIN)
+        self.assertEqual(normalise({"opacity": 0.65})["opacity"], 0.65)
+        self.assertEqual(normalise({"opacity": 3})["opacity"], 1.0)
 
     def test_formatters(self):
         self.assertEqual(format_ms(0), "0:00")

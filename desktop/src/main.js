@@ -12,7 +12,7 @@ const {
 
 const { pathToFileURL } = require("url");
 const { findClientLog, watchClientLog, isClientTxtPath, isAllowedLogPath } = require("./client-log");
-const { normalise, EMPTY } = require("./overlay-state");
+const { normalise, EMPTY, clampOpacity } = require("./overlay-state");
 const { registerAll, unregisterAll, ACTIONS: HOTKEY_ACTIONS } = require("./hotkeys");
 const {
   merge: mergeDesktopSettings, shouldCheckForUpdates, validateAccelerator, isPrereleaseVersion,
@@ -167,6 +167,8 @@ let newRunArmedAt = 0;
 function applyHotkeys() {
   return registerAll(settings.hotkeys, (action) => {
     if (action === "clickThrough") {
+      // With the overlay switched off there is nothing to move; the hotkey must not bring it back.
+      if (!settings.overlayEnabled) return;
       setClickThrough(!(settings.clickThrough !== false), { toast: true });
       return;
     }
@@ -325,6 +327,7 @@ function createOverlay() {
   return overlayWindow;
 }
 
+/** Settings → Show in-game overlay. Off means no overlay window at all, not a hidden one. */
 function setOverlayEnabled(on) {
   settings.overlayEnabled = !!on;
   saveSettings();
@@ -335,8 +338,9 @@ function setOverlayEnabled(on) {
       w.setOpacity(settings.overlayOpacity);
       w.webContents.send("overlay:state", overlayState);
     }
-  } else if (overlayWindow && !overlayWindow.isDestroyed()) {
-    overlayWindow.hide();
+  } else if (overlayWindow) {
+    if (!overlayWindow.isDestroyed()) overlayWindow.destroy();
+    overlayWindow = null;
   }
   broadcastStatus();
   updateTrayMenu();
@@ -428,12 +432,15 @@ function updateTrayMenu() {
     { label: "Show Splitstone", click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } } },
     { type: "separator" },
     {
-      label: ct ? "Unlock overlay (move)" : "Lock overlay (click-through)",
-      click: () => setClickThrough(!ct, { toast: true }),
+      label: "Show in-game overlay",
+      type: "checkbox",
+      checked: !!settings.overlayEnabled,
+      click: () => setOverlayEnabled(!settings.overlayEnabled),
     },
     {
-      label: settings.overlayEnabled ? "Hide overlay" : "Show overlay",
-      click: () => setOverlayEnabled(!settings.overlayEnabled),
+      label: ct ? "Unlock overlay (move)" : "Lock overlay (click-through)",
+      enabled: !!settings.overlayEnabled,
+      click: () => setClickThrough(!ct, { toast: true }),
     },
     { type: "separator" },
     { label: "Quit", click: () => app.quit() },
@@ -519,7 +526,7 @@ function wireIpc() {
   });
   ipcMain.handle("desktop:set-overlay-opacity", (e, n) => {
     if (!senderIsMain(e)) return settings.overlayOpacity;
-    const v = Math.min(1, Math.max(0.3, Number(n) || 0.8));
+    const v = clampOpacity(n);
     settings.overlayOpacity = v;
     saveSettings();
     if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.setOpacity(v);
@@ -546,7 +553,7 @@ function wireIpc() {
       const changed = JSON.stringify(next) !== JSON.stringify(overlayState);
       overlayState = next;
       if (typeof snapshot.opacity === "number") {
-        const op = Math.min(1, Math.max(0.3, snapshot.opacity));
+        const op = clampOpacity(snapshot.opacity);
         if (op !== settings.overlayOpacity) {
           settings.overlayOpacity = op;
           if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.setOpacity(op);

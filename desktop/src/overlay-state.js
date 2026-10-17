@@ -5,6 +5,17 @@ const SCHEMA_VERSION = 1;
 const STEP_MAX = 600;
 const NEXT_MAX = 600;
 const DEFAULT_OPACITY = 0.80;
+/**
+ * Lowest window opacity. The whole window fades over the game, so text and panel lose contrast together; at 65%
+ * every theme's step and Next line keep 4.5:1 over a black, grey or white game frame (tests/overlay_theme_test.py).
+ */
+const OPACITY_MIN = 0.65;
+/** The app's colour themes (css/styles.css data-theme); the overlay follows the active one. */
+const THEMES = Object.freeze(["ember", "slate", "crimson", "parchment"]);
+const clampOpacity = (n, d = DEFAULT_OPACITY) => {
+  const o = Number(n);
+  return Number.isFinite(o) ? Math.min(1, Math.max(OPACITY_MIN, o)) : d;
+};
 
 const EMPTY = Object.freeze({
   v: SCHEMA_VERSION,
@@ -21,6 +32,7 @@ const EMPTY = Object.freeze({
   finished: false,
   progress: "",
   opacity: DEFAULT_OPACITY,
+  theme: "ember",
   clickThrough: true,
   hotkeys: Object.freeze({ split: " ", pause: "p", undo: "u" }),
 });
@@ -71,6 +83,7 @@ function normalise(raw) {
     finished: false,
     progress: "",
     opacity: DEFAULT_OPACITY,
+    theme: "ember",
     clickThrough: true,
     hotkeys: { split: " ", pause: "p", undo: "u" },
   };
@@ -90,10 +103,8 @@ function normalise(raw) {
   for (const key of ["running", "paused", "finished", "clickThrough"]) {
     if (key in raw) out[key] = !!raw[key];
   }
-  if (raw.opacity != null) {
-    const o = Number(raw.opacity);
-    if (Number.isFinite(o)) out.opacity = Math.min(1, Math.max(0.3, o));
-  }
+  if (raw.opacity != null) out.opacity = clampOpacity(raw.opacity);
+  if (THEMES.includes(raw.theme)) out.theme = raw.theme;
   if (raw.hotkeys && typeof raw.hotkeys === "object") {
     for (const k of ["split", "pause", "undo"]) {
       if (raw.hotkeys[k] != null) out.hotkeys[k] = String(raw.hotkeys[k]).slice(0, 16);
@@ -111,6 +122,6 @@ function linesForPanel(state) {
 }
 
 module.exports = {
-  EMPTY, SCHEMA_VERSION, DEFAULT_OPACITY, STEP_MAX, NEXT_MAX,
+  EMPTY, SCHEMA_VERSION, DEFAULT_OPACITY, OPACITY_MIN, THEMES, clampOpacity, STEP_MAX, NEXT_MAX,
   formatMs, formatDelta, ellipsis, keyLabel, normalise, linesForPanel,
 };

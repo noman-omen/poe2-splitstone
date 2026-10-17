@@ -1,5 +1,8 @@
 "use strict";
-/** Overlay size and position through main: resize from the grip, persist, reset, and the 1.2 text-size migration. */
+/**
+ * Overlay through main: size and position (grip, persist, reset, 1.2 text-size migration), the Show in-game overlay
+ * switch, and the app theme reaching the overlay.
+ */
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("module");
@@ -16,7 +19,7 @@ async function boot(saved, [w, h] = [1920, 1080]) {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), "splitstone-main-"));
   if (saved) fs.writeFileSync(path.join(userData, "desktop-settings.json"), JSON.stringify(saved));
   const display = { id: 1, workArea: { x: 0, y: 0, width: w, height: h } };
-  const handlers = {}, windows = [];
+  const handlers = {}, windows = [], shortcuts = {}, menus = [];
   let ready;
   function BrowserWindow(opts) {
     const win = this, wcOn = {};
@@ -29,10 +32,13 @@ async function boot(saved, [w, h] = [1920, 1080]) {
       emit: (ev) => wcOn[ev] && wcOn[ev](),
     };
     const on = {};
+    win.destroyed = false;
+    win.opacity = null;
     Object.assign(win, {
       on: (ev, fn) => { on[ev] = fn; }, once() {}, emit: (ev) => on[ev] && on[ev](),
-      loadFile() {}, isDestroyed: () => false, isMinimized: () => false, isVisible: () => true,
-      setIgnoreMouseEvents() {}, setAlwaysOnTop() {}, setOpacity() {}, setFocusable() {},
+      loadFile() {}, isDestroyed: () => win.destroyed, isMinimized: () => false, isVisible: () => true,
+      destroy() { win.destroyed = true; win.emit("closed"); },
+      setIgnoreMouseEvents() {}, setAlwaysOnTop() {}, setOpacity(o) { win.opacity = o; }, setFocusable() {},
       showInactive() {}, show() {}, focus() {}, hide() {}, moveTop() {}, restore() {},
       getBounds: () => ({ ...win.bounds }), setBounds: (b) => { win.bounds = { ...b }; },
     });
@@ -51,9 +57,13 @@ async function boot(saved, [w, h] = [1920, 1080]) {
     screen: {
       getPrimaryDisplay: () => display, getAllDisplays: () => [display], getDisplayMatching: () => display, on() {},
     },
-    globalShortcut: { register: () => true, unregister() {}, unregisterAll() {}, isRegistered: () => false },
+    globalShortcut: {
+      register: (accel, fn) => { shortcuts[accel] = fn; return true; },
+      unregister(accel) { delete shortcuts[accel]; }, unregisterAll() { for (const k in shortcuts) delete shortcuts[k]; },
+      isRegistered: (accel) => accel in shortcuts,
+    },
     Tray: function Tray() { this.setToolTip = () => {}; this.setContextMenu = () => {}; this.on = () => {}; },
-    Menu: { buildFromTemplate: () => ({}) },
+    Menu: { buildFromTemplate: (tpl) => { menus.push(tpl); return {}; } },
     nativeImage: { createFromPath: () => ({ isEmpty: () => true, resize: () => ({}) }), createEmpty: () => ({ isEmpty: () => true }) },
   };
   const original = Module.prototype.require;
@@ -73,7 +83,8 @@ async function boot(saved, [w, h] = [1920, 1080]) {
   const fromMain = { sender: main.webContents }, fromOverlay = overlay && { sender: overlay.webContents };
   const stored = () => JSON.parse(fs.readFileSync(path.join(userData, "desktop-settings.json"), "utf8"));
   const lastBox = () => overlay.sent.filter(([ch]) => ch === "overlay:box").pop()?.[1];
-  return { handlers, main, overlay, fromMain, fromOverlay, stored, lastBox, wa: display.workArea };
+  const tray = () => menus[menus.length - 1] || [];
+  return { handlers, main, overlay, windows, shortcuts, tray, fromMain, fromOverlay, stored, lastBox, wa: display.workArea };
 }
 
 const ON = { overlayEnabled: true, firstRunDone: true };
@@ -186,3 +197,108 @@ describe("overlay size and position (main)", () => {
     assert.ok(!("overlayTextSize" in st));
   });
 });
+
+/** The live overlay window: the last one created that hasn't been destroyed. */
+const liveOverlays = t => t.windows.slice(1).filter(w => !w.destroyed);
+const states = w => w.sent.filter(([ch]) => ch === "overlay:state").map(([, st]) => st);
+
+describe("Show in-game overlay (main)", () => {
+  it("defaults to on, with an overlay window", async () => {
+    const t = await boot({ firstRunDone: true });
+    assert.equal(liveOverlays(t).length, 1);
+    assert.equal((await t.handlers["desktop:get-status"](t.fromMain)).overlayEnabled, true);
+  });
+
+  it("off destroys the window and persists; on brings a fresh one back", async () => {
+    const t = await boot(ON);
+    await t.handlers["desktop:set-overlay"](t.fromMain, false);
+    assert.equal(t.overlay.destroyed, true, "destroyed, not hidden");
+    assert.equal(liveOverlays(t).length, 0);
+    assert.equal(t.stored().overlayEnabled, false);
+
+    const restart = await boot(t.stored());
+    assert.equal(liveOverlays(restart).length, 0, "stays off after a restart");
+    await restart.handlers["desktop:set-overlay"](restart.fromMain, true);
+    assert.equal(liveOverlays(restart).length, 1);
+    assert.equal(restart.stored().overlayEnabled, true);
+  });
+
+  it("only the main window may switch it", async () => {
+    const t = await boot(ON);
+    await t.handlers["desktop:set-overlay"](t.fromOverlay, false);
+    await t.handlers["desktop:set-overlay"]({ sender: {} }, false);
+    assert.equal(t.overlay.destroyed, false);
+    assert.equal(t.stored().overlayEnabled ?? true, true);
+  });
+
+  it("while off, hotkeys never recreate it and Ctrl+Alt+O move mode does nothing", async () => {
+    const t = await boot(ON);
+    await t.handlers["desktop:set-overlay"](t.fromMain, false);
+    const before = t.windows.length;
+    assert.ok(t.shortcuts["Ctrl+Alt+O"], "move-mode hotkey registered");
+    t.shortcuts["Ctrl+Alt+O"]();
+    t.shortcuts["Ctrl+Alt+O"]();
+    assert.equal((await t.handlers["desktop:get-status"](t.fromMain)).clickThrough, true, "still locked");
+    for (const k of ["Ctrl+Alt+S", "Ctrl+Alt+Z", "Ctrl+Alt+P", "Ctrl+Alt+R", "Ctrl+Alt+R", "Ctrl+Alt+H"]) t.shortcuts[k]();
+    t.handlers["desktop:overlay-state"](t.fromMain, { v: 1, step: "Kill Beira", theme: "slate" });
+    assert.equal(t.windows.length, before, "no window created");
+    const hk = t.main.sent.filter(([ch]) => ch === "desktop:hotkey").map(([, a]) => a);
+    assert.deepEqual(hk, ["split", "undo", "pause", "newRun", "toggleHint"], "the run hotkeys still work");
+
+    await t.handlers["desktop:set-overlay"](t.fromMain, true);
+    const w = liveOverlays(t)[0];
+    assert.equal(states(w).pop().step, "Kill Beira", "the new window gets the latest state");
+    t.shortcuts["Ctrl+Alt+O"]();
+    assert.equal((await t.handlers["desktop:get-status"](t.fromMain)).clickThrough, false, "move mode works again");
+  });
+
+  it("the tray shows the switch as a checkbox and greys out move mode while off", async () => {
+    const t = await boot(ON);
+    const find = (label) => t.tray().find(i => i.label === label);
+    assert.equal(find("Show in-game overlay").type, "checkbox");
+    assert.equal(find("Show in-game overlay").checked, true);
+    find("Show in-game overlay").click();
+    assert.equal(t.overlay.destroyed, true);
+    assert.equal(find("Show in-game overlay").checked, false);
+    const lock = t.tray().find(i => /overlay \((move|click-through)\)/.test(i.label));
+    assert.equal(lock.enabled, false);
+  });
+});
+
+describe("overlay theme (main)", () => {
+  it("forwards the app theme and switches live", async () => {
+    const t = await boot(ON);
+    t.handlers["overlay:ready"](t.fromOverlay);
+    for (const theme of ["slate", "crimson", "parchment", "ember"]) {
+      t.handlers["desktop:overlay-state"](t.fromMain, { v: 1, step: "Kill Beira", nextStep: "Waypoint", opacity: 0.8, theme });
+      assert.equal(states(t.overlay).pop().theme, theme);
+    }
+  });
+
+  it("drops a theme that isn't one of the app's, and ignores snapshots from anyone but the main window", async () => {
+    const t = await boot(ON);
+    t.handlers["desktop:overlay-state"](t.fromMain, { v: 1, step: "A", theme: "slate" });
+    for (const theme of ["neon", "Slate", "", "slate;color:red", "../x", 7, { a: 1 }, null])
+      t.handlers["desktop:overlay-state"](t.fromMain, { v: 1, step: "A", theme });
+    assert.ok(states(t.overlay).every(st => ["ember", "slate"].includes(st.theme)));
+    assert.equal(states(t.overlay).pop().theme, "ember", "invalid falls back to the default");
+    const n = states(t.overlay).length;
+    t.handlers["desktop:overlay-state"](t.fromOverlay, { v: 1, step: "B", theme: "crimson" });
+    t.handlers["desktop:overlay-state"]({ sender: {} }, { v: 1, step: "B", theme: "crimson" });
+    assert.equal(states(t.overlay).length, n);
+  });
+
+  it("keeps its own opacity, floored at 65%", async () => {
+    const t = await boot(ON);
+    t.handlers["desktop:overlay-state"](t.fromMain, { v: 1, step: "A", theme: "parchment", opacity: 0.9 });
+    assert.equal(t.overlay.opacity, 0.9);
+    assert.equal(states(t.overlay).pop().theme, "parchment");
+    t.handlers["desktop:overlay-state"](t.fromMain, { v: 1, step: "A", theme: "slate", opacity: 0.1 });
+    assert.equal(t.overlay.opacity, 0.65);
+    await t.handlers["desktop:set-overlay-opacity"](t.fromMain, 0.3);
+    assert.equal(t.overlay.opacity, 0.65);
+    const old = await boot({ ...ON, overlayOpacity: 0.3 });
+    assert.equal((await old.handlers["desktop:get-status"](old.fromMain)).overlayOpacity, 0.65, "an older, fainter setting is raised");
+  });
+});
+

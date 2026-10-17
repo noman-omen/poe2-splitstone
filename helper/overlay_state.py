@@ -7,7 +7,7 @@ Schema (version 1):
 {
   "v": 1,
   "step": "...", "nextStep": "...",
-  "opacity": 0.8, "clickThrough": true,
+  "opacity": 0.8, "clickThrough": true, "theme": "ember",
   # legacy fields still accepted but ignored by the minimal panel:
   "zone", "section", "nextZone", "zoneMs", "runMs", "deltaMs",
   "running", "paused", "finished", "progress", "hotkeys", "tip", "showTip"
@@ -22,6 +22,15 @@ SCHEMA_VERSION = 1
 STEP_MAX = 120
 NEXT_MAX = 100
 DEFAULT_OPACITY = 0.80
+OPACITY_MIN = 0.65
+
+# The app's themes, as in desktop/overlay/overlay.html: panel, border, accent, step and next-step colours.
+THEMES: dict[str, dict[str, str]] = {
+    "ember": {"panel": "#100e0a", "line": "#50463a", "accent": "#c8a45a", "step": "#f5efe6", "next": "#d6ccb8"},
+    "slate": {"panel": "#101820", "line": "#3a4a5a", "accent": "#5b9fd4", "step": "#f2f7fb", "next": "#d0dde8"},
+    "crimson": {"panel": "#120a0a", "line": "#4a2a2a", "accent": "#c9a227", "step": "#fff8f0", "next": "#dcc8b8"},
+    "parchment": {"panel": "#fffdf8", "line": "#c8c0b0", "accent": "#b8943a", "step": "#1a160e", "next": "#2a261c"},
+}
 
 
 EMPTY: dict[str, Any] = {
@@ -39,6 +48,7 @@ EMPTY: dict[str, Any] = {
     "finished": False,
     "progress": "",
     "opacity": DEFAULT_OPACITY,
+    "theme": "ember",
     "clickThrough": True,
     "hotkeys": {"split": " ", "pause": "p", "undo": "u"},
 }
@@ -95,9 +105,11 @@ def normalise(raw: Any) -> dict[str, Any]:
             out[key] = bool(raw[key])
     if "opacity" in raw and raw["opacity"] is not None:
         try:
-            out["opacity"] = max(0.30, min(1.0, float(raw["opacity"])))
+            out["opacity"] = max(OPACITY_MIN, min(1.0, float(raw["opacity"])))
         except (TypeError, ValueError):
             pass
+    if isinstance(raw.get("theme"), str) and raw["theme"] in THEMES:
+        out["theme"] = raw["theme"]
     if "clickThrough" in raw:
         out["clickThrough"] = bool(raw["clickThrough"])
     hk = raw.get("hotkeys")

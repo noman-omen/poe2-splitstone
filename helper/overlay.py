@@ -12,15 +12,7 @@ import tkinter as tk
 from tkinter import font as tkfont
 from typing import Any, Callable, Optional
 
-from overlay_state import DEFAULT_OPACITY, EMPTY, lines_for_panel
-
-BG = "#100e0a"
-PANEL = "#1a1815"
-LINE = "#3a342a"
-TEXT = "#f2ebe0"
-MUTED = "#b0a790"
-GOLD_DIM = "#c8a45a"
-TIP = "#e8dcc0"
+from overlay_state import DEFAULT_OPACITY, EMPTY, OPACITY_MIN, THEMES, lines_for_panel
 
 WIDTH = 320
 PAD = 8
@@ -31,8 +23,10 @@ class Overlay:
                  opacity: float = DEFAULT_OPACITY, click_through: bool = True):
         self.on_action = on_action or (lambda _a: None)
         self._state: dict[str, Any] = dict(EMPTY)
-        self._opacity = max(0.30, min(1.0, opacity))
+        self._opacity = max(OPACITY_MIN, min(1.0, opacity))
         self._click_through = click_through
+        self._theme = ""
+        self._frame: Optional[tk.Frame] = None
         self._root: Optional[tk.Tk] = None
         self._labels: dict[str, tk.Label] = {}
         self._handle: Optional[tk.Label] = None
@@ -70,7 +64,8 @@ class Overlay:
         root = tk.Tk()
         self._root = root
         root.title("Splitstone")
-        root.configure(bg=BG)
+        pal = THEMES["ember"]
+        root.configure(bg=pal["panel"])
         root.attributes("-topmost", True)
         try:
             root.attributes("-alpha", self._opacity)
@@ -79,16 +74,17 @@ class Overlay:
         root.resizable(False, False)
         root.overrideredirect(True)
 
-        frame = tk.Frame(root, bg=PANEL, highlightbackground=LINE, highlightthickness=1)
+        frame = tk.Frame(root, bg=pal["panel"], highlightbackground=pal["line"], highlightthickness=1)
         frame.pack(fill="both", expand=True)
+        self._frame = frame
 
-        handle = tk.Label(frame, text="⠿", bg=PANEL, fg=GOLD_DIM, font=("Segoe UI", 8),
+        handle = tk.Label(frame, text="⠿", bg=pal["panel"], fg=pal["accent"], font=("Segoe UI", 8),
                           cursor="fleur")
         self._handle = handle
         handle.bind("<ButtonPress-1>", self._start_drag)
         handle.bind("<B1-Motion>", self._drag)
 
-        body = tk.Frame(frame, bg=PANEL)
+        body = tk.Frame(frame, bg=pal["panel"])
         body.pack(fill="both", expand=True, padx=PAD, pady=(4, 6))
         self._body = body
 
@@ -97,10 +93,9 @@ class Overlay:
             "tip": tkfont.Font(family="Segoe UI", size=9),
             "next": tkfont.Font(family="Segoe UI", size=8),
         }
-        colours = {"step": TEXT, "tip": TIP, "next": MUTED}
         for role in ("step", "tip", "next"):
             self._labels[role] = tk.Label(
-                body, text="", bg=PANEL, fg=colours[role], font=fonts[role],
+                body, text="", bg=pal["panel"], fg=pal["next" if role == "tip" else role], font=fonts[role],
                 anchor="w", justify="left", wraplength=WIDTH - 2 * PAD,
             )
             if role == "step":
@@ -156,8 +151,24 @@ class Overlay:
         self._drag_x, self._drag_y = event.x_root, event.y_root
         self._root.geometry(f"+{self._root.winfo_x() + dx}+{self._root.winfo_y() + dy}")
 
+    def _set_theme(self, theme: str) -> None:
+        """Repaint in one of the app's themes; unknown names keep the current one."""
+        if theme not in THEMES or theme == self._theme or not self._root:
+            return
+        self._theme = theme
+        pal = THEMES[theme]
+        self._root.configure(bg=pal["panel"])
+        if self._frame:
+            self._frame.configure(bg=pal["panel"], highlightbackground=pal["line"])
+        if self._body:
+            self._body.configure(bg=pal["panel"])
+        if self._handle:
+            self._handle.configure(bg=pal["panel"], fg=pal["accent"])
+        for role, label in self._labels.items():
+            label.configure(bg=pal["panel"], fg=pal["next" if role == "tip" else role])
+
     def _set_opacity(self, opacity: float) -> None:
-        self._opacity = max(0.30, min(1.0, float(opacity)))
+        self._opacity = max(OPACITY_MIN, min(1.0, float(opacity)))
         if not self._root:
             return
         try:
@@ -193,6 +204,7 @@ class Overlay:
             return
         if state.get("opacity") is not None:
             self._set_opacity(state["opacity"])
+        self._set_theme(state.get("theme") or "ember")
         if "clickThrough" in state:
             ct = bool(state["clickThrough"])
             if ct != self._click_through:

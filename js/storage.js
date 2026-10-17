@@ -297,7 +297,7 @@
     const ov = asObject(src.overlay);
     let opacity = Number(ov.opacity);
     if (!Number.isFinite(opacity)) opacity = 0.8;
-    opacity = Math.min(1, Math.max(0.3, opacity));
+    opacity = Math.min(1, Math.max(0.65, opacity));
     out.endgameAutoDetect = asBool(src.endgameAutoDetect);
     out.ghostMode = asBool(src.ghostMode);
     const seen = asObject(src.seen);

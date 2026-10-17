@@ -5,6 +5,24 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <title>Splitstone Overlay</title>
 <style>
+  /* The app's themes (css/styles.css), set from the state snapshot. Step and Next keep 4.5:1 over any game
+     frame from 65% to 100% opacity (tests/overlay_theme_test.py). */
+  body, body[data-theme="ember"] {
+    --bg: #100e0a; --line: #50463a; --accent: #c8a45a; --step: #f5efe6; --next: #d6ccb8;
+    --toast-bg: #2a2216; --glow: #000c; --glow-2: #0008; --grip: rgba(232,192,122,.85);
+  }
+  body[data-theme="slate"] {
+    --bg: #101820; --line: #3a4a5a; --accent: #5b9fd4; --step: #f2f7fb; --next: #d0dde8;
+    --toast-bg: #1e2a36; --grip: rgba(142,197,239,.85);
+  }
+  body[data-theme="crimson"] {
+    --bg: #120a0a; --line: #4a2a2a; --accent: #c9a227; --step: #fff8f0; --next: #dcc8b8;
+    --toast-bg: #261616; --grip: rgba(230,196,74,.85);
+  }
+  body[data-theme="parchment"] {
+    --bg: #fffdf8; --line: #c8c0b0; --accent: #b8943a; --step: #1a160e; --next: #2a261c;
+    --toast-bg: #fff8e8; --glow: #fff9; --glow-2: #fff6; --grip: rgba(126,98,33,.85);
+  }
   html, body {
     margin: 0; padding: 0; width: 100%; height: 100%; background: transparent; overflow: hidden;
     font-family: "Segoe UI", system-ui, sans-serif; user-select: none;
@@ -14,29 +32,29 @@
     position: absolute; top: 4px; left: 4px; box-sizing: border-box; overflow: hidden;
     display: flex; flex-direction: column; justify-content: center;
     padding: 3px 10px; border-radius: 8px;
-    background: #100e0a; border: 1px solid #50463a; box-shadow: 0 3px 10px rgba(0,0,0,.35);
-    color: #f2ebe0; --f: 14px;
+    background: var(--bg); border: 1px solid var(--line); box-shadow: 0 3px 10px rgba(0,0,0,.35);
+    color: var(--step); --f: 14px;
   }
   #text { min-height: 0; max-height: 100%; overflow: hidden; }
   .row {
     margin: 0; line-height: 1.22; overflow-wrap: anywhere;
-    text-shadow: 0 1px 2px #000c, 0 0 6px #0008;
+    text-shadow: 0 1px 2px var(--glow), 0 0 6px var(--glow-2);
   }
-  .step { font-weight: 700; font-size: var(--f); color: #f5efe6; }
-  .next { font-size: max(11px, calc(var(--f) * 0.86)); color: #b9b09a; margin-top: 2px; }
+  .step { font-weight: 700; font-size: var(--f); color: var(--step); }
+  .next { font-size: max(11px, calc(var(--f) * 0.86)); color: var(--next); margin-top: 2px; }
   /* Only at the smallest font size: cut long text to the lines that fit. */
   .clamp { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
-  body.unlocked #panel { -webkit-app-region: drag; cursor: move; border-color: rgba(200,164,90,.9); }
+  body.unlocked #panel { -webkit-app-region: drag; cursor: move; border-color: var(--accent); }
   #grip {
     display: none; position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize;
     -webkit-app-region: no-drag;
-    background: linear-gradient(135deg, transparent 50%, rgba(232,192,122,.85) 50%, rgba(232,192,122,.85) 60%, transparent 60%,
-      transparent 70%, rgba(232,192,122,.85) 70%, rgba(232,192,122,.85) 80%, transparent 80%);
+    background: linear-gradient(135deg, transparent 50%, var(--grip) 50%, var(--grip) 60%, transparent 60%,
+      transparent 70%, var(--grip) 70%, var(--grip) 80%, transparent 80%);
   }
   body.unlocked #grip { display: block; }
   #toast {
     display: none; position: absolute; inset: 0; align-items: center; justify-content: center; text-align: center;
-    padding: 2px 8px; background: #2a2216; border-radius: 8px; color: #f5efe6; font-size: 12px; line-height: 1.2;
+    padding: 2px 8px; background: var(--toast-bg); border-radius: 8px; color: var(--step); font-size: 12px; line-height: 1.2;
   }
   #toast.on { display: flex; }
 </style>

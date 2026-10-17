@@ -122,8 +122,10 @@
   }
 
   /** Current step and next step only. Hints stay in the app. */
+  const THEMES = ["ember", "slate", "crimson", "parchment"];
   function render(st) {
     if (!st) return;
+    document.body.dataset.theme = THEMES.includes(st.theme) ? st.theme : "ember";
     textEl.innerHTML = rowsHTML(text(st.step) || "—", text(st.nextStep));
     fitText();
   }

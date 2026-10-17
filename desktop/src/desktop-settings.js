@@ -5,6 +5,7 @@
  */
 const { isClientTxtPath } = require("./client-log");
 const { POSITIONS: OVERLAY_POSITIONS, LIMITS: OVERLAY_LIMITS, TEXT_SIZE_SCALE } = require("./overlay-bounds");
+const { clampOpacity } = require("./overlay-state");
 
 /** Global (system-wide) accelerators — always modifier combos so we don't steal Space/letters from the game. */
 const DEFAULT_GLOBAL_HOTKEYS = Object.freeze({
@@ -58,8 +59,7 @@ function merge(raw) {
   if (typeof raw.pickedLogPath === "string" && isClientTxtPath(raw.pickedLogPath))
     out.pickedLogPath = raw.pickedLogPath;
   if (typeof raw.overlayEnabled === "boolean") out.overlayEnabled = raw.overlayEnabled;
-  if (typeof raw.overlayOpacity === "number")
-    out.overlayOpacity = Math.min(1, Math.max(0.3, raw.overlayOpacity));
+  if (typeof raw.overlayOpacity === "number") out.overlayOpacity = clampOpacity(raw.overlayOpacity);
   if (raw.hotkeys && typeof raw.hotkeys === "object") {
     for (const k of Object.keys(DEFAULT_GLOBAL_HOTKEYS)) {
       const v = validateAccelerator(raw.hotkeys[k]);

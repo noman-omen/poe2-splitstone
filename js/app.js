@@ -278,6 +278,7 @@
         step: last ? `Finished · ${Timers.format(last.total)}` : "Campaign complete",
         nextStep: "",
         opacity: ov.opacity,
+        theme: state.settings.theme || "ember",
       };
     }
     const z = cur.zone;
@@ -292,17 +293,32 @@
       step: step ? step.objective : "",
       nextStep: nextStep ? nextStep.objective : "",
       opacity: ov.opacity,
+      theme: state.settings.theme || "ember",
     };
   }
 
+  /** The overlay's own settings only apply while it is shown. */
+  function syncOverlayControls() {
+    const off = window.__desktopOverlayEnabled === false;
+    ["#overlayOpacity", "#overlayPosition", "#desktopClickThrough", '[data-action="overlay-reset-pos"]'].forEach(sel => {
+      const el = $(sel);
+      if (!el) return;
+      el.disabled = off;
+      const lab = el.closest("label");
+      if (lab) lab.classList.toggle("is-disabled", off);
+    });
+  }
+
   const autoSplitOpts = () => ({ token: state.settings.autoSplit.token || "" });
-  function pushOverlay() {
+  /** force skips the push throttle, for one-off changes such as the theme that no later tick would resend. */
+  function pushOverlay(force) {
+    const snapshot = Object.assign(buildOverlayState(), force === true ? { _force: true } : {});
     if (window.splitstoneDesktop && window.splitstoneDesktop.isDesktop) {
-      AutoSplit.pushState(buildOverlayState());
+      AutoSplit.pushState(snapshot);
       return;
     }
     if (AutoSplit.status().state === "off") return;
-    AutoSplit.pushState(buildOverlayState(), state.settings.autoSplit.url, autoSplitOpts());
+    AutoSplit.pushState(snapshot, state.settings.autoSplit.url, autoSplitOpts());
   }
 
   let nowMoreZone = null;
@@ -931,8 +947,8 @@
           <span class="muted small">Auto-split + overlay on</span>
           <span data-as-pill>${statusPill()}</span>
           <button type="button" data-action="desktop-browse" title="Pick Client.txt">Client.txt…</button>
-          <label class="switch" title="Always-on-top overlay (click-through)">
-            <input type="checkbox" id="desktopOverlay" checked> Overlay</label>
+          <label class="switch" title="Show in-game overlay (also in Settings → Desktop)">
+            <input type="checkbox" id="desktopOverlay"${window.__desktopOverlayEnabled !== false ? " checked" : ""}> Overlay</label>
           <label class="switch desktop-only" title="When on, Splitstone checks GitHub for a newer installer on launch and can download it for you. Turn off if you prefer to update by hand.">
             <input type="checkbox" id="desktopAutoUpdate"${(window.__desktopAutoUpdate !== false) ? " checked" : ""}> Auto-update</label>
         ` : `
@@ -1868,7 +1884,11 @@
       commit();
     }
     else if (el.id === "desktopOverlay") {
+      window.__desktopOverlayEnabled = el.checked;
       if (window.splitstoneDesktop) window.splitstoneDesktop.setOverlayEnabled(el.checked);
+      const set = $("#desktopOverlayEnabled");
+      if (set) set.checked = el.checked;
+      syncOverlayControls();
     }
     else if (el.id === "desktopAutoUpdate" || el.id === "desktopAutoUpdateSettings") {
       if (window.splitstoneDesktop) {
@@ -1881,7 +1901,7 @@
       }
     }
     else if (el.id === "overlayOpacity") {
-      const pct = Math.min(100, Math.max(30, Number(el.value) || 80));
+      const pct = Math.min(100, Math.max(65, Number(el.value) || 80));
       const v = pct / 100;
       state.settings.overlay = Object.assign({}, state.settings.overlay || {}, { opacity: v });
       const lab = $("#overlayOpacityVal");
@@ -1930,11 +1950,12 @@
       commit();
       pushOverlay();
     }
-    else if (el.id === "desktopOverlaySettings") {
+    else if (el.id === "desktopOverlayEnabled") {
       window.__desktopOverlayEnabled = el.checked;
       if (window.splitstoneDesktop) window.splitstoneDesktop.setOverlayEnabled(el.checked);
       const bar = $("#desktopOverlay");
       if (bar) bar.checked = el.checked;
+      syncOverlayControls();
     }
     else if (el.id === "autoSplit") {
       state.settings.autoSplit.enabled = el.checked;
@@ -2098,9 +2119,10 @@
           if (pos) setOverlayPositionSelect(pos, window.__desktopOverlayPosition);
           const ct = $("#desktopClickThrough");
           if (ct) ct.checked = ov.clickThrough !== false;
-          const ovs = $("#desktopOverlaySettings");
+          const ovs = $("#desktopOverlayEnabled");
           if (ovs && window.__desktopOverlayEnabled != null) ovs.checked = !!window.__desktopOverlayEnabled;
           else if (ovs) ovs.checked = true;
+          syncOverlayControls();
         }
       }
       openPanel("settings");
@@ -2116,6 +2138,7 @@
       applyTheme(el.dataset.id);
       Storage2.save(state);
       renderHelp();
+      pushOverlay(true);
       toast("Theme: " + (THEMES.find(t => t.id === state.settings.theme) || {}).name);
     },
   });
@@ -2255,9 +2278,10 @@
       if (st && typeof st.overlayEnabled === "boolean") {
         window.__desktopOverlayEnabled = st.overlayEnabled;
         if (st.overlayPosition) window.__desktopOverlayPosition = st.overlayPosition;
-        const a = $("#desktopOverlay"), b = $("#desktopOverlaySettings");
+        const a = $("#desktopOverlay"), b = $("#desktopOverlayEnabled");
         if (a) a.checked = st.overlayEnabled;
         if (b) b.checked = st.overlayEnabled;
+        syncOverlayControls();
       }
       if (st && typeof st.clickThrough === "boolean") {
         state.settings.overlay = Object.assign({}, state.settings.overlay || {}, { clickThrough: st.clickThrough });
