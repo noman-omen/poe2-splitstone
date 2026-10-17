@@ -44,15 +44,15 @@ Auto-update is on by default (Settings → Desktop to turn off). Full releases o
 | **History and PBs** | Per-character runs, PBs, gold segments, live delta, trend charts, CSV export |
 | **Ghost race** | Race your PB, best segments, any past run or a friend's ghost: ahead/behind per split, where the ghost is now, time gained or lost per act |
 | **Auto-split** | Splits on zone changes from PoE2's `Client.txt` |
-| **Cues** | Basic-class notes, level/XP warnings, gear and gem checkpoints. The desktop app can keep your level from your own level-ups in `Client.txt` |
+| **Cues** | All eight classes (Warrior, Ranger, Huntress, Witch, Sorceress, Mercenary, Monk, Druid) with their ascendancies, basic-class notes, level/XP warnings, gear and gem checkpoints. The desktop app can keep your level from your own level-ups in `Client.txt` |
 | **Overlay** | Small panel at the top centre with the current step and the next step; move it, resize it, the text scales to fit |
 | **Endgame** | Map runs with tier, mods, deaths and loot; session stats; atlas progress checklist |
 | **Tools** | One-click links to trade, poe2db, the wiki, PoB2, poe.ninja and more |
-| **PoB2 import, themes** | Paste a Path of Building 2 code; Ember, Slate, Crimson and Parchment themes |
+| **PoB2 import, themes** | Paste a Path of Building 2 code (it sets the class if you haven't picked one); Ember, Slate, Crimson and Parchment themes, in the app and the overlay |
 
 ### In-game overlay
 
-A browser tab can't sit on top of a fullscreen game, so the desktop app draws a small always-on-top panel with the current step and the next step, nothing else. Hints stay in the app. By default it's 400x80 at 1080p and below, a little larger on taller screens, at the top centre just below the boss health bar. It's click-through until you unlock it with `Ctrl+Alt+O` or the tray: then drag it anywhere and pull the bottom-right corner to resize it. The text scales to fill whatever size you pick and stays the same size from step to step; only an unusually long step gets smaller text, and it's cut short only at the smallest size (11px, the Next line included). Position and size are remembered. Opacity is a slider in Settings (80% by default), and Settings → Desktop → Reset overlay position and size puts it back at the top centre at the default size.
+A browser tab can't sit on top of a fullscreen game, so the desktop app draws a small always-on-top panel with the current step and the next step, nothing else. Hints stay in the app. By default it's 400x80 at 1080p and below, a little larger on taller screens, at the top centre just below the boss health bar. It's click-through until you unlock it with `Ctrl+Alt+O` or the tray: then drag it anywhere and pull the bottom-right corner to resize it. The text scales to fill whatever size you pick and stays the same size from step to step; only an unusually long step gets smaller text, and it's cut short only at the smallest size (11px, the Next line included). Position and size are remembered. It uses the app's colour theme and changes with it. Opacity is a slider in Settings, from 65% to 100% (80% by default), and Settings → Desktop → Reset overlay position and size puts it back at the top centre at the default size. To play without it, turn off Settings → Desktop → Show in-game overlay (or untick it in the tray): the overlay window closes and its hotkeys do nothing until you turn it back on. Auto-split and the run hotkeys keep working.
 
 ![Overlay](screenshots/overlay-top-center.png)
 
@@ -101,6 +101,8 @@ My goal is to have Splitstone updated for PoE2 1.0 within the first week after i
 **Shipped in 1.2.0:** ghost race against your PB, best segments, a past run or a friend's shared ghost, plus overlay text size and accessibility fixes.
 
 **Shipped in 1.3.0:** campaign page with one act at a time beside a run panel, Runs and Character tabs, a compact overlay with just the current and next step that you can move and resize, and the level read from Client.txt in the desktop app.
+
+**Shipped in 1.3.1:** all eight classes with their ascendancies, the overlay in the app's theme, and a switch to turn the overlay off.
 
 **Next:**
 
@@ -162,6 +164,8 @@ python3 -m http.server 8765 --bind 127.0.0.1 &
 python3 tests/smoke_test.py
 python3 tests/layout_test.py
 python3 tests/overlay_test.py
+python3 tests/overlay_theme_test.py
+python3 tests/classes_test.py
 python3 tests/security_test.py
 python3 tests/autosplit_test.py
 python3 tests/endgame_test.py

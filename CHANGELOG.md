@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.1 (2026-10-17)
+
+- The class picker lists all eight playable classes: Warrior, Ranger, Huntress, Witch, Sorceress, Mercenary, Monk and Druid. Huntress and Druid were missing from the class list. Picking a class shows its ascendancies.
+- PoB2 import matches the build's class or ascendancy against that list and sets the class if you haven't picked one. Abyssal Lich counts as Lich.
+- Client.txt level-ups are read for every class and ascendancy name, including two-word ones such as Smith of Kitava and Acolyte of Chayula.
+- The desktop overlay uses the app's colour theme (Ember, Slate, Crimson or Parchment) and changes as soon as you switch. Its opacity is still its own setting.
+- Overlay opacity now goes from 65% to 100%, so the text keeps enough contrast in every theme over any game scene. A lower setting from an earlier version is raised to 65%.
+- Settings → Desktop → Show in-game overlay (on by default, also in the tray). Off closes the overlay window; `Ctrl+Alt+O` and the tray's lock item do nothing until you turn it back on. Auto-split and the run hotkeys keep working. The overlay's opacity, position and lock settings are greyed out while it's off.
+- The browser helper's overlay follows the theme too.
+
 ## 1.3.0 (2026-10-17)
 
 - Campaign page uses the full window: the checklist on the left and a run panel on the right, in a centred column up to 1840px wide, with the header and tabs lined up with it. The run panel is 400px wide from 1800px. On desktop the page doesn't scroll; the checklist and the act splits scroll inside their own areas.
