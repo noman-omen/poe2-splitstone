@@ -15,7 +15,7 @@ const { findClientLog, watchClientLog, isClientTxtPath, isAllowedLogPath } = req
 const { normalise, EMPTY } = require("./overlay-state");
 const { registerAll, unregisterAll, ACTIONS: HOTKEY_ACTIONS } = require("./hotkeys");
 const {
-  merge: mergeDesktopSettings, shouldCheckForUpdates, validateAccelerator, isPrereleaseVersion,
+  merge: mergeDesktopSettings, shouldCheckForUpdates, validateAccelerator, isPrereleaseVersion, OVERLAY_TEXT_SIZES,
 } = require("./desktop-settings");
 
 let autoUpdater = null;
@@ -64,6 +64,7 @@ function statusPayload() {
     watching: !!logWatcher,
     overlayEnabled: settings.overlayEnabled,
     overlayOpacity: settings.overlayOpacity,
+    overlayTextSize: settings.overlayTextSize || "m",
     hotkeys: { ...settings.hotkeys },
     version: app.getVersion(),
     firstRunDone: settings.firstRunDone,
@@ -179,19 +180,33 @@ function applyHotkeys() {
   });
 }
 
-const OVERLAY = Object.freeze({ minW: 200, maxW: 320, minH: 48, maxH: 160, defW: 300, defH: 72 });
+const OVERLAY = Object.freeze({ minW: 200, maxW: 440, minH: 48, maxH: 200, defW: 300, defH: 72 });
 const clampW = w => Math.min(OVERLAY.maxW, Math.max(OVERLAY.minW, parseInt(w, 10) || OVERLAY.defW));
 const clampH = h => Math.min(OVERLAY.maxH, Math.max(OVERLAY.minH, parseInt(h, 10) || OVERLAY.defH));
 
+/**
+ * Default spot: top-right but left of PoE2's minimap, which takes roughly the right
+ * 17% of the screen width at the top (about 330 px at 1080p, more at 1440p/4K).
+ */
 function overlayDefaultBounds(display) {
   const wa = display.workArea;
   const w = OVERLAY.defW, h = OVERLAY.defH;
+  const minimap = Math.max(340, Math.round(wa.width * 0.18));
   return {
-    x: wa.x + wa.width - w - 16,
+    x: Math.max(wa.x + 16, wa.x + wa.width - w - minimap),
     y: wa.y + 20,
     width: w,
     height: h,
   };
+}
+
+/** First time the overlay shows (and after Reset position): say how to move it. */
+function showOverlayMoveHint(force) {
+  if (!overlayWindow || overlayWindow.isDestroyed()) return;
+  if (settings.overlayHintShown && !force) return;
+  settings.overlayHintShown = true;
+  saveSettings();
+  toastOverlay(`${settings.hotkeys.clickThrough || "Ctrl+Alt+O"} to move me`);
 }
 
 function resolveOverlayBounds() {
@@ -290,6 +305,7 @@ function resetOverlayPosition() {
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     const { bounds } = resolveOverlayBounds();
     overlayWindow.setBounds(bounds);
+    showOverlayMoveHint(true);
   }
 }
 
@@ -505,8 +521,19 @@ function wireIpc() {
   });
   ipcMain.on("overlay:ready", (e) => {
     if (!senderIsOverlay(e)) return;
-    if (overlayWindow && !overlayWindow.isDestroyed())
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send("overlay:text-size", settings.overlayTextSize || "m");
       overlayWindow.webContents.send("overlay:state", overlayState);
+      if (settings.overlayEnabled) setTimeout(() => showOverlayMoveHint(false), 800);
+    }
+  });
+  ipcMain.handle("desktop:set-overlay-text-size", (e, size) => {
+    if (!senderIsMain(e)) return settings.overlayTextSize;
+    if (!OVERLAY_TEXT_SIZES.includes(size)) return settings.overlayTextSize;
+    settings.overlayTextSize = size;
+    saveSettings();
+    if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.webContents.send("overlay:text-size", size);
+    return size;
   });
   ipcMain.on("desktop:focus-main", (e) => {
     if (!senderIsMain(e)) return;
@@ -603,4 +630,4 @@ process.on("uncaughtException", (err) => {
   app.exit(1);
 });
 
-module.exports = { setHotkeys, isAppPageUrl, statusPayload, isClientTxtPath, findClientLog, setClickThrough };
+module.exports = { setHotkeys, isAppPageUrl, statusPayload, isClientTxtPath, findClientLog, setClickThrough, overlayDefaultBounds };

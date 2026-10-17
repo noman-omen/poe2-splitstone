@@ -11,7 +11,7 @@
   let lastSize = "";
   function fit() {
     const r = document.getElementById("wrap").getBoundingClientRect();
-    const w = Math.min(320, Math.ceil(r.width) + 8), h = Math.ceil(r.height) + 16;
+    const w = Math.min(440, Math.ceil(r.width) + 8), h = Math.ceil(r.height) + 16;
     const key = w + "x" + h;
     if (key === lastSize) return;
     lastSize = key;
@@ -47,6 +47,12 @@
       });
     }
     if (window.splitstoneOverlay.onToast) window.splitstoneOverlay.onToast(showToast);
+    if (window.splitstoneOverlay.onTextSize) {
+      window.splitstoneOverlay.onTextSize(function (size) {
+        document.body.dataset.size = ["s", "m", "l"].indexOf(size) >= 0 ? size : "m";
+        lastSize = ""; fit();
+      });
+    }
     window.splitstoneOverlay.ready();
   }
 })();

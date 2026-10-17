@@ -113,4 +113,24 @@ describe("main.js boot (stubbed electron)", () => {
     assert.ok(!isAppPageUrl(pathToFileURL(path.join(__dirname, "..", "..", "README.md")).href));
     assert.ok(!isAppPageUrl("https://example.com/"));
   });
+
+  it("default overlay spot stays clear of the minimap", () => {
+    const { overlayDefaultBounds } = require("../src/main.js");
+    for (const [w, h] of [[1280, 720], [1920, 1080], [2560, 1440], [3840, 2160]]) {
+      const b = overlayDefaultBounds({ workArea: { x: 0, y: 0, width: w, height: h } });
+      const minimapLeft = w - Math.round(w * 0.17);
+      assert.ok(b.x + b.width <= minimapLeft, `${w}x${h}: overlay right edge ${b.x + b.width} must be left of ${minimapLeft}`);
+      assert.ok(b.x >= 16 && b.y >= 0);
+    }
+    const second = overlayDefaultBounds({ workArea: { x: 1920, y: 0, width: 1920, height: 1080 } });
+    assert.ok(second.x > 1920, "second monitor offsets are kept");
+  });
+
+  it("overlay text size is a known value", () => {
+    const ds = require("../src/desktop-settings");
+    assert.equal(ds.merge({}).overlayTextSize, "m");
+    assert.equal(ds.merge({ overlayTextSize: "l" }).overlayTextSize, "l");
+    assert.equal(ds.merge({ overlayTextSize: "<x>" }).overlayTextSize, "m");
+    assert.equal(ds.merge({ overlayHintShown: "yes" }).overlayHintShown, false);
+  });
 });

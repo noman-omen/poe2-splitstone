@@ -25,7 +25,10 @@ const DEFAULTS = Object.freeze({
   clickThrough: true,
   autoUpdate: true,
   overlayBounds: null, // { displayId, x, y, width, height } relative to display work area
+  overlayTextSize: "m", // s | m | l
+  overlayHintShown: false, // one-time "Ctrl+Alt+O to move me" on the overlay
 });
+const OVERLAY_TEXT_SIZES = ["s", "m", "l"];
 
 function blank() {
   return {
@@ -38,6 +41,8 @@ function blank() {
     clickThrough: true,
     autoUpdate: true,
     overlayBounds: null,
+    overlayTextSize: "m",
+    overlayHintShown: false,
   };
 }
 
@@ -59,6 +64,8 @@ function merge(raw) {
     }
   }
   if (raw.firstRunDone) out.firstRunDone = true;
+  if (OVERLAY_TEXT_SIZES.includes(raw.overlayTextSize)) out.overlayTextSize = raw.overlayTextSize;
+  if (raw.overlayHintShown === true) out.overlayHintShown = true;
   if (typeof raw.clickThrough === "boolean") out.clickThrough = raw.clickThrough;
   if (raw.autoUpdate === false) out.autoUpdate = false;
   else out.autoUpdate = true;
@@ -67,7 +74,7 @@ function merge(raw) {
       displayId: raw.overlayBounds.displayId != null ? String(raw.overlayBounds.displayId) : null,
       x: Number(raw.overlayBounds.x) || 0,
       y: Number(raw.overlayBounds.y) || 0,
-      width: Math.min(320, Math.max(160, Number(raw.overlayBounds.width) || 280)),
+      width: Math.min(440, Math.max(160, Number(raw.overlayBounds.width) || 280)),
       height: Math.min(240, Math.max(48, Number(raw.overlayBounds.height) || 72)),
     };
   }
@@ -143,5 +150,5 @@ function isPrereleaseVersion(v) {
 }
 
 module.exports = {
-  DEFAULTS, DEFAULT_GLOBAL_HOTKEYS, blank, merge, shouldCheckForUpdates, isSafeGlobalAccelerator, validateAccelerator, isPrereleaseVersion,
+  DEFAULTS, DEFAULT_GLOBAL_HOTKEYS, OVERLAY_TEXT_SIZES, blank, merge, shouldCheckForUpdates, isSafeGlobalAccelerator, validateAccelerator, isPrereleaseVersion,
 };

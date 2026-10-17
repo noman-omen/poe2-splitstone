@@ -16,6 +16,11 @@ contextBridge.exposeInMainWorld("splitstoneOverlay", {
     ipcRenderer.on("overlay:toast", h);
     return () => ipcRenderer.removeListener("overlay:toast", h);
   },
+  onTextSize: (cb) => {
+    const h = (_e, size) => cb(size);
+    ipcRenderer.on("overlay:text-size", h);
+    return () => ipcRenderer.removeListener("overlay:text-size", h);
+  },
   ready: () => ipcRenderer.send("overlay:ready"),
   resize: (w, h) => ipcRenderer.send("overlay:resize", { w, h }),
 });

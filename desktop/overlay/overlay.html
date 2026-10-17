@@ -34,9 +34,15 @@
     word-break: break-word;
     text-shadow: 0 1px 2px #000c, 0 0 6px #0008;
   }
-  .step { font-weight: 700; font-size: 14px; color: #f5efe6; }
-  .tip  { font-size: 13px; color: #e0d4b8; margin-top: 3px; -webkit-line-clamp: 2; }
-  .next { font-size: 13px; color: #b0a790; margin-top: 3px; -webkit-line-clamp: 1; }
+  /* Text size (Settings → Desktop → Overlay text size); the panel widens with it. */
+  body { --step: 14px; --small: 13px; --w: 320px; }
+  body[data-size="s"] { --step: 12px; --small: 11px; --w: 280px; }
+  body[data-size="l"] { --step: 18px; --small: 16px; --w: 420px; }
+  #wrap, #panel { max-width: var(--w); }
+  .step { font-weight: 700; font-size: var(--step); color: #f5efe6; }
+  .tip  { font-size: var(--small); color: #e0d4b8; margin-top: 3px; -webkit-line-clamp: 2; }
+  .next { font-size: var(--small); color: #b0a790; margin-top: 3px; -webkit-line-clamp: 1; }
+  #toast { font-size: var(--small); }
   #toast {
     display: none; margin-top: 4px; padding: 4px 10px; border-radius: 6px;
     background: #2a2216; border: 1px solid #c8a45a; color: #f5efe6; font-size: 13px;
