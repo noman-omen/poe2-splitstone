@@ -37,6 +37,34 @@ SPLIT_IN_VIEW = """() => {
   return hit && b.contains(hit) ? 'ok' : 'covered by ' + (hit && hit.className);
 }"""
 
+# Panel lines are inside every clipping box and the window; a clamped objective or hint has its toggle.
+PANEL_CUT = """() => {
+  const sels = ['.now-obj-text', '.now-hint1 li', '.now-more-toggle:not([hidden])', '.now-next > div', '[data-action=split]',
+    '.now-run', '.now-ghost', '.now-zone', '.now-lvl'];
+  const bad = [];
+  for (const sel of sels) for (const e of document.querySelectorAll('#now ' + sel)) {
+    const r = e.getBoundingClientRect();
+    if (!r.height) continue;
+    if (r.top < -0.5 || r.bottom > innerHeight + 0.5) { bad.push(sel + ' off screen'); continue; }
+    for (let a = e.parentElement; a && a !== document.body; a = a.parentElement) {
+      const cs = getComputedStyle(a);
+      if (cs.overflowY !== 'visible' || cs.overflowX !== 'visible') {
+        const q = a.getBoundingClientRect();
+        if (r.top < q.top - 0.5 || r.bottom > q.bottom + 0.5) { bad.push(sel + ' cut ' + Math.round(r.bottom - q.bottom) + 'px'); break; }
+      }
+    }
+  }
+  const d = document.querySelector('#now .now-detail');
+  if (d && d.scrollHeight > d.clientHeight + 1) bad.push('step area scrolls');
+  const clamped = [...document.querySelectorAll('#now .now-obj-text, #now .now-hint1 li')].filter(e => e.scrollHeight > e.clientHeight + 1);
+  const tog = document.querySelector('#now .now-more-toggle');
+  if (clamped.length && (!tog || tog.hidden)) bad.push('clamped with no way to open it');
+  if (clamped.some(e => !e.title)) bad.push('clamped without the full text in its title');
+  const g = document.querySelector('#now .now-ghost');
+  return { zone: document.querySelector('#now .now-zone')?.textContent, bad, clamped: clamped.length,
+           ghost: !!g && g.getBoundingClientRect().height > 0 };
+}"""
+
 SELECTED = "() => document.querySelector('#actTabs [aria-selected=true]').dataset.id"
 
 
@@ -278,6 +306,25 @@ with sync_playwright() as p:
         check(f"390x844: {t} tab clickable and on screen", ph.get_attribute(f"#tab-{t}", "aria-selected") == "true"
               and box and box["x"] >= 0 and box["x"] + box["width"] <= 390, box)
     ph.close()
+    HEADER = """() => { const v = document.querySelector('.topbar .views'), t = [...v.querySelectorAll('button')];
+      const more = document.querySelector('.more-btn').getBoundingClientRect(), sel = document.querySelector('#charSelect').getBoundingClientRect();
+      return { fit: t.every(x => { const r = x.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }),
+        fadeL: v.classList.contains('more-l'), fadeR: v.classList.contains('more-r'),
+        oneLine: Math.abs((more.top + more.bottom) / 2 - (sel.top + sel.bottom) / 2) < 2 && more.right <= innerWidth }; }"""
+    for w in (360, 320):
+        ph = ctx.new_page()
+        ph.set_viewport_size({"width": w, "height": 740})
+        ph.goto(URL); ph.wait_for_timeout(250)
+        r = ph.evaluate(HEADER)
+        if w == 360:
+            check("360px: all five tabs fit, no fade", r["fit"] and not r["fadeR"] and not r["fadeL"], r)
+        else:
+            check("320px: tabs past the edge get the fade cue", not r["fit"] and r["fadeR"] and not r["fadeL"], r)
+            ph.evaluate("document.querySelector('.topbar .views').scrollLeft = 999"); ph.wait_for_timeout(100)
+            r2 = ph.evaluate(HEADER)
+            check("320px: scrolled to the end, the fade moves to the left edge", r2["fadeL"] and not r2["fadeR"], r2)
+        check(f"{w}px: the ⋯ button stays on the header's first line", r["oneLine"], r)
+        ph.close()
 
     # M2: a class, the ghost and The Grelwood on short screens: step, hint and Next step all fully visible
     VISIBLE = """(sel) => { const e = document.querySelector(sel); if (!e) return 'missing';
@@ -303,9 +350,23 @@ with sync_playwright() as p:
         res = {sel: pg.evaluate(VISIBLE, sel) for sel in ("#now .now-objective", "#now .now-hints li", "#now .now-next")}
         check(f"{w}x{h} Warrior, ghost on, {zone}: step, hint and Next step fully visible",
               zone == "The Grelwood" and all(v == "ok" for v in res.values()), res)
-        more = pg.locator("#now .now-more-box summary")
-        check(f"{w}x{h}: the rest is behind +N more", more.count() == 1 and more.text_content().startswith("+")
-              and pg.locator("#now .now-detail > .now-step > .now-class").count() == 0)
+        more = pg.locator("#now .now-more-toggle")
+        check(f"{w}x{h}: the rest is behind +N more, pinned outside the scroller", more.count() == 1
+              and more.text_content().startswith("+") and pg.locator("#now .now-detail .now-more-toggle").count() == 0
+              and not pg.locator("#now .now-class").first.is_visible())
+        if w == 1280:
+            full = pg.evaluate("() => { const s = Storage2.load(), c = s.characters[s.activeId], z = Run.current(c).zone;"
+                               " return z.steps.find(x => !c.done[x.id]).objective; }")
+            check("the objective carries its full text in the title", pg.get_attribute("#now .now-obj-text", "title") == full)
+            more.click()
+            opened = pg.evaluate("""() => { const st = document.querySelector('#now .now-step'), o = st.querySelector('.now-obj-text');
+              return { open: st.classList.contains('open'), unclamped: o.scrollHeight <= o.clientHeight + 1,
+                extra: !!document.querySelector('#now .now-more-box'), label: document.querySelector('#now .now-more-toggle').textContent,
+                focus: document.activeElement.classList.contains('now-more-toggle') }; }""")
+            check("+N more opens the rest, lifts the line limits and becomes Show less", opened["open"] and opened["unclamped"]
+                  and opened["extra"] and opened["label"] == "Show less" and opened["focus"], opened)
+            pg.click("#now .now-more-toggle")
+            check("Show less folds it again", not pg.locator("#now .now-more-box").is_visible())
         if w == 1280:
             # m1: the ghost line opens a picker
             pg.click("#now .now-ghost")
@@ -320,6 +381,41 @@ with sync_playwright() as p:
             pg.click("#now .now-ghost"); pg.click('#ghostPop [data-action="ghost-more"]')
             check("More on Runs opens the Runs tab", pg.get_attribute("#tab-runs", "aria-selected") == "true"
                   and pg.evaluate("document.activeElement.id") == "ghostPick")
+        pg.close()
+
+    # MAJ-1: every zone on the route, Warrior at level 12 racing best segments, at both short sizes.
+    for w, h in [(1280, 720), (1366, 768)]:
+        pg = ctx.new_page()
+        pg.on("pageerror", lambda e: errs.append(str(e)))
+        pg.clock.install()
+        pg.set_viewport_size({"width": w, "height": h})
+        pg.goto(URL); auto_accept_modals(pg)
+        pg.evaluate("""() => { localStorage.clear(); const s = Storage2.load(), c = s.characters[s.activeId];
+          c.classId = 'warrior'; c.level = 12; s.settings.ghostMode = true; s.settings.seen.firstRunTip = true;
+          localStorage.setItem('splitstone:v1', JSON.stringify(s)); }""")
+        pg.reload(); auto_accept_modals(pg); pg.wait_for_timeout(200)
+        n = pg.evaluate("() => { const s = Storage2.load(); return Run.order(s.characters[s.activeId]).length; }")
+        for race in (False, True):
+            if race:
+                # A finished run to race: best segments, so the ghost line has a zone and a delta.
+                pg.keyboard.press("r"); pg.wait_for_timeout(150)
+                pg.evaluate("""() => { const s = Storage2.load(), c = s.characters[s.activeId];
+                  c.ghost = Object.assign(c.ghost || {}, { pick: 'sob' }); localStorage.setItem('splitstone:v1', JSON.stringify(s)); }""")
+                pg.reload(); auto_accept_modals(pg); pg.wait_for_timeout(200)
+            pg.keyboard.press("Space")
+            cut, clamped, ghosts = [], 0, 0
+            for i in range(n):
+                pg.clock.fast_forward(45_000 + 1000 * (i % 7)); pg.wait_for_timeout(15)
+                if race:
+                    r = pg.evaluate(PANEL_CUT)
+                    clamped += r["clamped"] > 0
+                    ghosts += r["ghost"]
+                    if r["bad"]:
+                        cut.append((r["zone"], r["bad"]))
+                pg.keyboard.press("Space")
+        print(f"     {w}x{h}: {n} zones, {len(cut)} with a line cut, {clamped} with the objective or hint clamped (and a way to open it)")
+        check(f"{w}x{h} Warrior, level, ghost: on all {n} zones every panel line is whole or deliberately clamped", not cut, cut[:4])
+        check(f"{w}x{h}: the ghost line was on screen in every zone", ghosts == n, ghosts)
         pg.close()
 
     check("no JS errors", not errs, errs)

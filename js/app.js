@@ -218,11 +218,12 @@
   const _layoutStickySoon = () => requestAnimationFrame(() => requestAnimationFrame(layoutSticky));
 
   /**
-   * Current step in the run panel: the objective and one hint, and "+N more" for the rest (gear checkpoints, other hints,
-   * route info, class notes and the zone's other open steps), which the checklist shows in full anyway.
+   * Current step in the run panel: the objective (up to 3 lines) and one hint (up to 2), with "+N more" for the rest
+   * (gear checkpoints, other hints, route info, class notes and the zone's other open steps). Opening it also lifts the
+   * line limits. Returns the scrolling part and the "+N more" toggle, which sits outside the scroller like Next step.
    */
   function nowStepHTML(c, s, others) {
-    if (!s) return "";
+    if (!s) return { body: "", toggle: "" };
     const s0 = state.settings, hints = s0.hideHints ? [] : stepHints(c, s), info = [];
     if (!s0.hideExtra) {
       if (s.rewards.length) info.push(s.rewards.map(r => `<span class="reward${r.must ? " must" : ""}">${r.must ? "★ " : ""}${esc(r.label)}</span>`).join(""));
@@ -236,22 +237,35 @@
     const gear = s0.hideHints || s0.hideExtra ? "" : gearNowHTML(c.classId, s.id);
     const more = Math.max(0, hints.length - 1) + (info.length ? 1 : 0) + notes.length + shownOthers.length + (gear ? 1 : 0);
     const cr = currentCustom(c), note = cr && cr.notes && cr.notes[s.id];
-    return `<div class="now-step">
+    const open = openDetails.has("now-more");
+    const body = `<div class="now-step${open ? " open" : ""}">
       <label class="now-objective"><input type="checkbox" data-action="step" data-id="${esc(s.id)}"${c.done[s.id] ? " checked" : ""}>
-        <span>${esc(s.objective)}${s.level ? ` <span class="lvl">lvl ${esc(s.level)}</span>` : ""}${s.optional ? ' <span class="optional">optional</span>' : ""}</span></label>
-      ${hints.length ? `<ul class="now-hints"><li>${esc(hints[0])}</li></ul>` : ""}
+        <span class="now-obj-text" title="${esc(s.objective)}">${esc(s.objective)}${s.level ? ` <span class="lvl">lvl ${esc(s.level)}</span>` : ""}${s.optional ? ' <span class="optional">optional</span>' : ""}</span></label>
+      ${hints.length ? `<ul class="now-hints now-hint1"><li title="${esc(hints[0])}">${esc(hints[0])}</li></ul>` : ""}
       ${note ? `<div class="custom-note now-custom">${esc(note)}</div>` : ""}
-      ${more ? `<details class="now-more-box" data-keep="now-more"${openDetails.has("now-more") ? " open" : ""}><summary>+${more} more</summary>
+      ${more ? `<div class="now-more-box" id="nowMore"${open ? "" : " hidden"}>
         ${gear}
         ${hints.length > 1 ? `<ul class="now-hints">${hints.slice(1).map(h => `<li>${esc(h)}</li>`).join("")}</ul>` : ""}
         ${info.length ? `<div class="now-info">${info.map(x => `<div>${x}</div>`).join("")}</div>` : ""}
         ${notes.length ? `<div class="now-class">${classNoteHTML(c, s.id)}</div>` : ""}
         ${shownOthers.length ? `<ul class="now-more">${shownOthers.map(x => `<li><label><input type="checkbox" data-action="step" data-id="${esc(x.id)}"${c.done[x.id] ? " checked" : ""}>
           ${esc(x.objective)}${x.optional ? ' <span class="optional">optional</span>' : ""}</label></li>`).join("")}</ul>` : ""}
-      </details>` : ""}
+      </div>` : ""}
     </div>`;
+    // Shown when there is more, or (see markClamped) when a line limit cut the objective or the hint.
+    const toggle = `<button type="button" class="now-more-toggle link-btn" data-action="now-more" data-more="${more}"
+      aria-expanded="${open}"${more ? ' aria-controls="nowMore"' : ""}${more || open ? "" : " hidden"}>${open ? "Show less" : more ? `+${more} more` : "Show all"}</button>`;
+    return { body, toggle };
   }
 
+  /** A clamped objective or hint with nothing else behind "+N more" still needs a way to read it in full. */
+  function markClamped() {
+    const step = $("#now .now-step"), btn = $("#now .now-more-toggle");
+    if (!step || !btn || step.classList.contains("open")) return;
+    const cut = [...step.querySelectorAll(".now-obj-text, .now-hint1 li")].some(e => e.scrollHeight > e.clientHeight + 1);
+    step.classList.toggle("clamped", cut);
+    if (cut) btn.hidden = false;
+  }
 
   /** Snapshot for the overlay (desktop IPC or the helper's POST /state). Keep it tiny and stable. */
   function buildOverlayState() {
@@ -291,6 +305,7 @@
     AutoSplit.pushState(buildOverlayState(), state.settings.autoSplit.url, autoSplitOpts());
   }
 
+  let nowMoreZone = null;
   /** The run panel: zone and progress, big timers, split controls, then the current step and what comes next. */
   function renderNow() {
     const c = char(), cur = Run.current(c), running = Run.runningZone(c), paused = Run.isPaused(c);
@@ -312,6 +327,9 @@
     const nextStep = todo[1] || (next && visibleSteps(c, next.zone)[0]);
     const label = running ? "Split" : paused ? "Resume" : Run.isStarted(c) ? "Resume" : "Start run";
     const inAct = actZones(c, cur.section), posInAct = inAct.findIndex(x => x.id === z.id) + 1;
+    // "+N more" opens for this zone only; the next zone starts folded again.
+    if (z.id !== nowMoreZone) { nowMoreZone = z.id; openDetails.delete("now-more"); }
+    const detail = nowStepHTML(c, step, others);
     $("#now").innerHTML = `
       <div class="now-head">
         <div class="now-where"><span data-as-pill>${statusPill()}</span> ${(() => {
@@ -341,11 +359,11 @@
           </div>
         </div>
       </div>
-      <div class="now-detail">
-        ${nowStepHTML(c, step, others)}
-      </div>
+      <div class="now-detail">${detail.body}</div>
+      ${detail.toggle}
       ${nextStep || next ? `<div class="now-next">${nextStep ? `<div><span class="k">Next step</span> ${esc(nextStep.objective)}</div>` : ""}
         ${next ? `<div><span class="k">Next zone</span> ${esc(next.zone.name)}${next.section !== cur.section ? ` (${esc(next.section.name)})` : ""}</div>` : ""}</div>` : ""}`;
+    markClamped();
     if (ghostPopOpen) wireGhostPop();
   }
 
@@ -834,15 +852,18 @@
     if (l < strip.scrollLeft) strip.scrollLeft = l - 8;
     else if (r > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = r - strip.clientWidth + 8;
   }
-  /** Fades whichever edge of the act strip has more tabs past it. */
-  function updateActFade() {
-    const strip = $("#actTabs .act-tabs");
+  /** Fades whichever edge of a tab row (the act strip, the header tabs on phones) has more tabs past it. */
+  function updateEdgeFade(strip) {
     if (!strip) return;
     const max = strip.scrollWidth - strip.clientWidth;
     strip.classList.toggle("more-l", max > 1 && strip.scrollLeft > 1);
     strip.classList.toggle("more-r", max > 1 && strip.scrollLeft < max - 1);
   }
-  window.addEventListener("resize", updateActFade);
+  const updateActFade = () => updateEdgeFade($("#actTabs .act-tabs"));
+  const updateViewsFade = () => updateEdgeFade($(".topbar .views"));
+  window.addEventListener("resize", () => { updateActFade(); updateViewsFade(); });
+  $(".topbar .views").addEventListener("scroll", updateViewsFade, { passive: true });
+  requestAnimationFrame(updateViewsFade);
 
   function renderCampaign() {
     const c = char(), cur = Run.current(c);
@@ -1591,6 +1612,11 @@
       if (btn) btn.focus();
     },
     "ghost-pop"() { setGhostPop(!ghostPopOpen); },
+    "now-more"() {
+      openDetails.has("now-more") ? openDetails.delete("now-more") : openDetails.add("now-more");
+      renderNow();
+      const btn = $("#now .now-more-toggle"); if (btn) btn.focus();
+    },
     "ghost-more"() {
       ghostPopOpen = false;
       state.settings.view = "runs"; commit(); window.scrollTo({ top: 0 });
@@ -2158,7 +2184,7 @@
   });
   const GLOBAL_KEY_LABELS = [
     ["split", "Split"], ["undo", "Undo"], ["pause", "Pause / resume"],
-    ["newRun", "New run (press twice)"], ["toggleHint", "Show / hide hints"], ["clickThrough", "Lock / unlock overlay"],
+    ["newRun", "New run (press twice)"], ["toggleHint", "Show / hide hints in the app"], ["clickThrough", "Lock / unlock overlay"],
   ];
   function renderDesktopHotkeys(hk) {
     const table = $("#desktopHotkeyTable");

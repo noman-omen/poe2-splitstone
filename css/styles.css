@@ -473,7 +473,7 @@ body:not(.view-campaign) .topbar .toggles { display: none; }
 .more-btn { display: none; }
 @media (max-width: 860px) {
   .topbar { gap: 8px 12px; padding: 8px 12px; transition: top .15s; }
-  .topbar .views { margin: 0 -12px -8px; padding: 0 12px; scroll-padding: 0 12px; }
+  .topbar .views { flex-basis: calc(100% + 24px); margin: 0 -12px -8px; padding: 0 12px; scroll-padding: 0 12px; }
   .more-btn { display: inline-block; }
   .char-controls > button:not(.more-btn), .topbar .toggles, .topbar .io { display: none; }
   .topbar.menu-open .char-controls > button, .topbar.menu-open .io { display: flex; }
@@ -483,10 +483,17 @@ body:not(.view-campaign) .topbar .toggles { display: none; }
   .topbar .io { flex-wrap: wrap; }
   .brand .sub { display: none; }
 }
-/* Phones: five tabs fit from about 380px; narrower screens scroll the row */
+/* Phones: five tabs fit from 360px; narrower screens scroll the row, with a fade on the cut-off side */
 @media (max-width: 480px) {
   .topbar .views { gap: 0; }
   .topbar .views button { padding: 8px 8px; }
+  /* The character menu and its ⋯ button stay on the brand's line */
+  .topbar .char-controls { flex-wrap: nowrap; min-width: 0; }
+  .topbar.menu-open .char-controls { flex-wrap: wrap; }
+  #charSelect { min-width: 0; max-width: 100%; flex: 0 1 auto; }
+}
+@media (max-width: 400px) {
+  .topbar .views button { padding: 8px 6px; font-size: 14px; }
 }
 input[type=number] { font: inherit; color: var(--text); background: var(--panel-2);
   border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; }
@@ -593,11 +600,12 @@ dialog.panel-dialog::backdrop { background: rgba(0, 0, 0, .6); }
 /* Act strip: one act or interlude part at a time, in play order */
 .act-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex: none; }
 .act-tabs { display: flex; flex: 1; min-width: 0; gap: 2px; padding: 3px; overflow-x: auto; scrollbar-width: thin;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; --fade-l: 0px; --fade-r: 0px;
-  mask-image: linear-gradient(to right, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent); }
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
 /* More tabs off to one side: fade that edge so a cut-off label reads as "scroll for more" */
-.act-tabs.more-l { --fade-l: 40px; }
-.act-tabs.more-r { --fade-r: 40px; }
+.act-tabs, .topbar .views { --fade-l: 0px; --fade-r: 0px;
+  mask-image: linear-gradient(to right, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent); }
+.act-tabs.more-l, .topbar .views.more-l { --fade-l: 40px; }
+.act-tabs.more-r, .topbar .views.more-r { --fade-r: 40px; }
 .act-single { flex: 1; min-width: 0; padding: 6px 12px; font-size: 13px; color: var(--gold-2); background: var(--panel);
   border: 1px solid var(--line); border-radius: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .act-tab { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 10px;
@@ -648,7 +656,13 @@ dialog.panel-dialog::backdrop { background: rgba(0, 0, 0, .6); }
 .now-actions-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .now-actions-row button { padding: 5px 4px; font-size: 13px; white-space: nowrap; }
 .now-actions-row kbd { margin-left: 2px; }
-.now-detail { flex: 0 1 auto; min-height: 3.5em; overflow-y: auto; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+/* Folded, the step is at most 3 lines and its hint 2, so it never needs to scroll; opened, the rest scrolls here. */
+.now-detail { flex: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.now-detail:has(.now-step.open) { flex: 0 1 auto; min-height: 4em; overflow-y: auto; }
+.now-obj-text, .now-hint1 li { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.now-hint1 li { -webkit-line-clamp: 2; }
+.now-step.open .now-obj-text, .now-step.open .now-hint1 li { display: block; -webkit-line-clamp: none; }
+.now-more-toggle { flex: none; align-self: flex-start; margin: 4px 0 0 26px; font-size: 12px; }
 .now-lvl { display: flex; align-items: center; gap: 6px; }
 .lvl-step { display: inline-flex; gap: 2px; }
 .lvl-step button { min-width: 26px; padding: 0 6px; line-height: 20px; font-size: 13px; }
@@ -658,8 +672,7 @@ dialog.panel-dialog::backdrop { background: rgba(0, 0, 0, .6); }
 .now-objective .lvl { font-size: 12px; font-weight: normal; color: var(--muted); }
 .now-hints { margin: 4px 0 0 26px; padding: 0; list-style: none; font-size: 14px; line-height: 1.4; color: var(--hint-strong); }
 .now-hints li::before { content: "➤ "; color: var(--gold); }
-.now-more-box { margin: 2px 0 0 26px; font-size: 12px; color: var(--muted); }
-.now-more-box summary { margin-top: 2px; color: var(--gold); }
+.now-more-box { margin: 4px 0 0 26px; font-size: 12px; color: var(--muted); }
 .now-more-box .now-hints, .now-more-box .now-info, .now-more-box .now-class, .now-more-box .now-more { margin-left: 0; }
 .now-info { margin: 6px 0 0 26px; font-size: 13px; color: var(--info); display: flex; flex-direction: column; gap: 2px; }
 .now-info .reward { font-size: 12px; }
@@ -710,8 +723,20 @@ body.hide-extra .now-info { display: none; }
   .campaign-view { padding-top: 8px; padding-bottom: 8px; }
   .now { padding: 8px 12px; }
   .now-zone { font-size: 20px; }
-  .now-clock .big { font-size: 40px; }
+  /* The ghost line shares the Run row under a smaller clock */
+  .now-clock { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; }
+  .now-clock .big { flex: 0 0 100%; font-size: 34px; }
   .now-run { font-size: 14px; margin-top: 2px; }
+  .now-ghost-wrap { position: static; flex: 1 1 0; min-width: 0; margin-top: 0; }
+  .now-clock { position: relative; }
+  .now-ghost { padding: 0 6px; margin-left: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .now-ghost .ghost-delta .mono { font-size: 14px; margin-left: 4px; }
+  /* The zone name gives way first so the delta stays readable */
+  .now-ghost [data-ghost-now] { display: flex; gap: 4px; min-width: 0; white-space: nowrap; }
+  .now-ghost [data-ghost-now] > b { min-width: 4em; overflow: hidden; text-overflow: ellipsis; }
+  .now-ghost .ghost-delta { flex: none; }
+  /* The sign and colour already say ahead or behind */
+  .now-ghost .dword { display: none; }
   #liveDelta { font-size: 17px; }
   .big-btn { font-size: 16px; padding: 6px 14px; }
   .now-actions { margin-top: 6px; gap: 4px; }
@@ -734,7 +759,6 @@ body.hide-extra .now-info { display: none; }
 @media (min-width: 960px) and (max-height: 740px) {
   .now-zone { font-size: 18px; }
   .now-clock { margin-top: 2px; }
-  .now-clock .big { font-size: 34px; }
   .big-btn { padding: 5px 14px; }
   .lvl-step button { line-height: 16px; }
 }
