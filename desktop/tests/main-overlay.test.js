@@ -87,7 +87,7 @@ describe("overlay size and position (main)", () => {
       assert.deepEqual({ width: t.overlay.bounds.width, height: t.overlay.bounds.height }, size);
       assert.ok(Math.abs(t.overlay.bounds.x + size.width / 2 - dims[0] / 2) <= 1, "centred");
       assert.equal(t.overlay.bounds.y, Math.round(dims[1] * BOSS_BAR_CLEARANCE));
-      assert.deepEqual(t.lastBox(), { ...size, custom: false });
+      assert.deepEqual(t.lastBox(), { ...size, custom: false, grow: "both" });
     }
   });
 
@@ -115,7 +115,7 @@ describe("overlay size and position (main)", () => {
     assert.equal(t.overlay.bounds.width, 640);
     assert.equal(t.overlay.bounds.height, 128);
     assert.ok(Math.abs(t.overlay.bounds.x + 320 - 960) <= 1, "top centre grows around its midpoint");
-    assert.deepEqual(t.lastBox(), { width: 640, height: 128, custom: true });
+    assert.deepEqual(t.lastBox(), { width: 640, height: 128, custom: true, grow: "both" });
     assert.deepEqual(t.stored().overlaySize, { width: 640, height: 128 });
     t.handlers["overlay:resize"](t.fromOverlay, { w: 99999, h: 1, done: true });
     assert.ok(t.overlay.bounds.width <= 1200 && t.overlay.bounds.height >= 44, "clamped to the limits");
@@ -134,6 +134,18 @@ describe("overlay size and position (main)", () => {
     assert.deepEqual(t.overlay.bounds, { x: 100, y: 600, width: 700, height: 140 }, "top-left corner stays");
   });
 
+  it("resizing the top-right spot frees it, so the grip keeps the left edge", async () => {
+    const t = await boot({ ...ON, overlayPosition: "top-right" });
+    await t.handlers["desktop:set-click-through"](t.fromMain, false);
+    t.handlers["overlay:ready"](t.fromOverlay);
+    const before = { ...t.overlay.bounds };
+    assert.equal(t.lastBox().grow, "right");
+    t.handlers["overlay:resize"](t.fromOverlay, { w: before.width + 80, h: before.height + 20, done: true });
+    assert.deepEqual(t.overlay.bounds, { x: before.x, y: before.y, width: before.width + 80, height: before.height + 20 });
+    assert.equal(t.stored().overlayPosition, "custom");
+    assert.equal(t.stored().overlayBounds.x, before.x);
+  });
+
   it("reset puts it back at top centre at the default size", async () => {
     const t = await boot({ ...ON, overlayPosition: "custom", overlaySize: { width: 700, height: 200 },
       overlayBounds: { displayId: "1", x: 40, y: 700, width: 700, height: 200 } });
@@ -147,7 +159,7 @@ describe("overlay size and position (main)", () => {
     assert.equal(s.overlaySize, null);
     assert.equal(s.overlayPosition, "top-center");
     assert.equal(s.overlayBounds, null);
-    assert.deepEqual(t.lastBox(), { ...size, custom: false });
+    assert.deepEqual(t.lastBox(), { ...size, custom: false, grow: "both" });
   });
 
   it("the 1.2 text size becomes a starting window size", async () => {

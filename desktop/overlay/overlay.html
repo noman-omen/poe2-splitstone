@@ -23,7 +23,7 @@
     text-shadow: 0 1px 2px #000c, 0 0 6px #0008;
   }
   .step { font-weight: 700; font-size: var(--f); color: #f5efe6; }
-  .next { font-size: calc(var(--f) * 0.86); color: #b9b09a; margin-top: 2px; }
+  .next { font-size: max(11px, calc(var(--f) * 0.86)); color: #b9b09a; margin-top: 2px; }
   /* Only at the smallest font size: cut long text to the lines that fit. */
   .clamp { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
   body.unlocked #panel { -webkit-app-region: drag; cursor: move; border-color: rgba(200,164,90,.9); }

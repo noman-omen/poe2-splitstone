@@ -207,7 +207,8 @@ function overlayDisplay() {
 /** The box the text is fitted into: the player's size, or the default for this display. */
 function overlayBox(wa) {
   const size = settings.overlaySize ? clampSize(settings.overlaySize, wa) : defaultSize(wa);
-  return { ...size, custom: !!settings.overlaySize };
+  // Top centre resizes around its midpoint, so the grip has to move both edges to stay under the pointer.
+  return { ...size, custom: !!settings.overlaySize, grow: settings.overlayPosition === "top-center" ? "both" : "right" };
 }
 
 function sendOverlayBox() {
@@ -573,6 +574,8 @@ function wireIpc() {
       const b = overlayWindow.getBounds(), wa = overlayDisplay().workArea;
       const next = clampSize({ width: size.w, height: size.h }, wa);
       settings.overlaySize = next;
+      // The top-right spot keeps its right edge, which would leave the grip behind; resizing frees it instead.
+      if (settings.overlayPosition === "top-right") settings.overlayPosition = "custom";
       if (b.width !== next.width || b.height !== next.height)
         overlayWindow.setBounds(resizeFor(settings.overlayPosition, b, next.width, next.height, wa));
       sendOverlayBox();

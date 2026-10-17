@@ -58,10 +58,12 @@ describe("overlay placement", () => {
     }
   });
 
-  it("default size is small and scales with the display height", () => {
+  it("default size is small, grows with taller displays and never shrinks below the 1080p box", () => {
     assert.deepEqual(B.defaultSize(wa(1920, 1080)), { width: B.BASE.width, height: B.BASE.height });
-    const big = B.defaultSize(wa(2560, 1440)), small = B.defaultSize(wa(1280, 720));
-    assert.ok(big.width > B.BASE.width && small.width < B.BASE.width);
+    const big = B.defaultSize(wa(2560, 1440));
+    assert.ok(big.width > B.BASE.width);
+    for (const [w, h] of [[1280, 720], [1366, 768], [1600, 900]])
+      assert.deepEqual(B.defaultSize(wa(w, h)), { width: B.BASE.width, height: B.BASE.height }, `${w}x${h}`);
     assert.ok(Math.abs(big.width / big.height - B.BASE.width / B.BASE.height) < 0.05, "same shape");
     assert.ok(B.defaultSize(wa(1920, 1080), "l").width > B.BASE.width);
     assert.ok(B.defaultSize(wa(1920, 1080), "s").width < B.BASE.width);

@@ -19,13 +19,13 @@ STUB = """
 window.splitstoneOverlay = {
   onState(cb) { window.__push = cb; }, onLock() {}, onToast() {},
   onBox(cb) { window.__box = cb; }, fitWidth() {}, resize() {},
-  ready() { window.__box({ width: 400, height: 72, custom: true }); window.__push(%s); },
+  ready() { window.__box({ width: 400, height: 80, custom: true }); window.__push(%s); },
 };
 """ % json.dumps(STATE)
 
 with sync_playwright() as p:
     b = p.chromium.launch()
-    page = b.new_page(viewport={"width": 400, "height": 72}, device_scale_factor=2)
+    page = b.new_page(viewport={"width": 400, "height": 80}, device_scale_factor=2)
     page.add_init_script(STUB)
     page.goto((ROOT / "desktop" / "overlay" / "overlay.html").as_uri())
     # Bright snowy backdrop to prove readability; 0.8 = default window opacity.

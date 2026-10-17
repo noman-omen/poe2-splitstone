@@ -12,7 +12,7 @@ const MINIMAP_GAP = 48;
 const OLD_DEFAULT_TOP = 20;
 
 /** Default panel at 1080p (every route step and its next step fit at 11px or more); other displays scale it by height. */
-const BASE = Object.freeze({ width: 400, height: 72, displayHeight: 1080 });
+const BASE = Object.freeze({ width: 400, height: 80, displayHeight: 1080 });
 /** Resize limits; the maximum is also capped to part of the screen. */
 const LIMITS = Object.freeze({ minW: 200, minH: 44, maxW: 1200, maxH: 360, maxScreenW: 0.7, maxScreenH: 0.45 });
 /** 1.2/1.3 text sizes become a starting window size. */
@@ -23,7 +23,8 @@ const POSITIONS = ["top-center", "top-right", "custom"];
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), Math.max(lo, hi));
 const num = (v, d) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : d);
 
-const displayScale = wa => clamp((wa ? wa.height : BASE.displayHeight) / BASE.displayHeight, 0.6, 2.5);
+/** Never below the 1080p size: smaller screens keep the 1080p box so the text stays readable. */
+const displayScale = wa => clamp((wa ? wa.height : BASE.displayHeight) / BASE.displayHeight, 1, 2.5);
 
 function defaultSize(wa, textSize = "m") {
   const s = displayScale(wa) * (TEXT_SIZE_SCALE[textSize] || 1);
