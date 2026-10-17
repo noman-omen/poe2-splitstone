@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.0 (unreleased)
+## 1.2.0 (2026-10-17)
 
 - Ghost race (Settings → Ghost race, off by default). Race the current run against your PB, your best segments, any saved run of the character, or a ghost imported from someone else's share code (`SSG1.…`) or Splitstone export file.
 - Ahead/behind delta per split and in total, colour-coded, and a line under the run timer showing which zone the ghost would be in right now.
