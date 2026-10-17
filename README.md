@@ -89,7 +89,7 @@ My goal is to have Splitstone updated for PoE2 1.0 within the first week after i
 
 **Shipped in 1.1.0:** endgame tracking (map runs, sessions, atlas progress, optional auto-detect) and a tools tab.
 
-**Coming in 1.2.0:** ghost race against your PB, best segments, a past run or a friend's shared ghost.
+**Shipped in 1.2.0:** ghost race against your PB, best segments, a past run or a friend's shared ghost, plus overlay text size and accessibility fixes.
 
 **Next:**
 
