@@ -268,8 +268,6 @@
       customName: custom ? custom.name : null,
       started: c.runStarted, finished: new Date().toISOString(),
       splitsDone: order(c).filter(o => c.split[o.zone.id]).length, zonesTotal: order(c).length }, snap);
-    const bests = bestsFor(c, variant);
-    if (rec.complete && (bests.total === undefined || rec.total < bests.total)) bests.total = rec.total;
     c.history.unshift(rec);
     c.finishedId = rec.id;
     return rec;
@@ -284,8 +282,10 @@
 
   const runsOf = (c, variant = variantKey(route(c))) => c.history.filter(h => (h.variant || "normal") === variant);
   /** Fastest complete run of the variant (the PB), or null. */
-  const pb = (c, variant) => runsOf(c, variant).filter(h => h.complete)
+  const fastest = runs => (runs || []).filter(h => h.complete)
     .reduce((best, h) => (!best || h.total < best.total ? h : best), null);
+  /** The PB is always derived from history, so deleting or importing runs can't leave it stale. */
+  const pb = (c, variant) => fastest(runsOf(c, variant));
 
   /** Sum of best zone segments for the active variant; null until every zone has one. */
   function sumOfBest(c) {
@@ -328,11 +328,13 @@
     });
     Object.keys(c.split).forEach(z => { if (!BY_ZONE[z]) delete c.split[z]; });
     if (Object.keys(c.bests).some(k => k.includes(":") || k === "total")) c.bests = { normal: c.bests };
+    // Saves before 1.2 kept a "total" best; the PB comes from history instead.
+    Object.values(c.bests).forEach(b => { if (b && typeof b === "object") delete b.total; });
     c.route = route(c);
   }
 
   global.Run = { ALL, BY_ZONE, order, inOrder, route, variantKey, variantLabel, stepVisible, zoneActive,
     bestsFor, current, runningZone, isStarted, isPaused, isFinished, startZone, stopAllZones, split,
-    undoSplit, togglePause, finish, newRun, runsOf, pb, sumOfBest, deltaVsPb, deltaVsPbIn, zoneMs, sectionMs, groupMs,
+    undoSplit, togglePause, finish, newRun, runsOf, fastest, pb, sumOfBest, deltaVsPb, deltaVsPbIn, zoneMs, sectionMs, groupMs,
     totalMs, requiredSteps, prune, normalisePractice, matchesPractice, practiceLabel, getCustom, invalidateOrderCache };
 })(window);

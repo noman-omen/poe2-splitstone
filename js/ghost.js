@@ -30,7 +30,7 @@
       .replace(/\s+/g, " ").trim().slice(0, MAX_NAME);
     return s || fallback || "Ghost";
   }
-  const cleanVariant = v => (typeof v === "string" && /^[A-Za-z0-9:+_.\-]{1,80}$/.test(v) ? v : "normal");
+  const cleanVariant = v => (typeof v === "string" && /^[A-Za-z0-9:+_.-]{1,80}$/.test(v) ? v : "normal");
   const cleanMs = (v, max) => {
     const n = Number(v);
     return Number.isFinite(n) && n > 0 && n <= max ? Math.round(n) : null;
@@ -252,13 +252,13 @@
       if (raw.length > MAX_CODE_CHARS) throw new Error("Ghost code is too large");
       let parsed;
       try { parsed = JSON.parse(await inflate(b64urlToBytes(raw.slice(CODE_PREFIX.length)))); }
-      catch (e) { throw new Error(/size limit|invalid characters/.test(e.message) ? e.message : "Ghost code is damaged"); }
+      catch (e) { throw new Error(/size limit|invalid characters/.test(e.message) ? e.message : "Ghost code is damaged", { cause: e }); }
       if (!isObj(parsed) || parsed.app !== "splitstone-ghost" || parsed.v !== CODE_VERSION) throw new Error("Unknown ghost code version");
       return normaliseGhost(Object.assign({}, parsed, { id: undefined, source: "import" }), o.knownZones);
     }
     if (raw.length > MAX_JSON_CHARS) throw new Error("File is too large to import as a ghost");
     let data;
-    try { data = JSON.parse(raw); } catch (_) { throw new Error("Not a ghost code or Splitstone export"); }
+    try { data = JSON.parse(raw); } catch (e) { throw new Error("Not a ghost code or Splitstone export", { cause: e }); }
     if (isObj(data) && data.app === "splitstone-ghost")
       return normaliseGhost(Object.assign({}, data, { id: undefined, source: "import" }), o.knownZones);
     if (!isObj(data) || data.app !== "splitstone" || !isObj(data.characters)) throw new Error("Not a ghost code or Splitstone export");

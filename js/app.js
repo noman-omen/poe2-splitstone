@@ -227,7 +227,7 @@
     const ov = (state.settings && state.settings.overlay) || { opacity: 0.8, clickThrough: true };
     const showTip = !(state.settings && state.settings.hideHints);
     if (!cur) {
-      const last = c.history[0], prac = Run.route(c).practice;
+      const last = c.history[0];
       return {
         v: 1,
         step: last ? `Finished · ${Timers.format(last.total)}` : "Campaign complete",
@@ -465,15 +465,13 @@
     if (historyFilter === "practice") return all.filter(isPracticeRun);
     return all.filter(h => !isPracticeRun(h));
   }
-  const pbFromRuns = runs => (runs || []).filter(h => h.complete)
-    .reduce((best, h) => (!best || h.total < best.total ? h : best), null);
 
   function renderHistory() {
     const c = char();
     const filtered = filteredHistory(c);
     const runs = filtered.slice(0, 15);
-    const p = pbFromRuns(filtered);
-    const pbOf = h => pbFromRuns(filtered.filter(x => (x.variant || "normal") === (h.variant || "normal")));
+    const p = Run.fastest(filtered);
+    const pbOf = h => Run.fastest(filtered.filter(x => (x.variant || "normal") === (h.variant || "normal")));
     const filterSel = `<label class="hist-filter">Show <select id="historyFilter">
       <option value="campaign"${historyFilter === "campaign" ? " selected" : ""}>Campaign</option>
       <option value="practice"${historyFilter === "practice" ? " selected" : ""}>Practice</option>
@@ -854,7 +852,7 @@
     // Charts follow the history filter (Campaign / Practice / All), chronological.
     const runs = filteredHistory(c).slice().reverse();
     const complete = runs.filter(h => h.complete);
-    const p = pbFromRuns(runs);
+    const p = Run.fastest(runs);
     const route = Run.route(c);
     const sobOk = (historyFilter === "campaign" && !route.practice)
       || (historyFilter === "practice" && !!route.practice);
@@ -1029,44 +1027,17 @@
     const open = openDetails.has("custom-editor") ? " open" : "";
     const r = Run.route(c);
     const rVis = Object.assign({}, r, { mode: cr.baseMode || r.mode, customId: null, practice: null });
-    // Editor lists zones in campaign order so users can hide / reorder / annotate.
-    const rows = [];
-    Run.ALL.forEach(o => {
-      if (!Run.zoneActive(o.zone, rVis)) return;
-      const z = o.zone;
-      const zOrd = cr.zoneOrder;
-      const hiddenZone = z.steps.every(s => !Run.stepVisible(s, rVis) || cr.hiddenSteps[s.id]);
-      rows.push(`<div class="cr-zone" data-zid="${esc(z.id)}">
-        <div class="cr-zone-head">
-          <button type="button" class="cr-move" data-action="custom-zone-up" data-id="${esc(z.id)}" title="Move zone earlier">↑</button>
-          <button type="button" class="cr-move" data-action="custom-zone-down" data-id="${esc(z.id)}" title="Move zone later">↓</button>
-          <strong>${esc(o.section.name)} · ${esc(z.name)}</strong>
-          <span class="muted small">${hiddenZone ? "all steps hidden" : ""}</span>
-        </div>
-        <ul class="cr-steps">${z.steps.filter(s => Run.stepVisible(s, rVis)).map(s => {
-          const hid = !!cr.hiddenSteps[s.id];
-          const note = cr.notes[s.id] || "";
-          return `<li class="cr-step${hid ? " cr-hidden" : ""}">
-            <label><input type="checkbox" data-action="custom-hide-step" data-id="${esc(s.id)}"${hid ? " checked" : ""}> Hide</label>
-            <span class="cr-obj">${esc(s.objective)}</span>
-            <input type="text" class="cr-note-input" data-action="custom-note" data-id="${esc(s.id)}"
-              maxlength="${CustomRoute.MAX_NOTE}" placeholder="Note" value="${esc(note)}" title="Your note (no URLs)">
-          </li>`;
-        }).join("")}</ul>
-      </div>`);
-    });
-    // Re-order editor rows if zoneOrder set
-    let ordered = rows;
+    // Editor lists zones in the route's order (zoneOrder first, the rest in campaign order).
+    const list = Run.ALL.filter(o => Run.zoneActive(o.zone, rVis));
     if (cr.zoneOrder && cr.zoneOrder.length) {
-      const byZ = {};
-      // rebuild with sort — simpler: sort Run.ALL filtered
-      const list = Run.ALL.filter(o => Run.zoneActive(o.zone, rVis));
-      const rank = id => { const i = cr.zoneOrder.indexOf(id); return i < 0 ? 5000 + list.findIndex(x => x.zone.id === id) : i; };
+      const pos = new Map(list.map((o, i) => [o.zone.id, i]));
+      const rank = id => { const i = cr.zoneOrder.indexOf(id); return i < 0 ? 5000 + pos.get(id) : i; };
       list.sort((a, b) => rank(a.zone.id) - rank(b.zone.id));
-      ordered = list.map(o => {
-        const z = o.zone;
-        const hiddenZone = z.steps.every(s => !Run.stepVisible(s, rVis) || cr.hiddenSteps[s.id]);
-        return `<div class="cr-zone" data-zid="${esc(z.id)}">
+    }
+    const ordered = list.map(o => {
+      const z = o.zone;
+      const hiddenZone = z.steps.every(s => !Run.stepVisible(s, rVis) || cr.hiddenSteps[s.id]);
+      return `<div class="cr-zone" data-zid="${esc(z.id)}">
         <div class="cr-zone-head">
           <button type="button" class="cr-move" data-action="custom-zone-up" data-id="${esc(z.id)}" title="Move zone earlier">↑</button>
           <button type="button" class="cr-move" data-action="custom-zone-down" data-id="${esc(z.id)}" title="Move zone later">↓</button>
@@ -1084,8 +1055,7 @@
           </li>`;
         }).join("")}</ul>
       </div>`;
-      });
-    }
+    });
     return `<details class="custom-editor" data-keep="custom-editor"${open}><summary>Edit custom route · ${esc(cr.name)}</summary>
       <div class="cr-toolbar">
         <label>Name <input type="text" id="customName" maxlength="48" value="${esc(cr.name)}"></label>
@@ -1935,9 +1905,7 @@
     if (window.splitstoneDesktop.onToast) {
       window.splitstoneDesktop.onToast(msg => { if (msg) toast(msg); });
     }
-    // Overlay gets live snapshots whenever the helper path would have pushed.
-    const _push = pushOverlay;
-    // pushOverlay already calls AutoSplit.pushState which routes to IPC on desktop.
+    // The overlay gets snapshots through pushOverlay, which routes to IPC on desktop.
   } else if (state.settings.autoSplit.enabled) {
     AutoSplit.connect(state.settings.autoSplit.url, autoSplitOpts());
   }
@@ -1965,13 +1933,6 @@
     hideDesktopSetup();
     toast("You can set Client.txt later under Auto-split settings");
   };
-
-  // When hotkeys change in settings, push to globalShortcut.
-  const _origCommit = commit;
-  // Patch via wrapping save of hotkeys — listen on keyTable changes already call commit;
-  // sync after render when desktop:
-  const _render = render;
-  // simpler: sync on interval once and after keybind — hook existing setKey if present
 
   applyTheme(state.settings.theme || "ember");
 

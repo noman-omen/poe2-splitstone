@@ -199,7 +199,7 @@ with sync_playwright() as p:
     check("run 2 saved, history has 2", len(c["history"]) == 2)
     check("new PB is the faster run", c["history"][0]["total"] < c["history"][1]["total"]
           and js(page, "Run.pb(JSON.parse(localStorage.getItem('splitstone:v1')).characters[JSON.parse(localStorage.getItem('splitstone:v1')).activeId]).id") == c["history"][0]["id"])
-    check("bests: best total = PB total", c["bests"]["normal"]["total"] == c["history"][0]["total"])
+    check("no stale best total stored (PB comes from history)", "total" not in c["bests"]["normal"])
     check("older run shows +delta in history", "+" in page.text_content("#history"))
 
     # --- Abandoned run is kept as an attempt ---
@@ -231,8 +231,9 @@ with sync_playwright() as p:
         page.keyboard.press("Space")
     c = char(page)
     check("fast run saved with its variant", c["history"][0]["variant"] == "fast" and c["history"][0]["complete"])
-    check("fast run has its own PB (not compared with normal)", c["bests"]["fast"]["total"] == c["history"][0]["total"]
-          and c["bests"]["normal"]["total"] != c["history"][0]["total"])
+    check("fast run has its own PB (not compared with normal)",
+          js(page, "Run.pb(state_c(), 'fast').id") == c["history"][0]["id"]
+          and js(page, "Run.pb(state_c(), 'normal').id") != c["history"][0]["id"])
     new_run(page)
     page.select_option("#routeMode", "normal")
 

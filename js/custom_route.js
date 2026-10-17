@@ -150,7 +150,7 @@
     if (!raw.startsWith("SSR1.")) throw new Error("Not a Splitstone route code (expected SSR1.…)");
     const json = await inflate(b64urlToBytes(raw.slice(5)));
     let parsed;
-    try { parsed = JSON.parse(json); } catch (_) { throw new Error("Share code is not valid JSON"); }
+    try { parsed = JSON.parse(json); } catch (e) { throw new Error("Share code is not valid JSON", { cause: e }); }
     if (!parsed || parsed.app !== "splitstone-route" || parsed.v !== SCHEMA)
       throw new Error("Unsupported or unknown share code version");
     // Never accept settings / URLs / unrelated keys — normalise allowlists fields.

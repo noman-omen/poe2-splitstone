@@ -1,0 +1,13 @@
+{
+  "name": "splitstone-web",
+  "private": true,
+  "description": "Lint tooling for the Splitstone web app. The app itself has no build step.",
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0"
+  }
+}

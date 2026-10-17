@@ -29,7 +29,7 @@
       paused: null, // timer keys that were running when the run was paused
       runStarted: null, // ISO time of the first timer start in this run
       history: [],  // finished / abandoned runs, newest first (see Run.finish)
-      bests: {},    // "zone:<id>" | "section:<id>" | "group:<id>" | "total" -> best ms ever
+      bests: {},    // { variant: { "zone:<id>" | "section:<id>" | "group:<id>": best ms ever } }
       level: null,  // manual character level (number) or null — PoB may also set build.level
       customRoutes: {}, // id -> custom route definition (see custom_route.js)
       ghost: global.Ghost ? Ghost.blankState() : { pick: "pb", imported: [] }, // race comparison (see ghost.js)
@@ -53,7 +53,6 @@
              hotkeys: {} };  // action -> key overrides; defaults live in app.js (HOTKEY_DEFS)
   }
 
-  const SETTINGS_KEYS = ["hideHints", "hideExtra", "focusMode", "theme", "autoSplit", "overlay", "endgameAutoDetect", "view", "ghostMode", "hotkeys"];
 
   /** Local helper hosts: 127.0.0.1, localhost, [::1]. No path/search/hash/userinfo. */
   function isLocalHelperHost(hostname) {
@@ -97,7 +96,6 @@
   function asObject(v) { return v && typeof v === "object" && !Array.isArray(v) ? v : {}; }
   function asArray(v) { return Array.isArray(v) ? v : []; }
   function asBool(v) { return !!v; }
-  function asString(v, fallback) { return typeof v === "string" ? v : fallback; }
 
   /* ---------- Untrusted-data helpers (saves and imports) ---------- */
   const MAX_CHARACTERS = 100;
@@ -346,7 +344,7 @@
 
   function load() {
     status.blocked = null; status.lastError = null;
-    let raw = null;
+    let raw;
     try { raw = localStorage.getItem(KEY); } catch (e) { status.blocked = "unreadable"; status.lastError = String(e.message || e); return defaultState(); }
     if (raw) {
       let parsed, state;
@@ -451,7 +449,7 @@
   function previewImport(state, text) {
     if (typeof text !== "string" || text.length > MAX_IMPORT_CHARS) throw new Error("File is too large (10 MB max)");
     let raw;
-    try { raw = JSON.parse(text); } catch (_) { throw new Error("Not a JSON file"); }
+    try { raw = JSON.parse(text); } catch (e) { throw new Error("Not a JSON file", { cause: e }); }
     const incoming = normalise(raw);
     // Undo stacks belong to the machine that made them; never import them.
     Object.values(incoming.characters).forEach(c => { c.undo = []; });
