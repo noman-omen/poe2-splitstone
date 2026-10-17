@@ -892,7 +892,7 @@
         { fmt, title: "Campaign time per run", refs: [
           ...(totals.length > 1 ? [{ y: avg(totals), label: "avg", cls: "avg" }] : []),
           ...(sob ? [{ y: sob, label: "sum of best", cls: "best" }] : [])] })}
-      <h3 class="chart-title">Segment trend <select id="statSeg">${opts.map(([v, l]) =>
+      <h3 class="chart-title">Segment trend <select id="statSeg" aria-label="Chart segment">${opts.map(([v, l]) =>
         `<option value="${esc(v)}"${v === statSeg ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></h3>
       ${Charts.line(pts, { fmt, title: "Segment trend", refs })}
       <div class="muted small">${segVals.length} runs · avg ${segVals.length ? fmt(avg(segVals)) : "–"} · best ${segBest ? fmt(segBest) : "–"} · last ${segVals.length ? fmt(segVals[segVals.length - 1]) : "–"}</div>
@@ -1676,7 +1676,7 @@
       <td><button data-action="key-change" data-id="${id}">${capturing === id ? "Cancel" : "Change"}</button></td>
       <td class="muted small">${b[id] !== def ? "default " + esc(keyName(def)) : ""}</td></tr>`).join("");
     const grid = $("#themeGrid");
-    if (grid) grid.innerHTML = THEMES.map(t => `<button type="button" class="theme-swatch" role="option"
+    if (grid) grid.innerHTML = THEMES.map(t => `<button type="button" class="theme-swatch"
       data-action="set-theme" data-id="${esc(t.id)}" aria-pressed="${t.id === cur}" title="${esc(t.desc)}">
       <span class="chips">${t.chips.map(c => `<span style="background:${c}"></span>`).join("")}</span>
       <span class="name">${esc(t.name)}</span><span class="desc">${esc(t.desc)}</span></button>`).join("");
