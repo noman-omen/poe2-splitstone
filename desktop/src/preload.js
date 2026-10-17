@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld("splitstoneDesktop", {
   setOverlayTextSize: (size) => ipcRenderer.invoke("desktop:set-overlay-text-size", String(size)),
   setAutoUpdate: (on) => ipcRenderer.invoke("desktop:set-auto-update", !!on),
   setClickThrough: (on) => ipcRenderer.invoke("desktop:set-click-through", !!on),
+  setOverlayPosition: (pos) => ipcRenderer.invoke("desktop:set-overlay-position", String(pos)),
   resetOverlayPosition: () => ipcRenderer.invoke("desktop:reset-overlay-position"),
   getAutoUpdate: () => ipcRenderer.invoke("desktop:get-auto-update"),
   pushOverlayState: (snapshot) => ipcRenderer.send("desktop:overlay-state", snapshot),

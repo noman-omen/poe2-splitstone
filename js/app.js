@@ -245,7 +245,7 @@
     return {
       v: 1,
       step: step ? step.objective : "",
-      tip: showTip ? (tips[0] || "").slice(0, 100) : "",
+      tip: showTip ? tips[0] || "" : "",
       nextStep: nextStep ? nextStep.objective : "",
       showTip,
       opacity: ov.opacity,
@@ -1591,6 +1591,14 @@
     else if (el.dataset && el.dataset.egField) { Endgame.updateActive(EG(), { [el.dataset.egField]: el.value }); persist(); }
     else if (el.id === "egSession") { egShowSession = el.value || null; renderViews(); }
     else if (el.id === "egAutoDetect") { state.settings.endgameAutoDetect = el.checked; commit(); }
+    else if (el.id === "overlayPosition") {
+      if (window.splitstoneDesktop && window.splitstoneDesktop.setOverlayPosition)
+        window.splitstoneDesktop.setOverlayPosition(el.value).then(v => {
+          window.__desktopOverlayPosition = v;
+          setOverlayPositionSelect(el, v);
+          toast("Overlay: " + el.selectedOptions[0].textContent);
+        });
+    }
     else if (el.id === "overlayTextSize") {
       if (window.splitstoneDesktop && window.splitstoneDesktop.setOverlayTextSize)
         window.splitstoneDesktop.setOverlayTextSize(el.value).then(v => { window.__desktopTextSize = v; toast("Overlay text: " + el.selectedOptions[0].textContent); });
@@ -1749,7 +1757,10 @@
     async "overlay-reset-pos"() {
       if (window.splitstoneDesktop && window.splitstoneDesktop.resetOverlayPosition)
         await window.splitstoneDesktop.resetOverlayPosition();
-      toast("Overlay position reset");
+      window.__desktopOverlayPosition = "top-center";
+      const pos = $("#overlayPosition");
+      if (pos) setOverlayPositionSelect(pos, "top-center");
+      toast("Overlay position reset to top centre");
     },
     settings() {
       $("#ghostModeSetting").checked = ghostOn();
@@ -1770,6 +1781,8 @@
           if (ovl) ovl.textContent = pct + "%";
           const ts = $("#overlayTextSize");
           if (ts) ts.value = window.__desktopTextSize || "m";
+          const pos = $("#overlayPosition");
+          if (pos) setOverlayPositionSelect(pos, window.__desktopOverlayPosition);
           const ct = $("#desktopClickThrough");
           if (ct) ct.checked = ov.clickThrough !== false;
           const ovs = $("#desktopOverlaySettings");
@@ -1871,6 +1884,12 @@
       `<tr><td>${esc(label)}</td><td><input type="text" data-global-key="${k}" value="${esc(hk[k] || "")}"
         maxlength="32" spellcheck="false" aria-label="${esc(label)} global hotkey"></td></tr>`).join("");
   }
+  /** "Where I put it" is only offered once the overlay has been dragged. */
+  function setOverlayPositionSelect(sel, pos) {
+    const v = ["top-center", "top-right", "custom"].includes(pos) ? pos : "top-center";
+    sel.querySelector('option[value="custom"]').hidden = v !== "custom";
+    sel.value = v;
+  }
   function showDesktopStatus(st) {
     if (!st) return;
     if (st.hotkeys && !(document.activeElement && document.activeElement.dataset.globalKey)) renderDesktopHotkeys(st.hotkeys);
@@ -1921,7 +1940,8 @@
       if (st && st.watching && st.logExists) hideDesktopSetup();
       if (st && typeof st.overlayEnabled === "boolean") {
         window.__desktopOverlayEnabled = st.overlayEnabled;
-    if (st.overlayTextSize) window.__desktopTextSize = st.overlayTextSize;
+        if (st.overlayTextSize) window.__desktopTextSize = st.overlayTextSize;
+        if (st.overlayPosition) window.__desktopOverlayPosition = st.overlayPosition;
         const a = $("#desktopOverlay"), b = $("#desktopOverlaySettings");
         if (a) a.checked = st.overlayEnabled;
         if (b) b.checked = st.overlayEnabled;

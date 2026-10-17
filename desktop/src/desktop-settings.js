@@ -4,6 +4,7 @@
  * Kept free of Electron so unit tests can assert defaults.
  */
 const { isClientTxtPath } = require("./client-log");
+const { POSITIONS: OVERLAY_POSITIONS, LIMITS: OVERLAY_LIMITS } = require("./overlay-bounds");
 
 /** Global (system-wide) accelerators — always modifier combos so we don't steal Space/letters from the game. */
 const DEFAULT_GLOBAL_HOTKEYS = Object.freeze({
@@ -25,6 +26,7 @@ const DEFAULTS = Object.freeze({
   clickThrough: true,
   autoUpdate: true,
   overlayBounds: null, // { displayId, x, y, width, height } relative to display work area
+  overlayPosition: "top-center", // top-center | top-right | custom (dragged)
   overlayTextSize: "m", // s | m | l
   overlayHintShown: false, // one-time "Ctrl+Alt+O to move me" on the overlay
 });
@@ -41,6 +43,7 @@ function blank() {
     clickThrough: true,
     autoUpdate: true,
     overlayBounds: null,
+    overlayPosition: "top-center",
     overlayTextSize: "m",
     overlayHintShown: false,
   };
@@ -74,10 +77,13 @@ function merge(raw) {
       displayId: raw.overlayBounds.displayId != null ? String(raw.overlayBounds.displayId) : null,
       x: Number(raw.overlayBounds.x) || 0,
       y: Number(raw.overlayBounds.y) || 0,
-      width: Math.min(440, Math.max(160, Number(raw.overlayBounds.width) || 280)),
-      height: Math.min(240, Math.max(48, Number(raw.overlayBounds.height) || 72)),
+      width: Math.min(OVERLAY_LIMITS.maxW, Math.max(OVERLAY_LIMITS.minW, Number(raw.overlayBounds.width) || OVERLAY_LIMITS.defW)),
+      height: Math.max(OVERLAY_LIMITS.minH, Number(raw.overlayBounds.height) || OVERLAY_LIMITS.defH),
     };
   }
+  // Settings from 1.2 have bounds but no position; main decides once it knows the display (null = undecided).
+  if (OVERLAY_POSITIONS.includes(raw.overlayPosition)) out.overlayPosition = raw.overlayPosition;
+  else if (out.overlayBounds) out.overlayPosition = null;
   return out;
 }
 
@@ -150,5 +156,5 @@ function isPrereleaseVersion(v) {
 }
 
 module.exports = {
-  DEFAULTS, DEFAULT_GLOBAL_HOTKEYS, OVERLAY_TEXT_SIZES, blank, merge, shouldCheckForUpdates, isSafeGlobalAccelerator, validateAccelerator, isPrereleaseVersion,
+  DEFAULTS, DEFAULT_GLOBAL_HOTKEYS, OVERLAY_TEXT_SIZES, OVERLAY_POSITIONS, blank, merge, shouldCheckForUpdates, isSafeGlobalAccelerator, validateAccelerator, isPrereleaseVersion,
 };

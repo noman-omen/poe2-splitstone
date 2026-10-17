@@ -61,7 +61,7 @@ describe("overlay-state", () => {
     });
     assert.equal(st.zone, "Clearfell");
     assert.equal(st.zoneMs, 1200);
-    assert.ok(st.tip.length <= 100);
+    assert.equal(st.tip, "x".repeat(200));
     assert.equal(st.evil, undefined);
     assert.equal(st.settings, undefined);
     assert.deepEqual(Object.keys(st.hotkeys).sort(), ["pause", "split", "undo"]);

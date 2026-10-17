@@ -9,8 +9,9 @@
     margin: 0; padding: 0; background: transparent; overflow: hidden;
     font-family: "Segoe UI", system-ui, sans-serif; user-select: none;
   }
+  /* Sized by its text, not by the window, so the window can be fitted to it. */
   #wrap {
-    display: inline-block; max-width: 320px; margin: 6px;
+    width: max-content; margin: 6px;
   }
   #handle {
     display: none; text-align: center; font-size: 10px; letter-spacing: 2px;
@@ -21,27 +22,24 @@
   body.unlocked #wrap { -webkit-app-region: drag; cursor: move; }
   body.unlocked #panel { border-color: rgba(200,164,90,.85); }
   #panel {
-    padding: 8px 12px; border-radius: 8px; max-width: 320px;
+    padding: 8px 12px; border-radius: 8px;
     background: #100e0a;
     border: 1px solid #50463a;
     box-shadow: 0 4px 16px rgba(0,0,0,.35);
     color: #f2ebe0;
   }
   .row {
-    margin: 0; line-height: 1.35;
-    overflow: hidden; display: -webkit-box;
-    -webkit-box-orient: vertical; -webkit-line-clamp: 2;
-    word-break: break-word;
+    margin: 0; line-height: 1.35; overflow-wrap: anywhere;
     text-shadow: 0 1px 2px #000c, 0 0 6px #0008;
   }
-  /* Text size (Settings → Desktop → Overlay text size); the panel widens with it. */
-  body { --step: 14px; --small: 13px; --w: 320px; }
-  body[data-size="s"] { --step: 12px; --small: 11px; --w: 280px; }
-  body[data-size="l"] { --step: 18px; --small: 16px; --w: 420px; }
-  #wrap, #panel { max-width: var(--w); }
+  /* Text size (Settings → Desktop → Overlay text size). Text always wraps in full; the window takes its height. */
+  body { --step: 14px; --small: 13px; --w: 520px; }
+  body[data-size="s"] { --step: 12px; --small: 11px; --w: 440px; }
+  body[data-size="l"] { --step: 18px; --small: 16px; --w: 600px; }
+  #wrap { max-width: var(--w); }
   .step { font-weight: 700; font-size: var(--step); color: #f5efe6; }
-  .tip  { font-size: var(--small); color: #e0d4b8; margin-top: 3px; -webkit-line-clamp: 2; }
-  .next { font-size: var(--small); color: #b0a790; margin-top: 3px; -webkit-line-clamp: 1; }
+  .tip  { font-size: var(--small); color: #e0d4b8; margin-top: 3px; }
+  .next { font-size: var(--small); color: #b0a790; margin-top: 3px; }
   #toast { font-size: var(--small); }
   #toast {
     display: none; margin-top: 4px; padding: 4px 10px; border-radius: 6px;

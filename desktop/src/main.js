@@ -17,6 +17,9 @@ const { registerAll, unregisterAll, ACTIONS: HOTKEY_ACTIONS } = require("./hotke
 const {
   merge: mergeDesktopSettings, shouldCheckForUpdates, validateAccelerator, isPrereleaseVersion, OVERLAY_TEXT_SIZES,
 } = require("./desktop-settings");
+const {
+  clampW, clampH, topCenterBounds, anchoredResize, centeredResize, isOldDefault, boundsFor, resizeFor, MINIMAP_GAP, POSITIONS: OVERLAY_POSITIONS,
+} = require("./overlay-bounds");
 
 let autoUpdater = null;
 try { autoUpdater = require("electron-updater").autoUpdater; } catch (_) { /* optional */ }
@@ -65,6 +68,7 @@ function statusPayload() {
     overlayEnabled: settings.overlayEnabled,
     overlayOpacity: settings.overlayOpacity,
     overlayTextSize: settings.overlayTextSize || "m",
+    overlayPosition: settings.overlayPosition,
     hotkeys: { ...settings.hotkeys },
     version: app.getVersion(),
     firstRunDone: settings.firstRunDone,
@@ -180,41 +184,8 @@ function applyHotkeys() {
   });
 }
 
-const OVERLAY = Object.freeze({ minW: 200, maxW: 440, minH: 48, maxH: 200, defW: 300, defH: 72 });
-const clampW = w => Math.min(OVERLAY.maxW, Math.max(OVERLAY.minW, parseInt(w, 10) || OVERLAY.defW));
-const clampH = h => Math.min(OVERLAY.maxH, Math.max(OVERLAY.minH, parseInt(h, 10) || OVERLAY.defH));
-
-/**
- * Default spot: top-right but left of PoE2's minimap, which takes roughly the right
- * 17% of the screen width at the top (about 330 px at 1080p, more at 1440p/4K).
- * The right edge stays MINIMAP_GAP px clear of it; resizes keep that edge (anchoredResize),
- * so Large text grows left and keeps the gap.
- */
-const MINIMAP_GAP = 48;
-const minimapLeft = wa => wa.x + wa.width - Math.max(330, Math.round(wa.width * 0.17));
-function overlayDefaultBounds(display) {
-  const wa = display.workArea;
-  const w = OVERLAY.defW, h = OVERLAY.defH;
-  return {
-    x: Math.max(wa.x + 16, minimapLeft(wa) - MINIMAP_GAP - w),
-    y: wa.y + 20,
-    width: w,
-    height: h,
-  };
-}
-
-/**
- * New size for the overlay that keeps its right edge where it is, so bigger text
- * grows left (away from the minimap), and stays inside the work area.
- */
-function anchoredResize(b, w, h, wa) {
-  const right = b.x + b.width;
-  let x = right - w;
-  if (wa) x = Math.min(Math.max(x, wa.x), wa.x + wa.width - w);
-  let y = b.y;
-  if (wa) y = Math.min(Math.max(y, wa.y), wa.y + wa.height - h);
-  return { x, y, width: w, height: h };
-}
+/** Default spot: top centre of the display, just below the boss life bar band. */
+const overlayDefaultBounds = display => topCenterBounds(display.workArea);
 
 /** First time the overlay shows (and after Reset position): say how to move it. */
 function showOverlayMoveHint(force) {
@@ -225,26 +196,50 @@ function showOverlayMoveHint(force) {
   toastOverlay(`${settings.hotkeys.clickThrough || "Ctrl+Alt+O"} to move me`);
 }
 
-function resolveOverlayBounds() {
-  const displays = screen.getAllDisplays();
+function overlayDisplay() {
   const saved = settings.overlayBounds;
-  let display = screen.getPrimaryDisplay();
-  if (saved && saved.displayId != null) {
-    const found = displays.find(d => String(d.id) === String(saved.displayId));
-    if (found) display = found;
-  }
-  if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
-    const wa = display.workArea;
-    const w = clampW(saved.width), h = clampH(saved.height);
-    // saved x/y are relative to work area
-    let x = wa.x + (saved.x || 0);
-    let y = wa.y + (saved.y || 0);
-    // Clamp on-screen
-    x = Math.min(Math.max(x, wa.x), wa.x + wa.width - w);
-    y = Math.min(Math.max(y, wa.y), wa.y + wa.height - h);
-    return { display, bounds: { x, y, width: w, height: h } };
-  }
-  return { display, bounds: overlayDefaultBounds(display) };
+  const found = saved && saved.displayId != null
+    && screen.getAllDisplays().find(d => String(d.id) === String(saved.displayId));
+  return found || screen.getPrimaryDisplay();
+}
+
+function resolveOverlayBounds() {
+  const display = overlayDisplay(), wa = display.workArea;
+  const saved = settings.overlayBounds;
+  const live = overlayWindow && !overlayWindow.isDestroyed() ? overlayWindow.getBounds() : saved;
+  const w = clampW(live && live.width), h = clampH(live && live.height, wa);
+  if (settings.overlayPosition !== "custom" || !saved || !Number.isFinite(saved.x) || !Number.isFinite(saved.y))
+    return { display, bounds: boundsFor(settings.overlayPosition, wa, w, h) };
+  // Saved x/y are relative to the work area; keep the panel on screen.
+  const x = Math.min(Math.max(wa.x + saved.x, wa.x), wa.x + wa.width - w);
+  const y = Math.min(Math.max(wa.y + saved.y, wa.y), wa.y + wa.height - h);
+  return { display, bounds: { x, y, width: w, height: h } };
+}
+
+/** 1.2 saved a position without saying whether it was dragged; untouched ones move to top centre. */
+function migrateOverlayPosition() {
+  if (settings.overlayPosition) return;
+  const saved = settings.overlayBounds;
+  const found = saved && screen.getAllDisplays().find(d => String(d.id) === String(saved.displayId));
+  if (found && isOldDefault(saved, found.workArea)) {
+    settings.overlayPosition = "top-center";
+    settings.overlayBounds = null;
+  } else settings.overlayPosition = "custom";
+  saveSettings();
+}
+
+function applyOverlayPosition() {
+  if (!overlayWindow || overlayWindow.isDestroyed()) return;
+  overlayWindow.setBounds(resolveOverlayBounds().bounds);
+}
+
+function setOverlayPosition(pos) {
+  if (!OVERLAY_POSITIONS.includes(pos) || (pos === "custom" && !settings.overlayBounds)) return settings.overlayPosition;
+  settings.overlayPosition = pos;
+  saveSettings();
+  applyOverlayPosition();
+  broadcastStatus();
+  return pos;
 }
 
 function persistOverlayBounds() {
@@ -293,7 +288,14 @@ function createOverlay() {
       overlayWindow.setOpacity(settings.overlayOpacity);
     }
   });
-  overlayWindow.on("moved", () => persistOverlayBounds());
+  overlayWindow.on("moved", () => {
+    // Only an unlocked overlay can be dragged; from then on it stays where it was put.
+    if (settings.clickThrough === false && settings.overlayPosition !== "custom") {
+      settings.overlayPosition = "custom";
+      broadcastStatus();
+    }
+    persistOverlayBounds();
+  });
   overlayWindow.on("closed", () => { overlayWindow = null; });
   return overlayWindow;
 }
@@ -317,12 +319,13 @@ function setOverlayEnabled(on) {
 
 function resetOverlayPosition() {
   settings.overlayBounds = null;
+  settings.overlayPosition = "top-center";
   saveSettings();
   if (overlayWindow && !overlayWindow.isDestroyed()) {
-    const { bounds } = resolveOverlayBounds();
-    overlayWindow.setBounds(bounds);
+    applyOverlayPosition();
     showOverlayMoveHint(true);
   }
+  broadcastStatus();
 }
 
 /** E2: deny navigation away from the app's file: origin. */
@@ -499,6 +502,10 @@ function wireIpc() {
     if (!senderIsMain(e)) return settings.clickThrough;
     return setClickThrough(!!on, { toast: true });
   });
+  ipcMain.handle("desktop:set-overlay-position", (e, pos) => {
+    if (!senderIsMain(e)) return settings.overlayPosition;
+    return setOverlayPosition(String(pos));
+  });
   ipcMain.handle("desktop:reset-overlay-position", (e) => {
     if (!senderIsMain(e)) return false;
     resetOverlayPosition();
@@ -526,14 +533,14 @@ function wireIpc() {
   ipcMain.on("overlay:resize", (e, size) => {
     if (!senderIsOverlay(e)) return;
     if (!overlayWindow || overlayWindow.isDestroyed() || !size) return;
-    // Fixed height preferred for race mode — only bump if content needs it slightly
-    const w = clampW(size.w), h = clampH(size.h);
     try {
       const b = overlayWindow.getBounds();
-      if (b.width === w && b.height === h) return;
       let wa = null;
       try { wa = screen.getDisplayMatching(b).workArea; } catch (_) { /* keep unclamped */ }
-      overlayWindow.setBounds(anchoredResize(b, w, h, wa));
+      // The window takes the content's height so nothing is cut off; width is capped per text size.
+      const w = clampW(size.w), h = clampH(size.h, wa);
+      if (b.width === w && b.height === h) return;
+      overlayWindow.setBounds(resizeFor(settings.overlayPosition, b, w, h, wa));
       persistOverlayBounds();
     } catch (_) { /* */ }
   });
@@ -610,21 +617,16 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     loadSettings();
+    migrateOverlayPosition();
     wireIpc();
     createMainWindow();
     if (!SMOKE) createTray();
     setupAutoUpdater();
     screen.on("display-metrics-changed", (_e, _display, changed) => {
       if (!changed.some(k => k === "scaleFactor" || k === "workArea" || k === "bounds")) return;
-      if (!overlayWindow || overlayWindow.isDestroyed()) return;
-      overlayWindow.setBounds(resolveOverlayBounds().bounds);
+      applyOverlayPosition();
     });
-    screen.on("display-removed", () => {
-      if (overlayWindow && !overlayWindow.isDestroyed()) {
-        const { bounds } = resolveOverlayBounds();
-        overlayWindow.setBounds(bounds);
-      }
-    });
+    screen.on("display-removed", () => applyOverlayPosition());
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
     });
@@ -648,4 +650,7 @@ process.on("uncaughtException", (err) => {
   app.exit(1);
 });
 
-module.exports = { setHotkeys, isAppPageUrl, statusPayload, isClientTxtPath, findClientLog, setClickThrough, overlayDefaultBounds, anchoredResize, MINIMAP_GAP };
+module.exports = {
+  setHotkeys, isAppPageUrl, statusPayload, isClientTxtPath, findClientLog, setClickThrough,
+  overlayDefaultBounds, anchoredResize, centeredResize, MINIMAP_GAP,
+};

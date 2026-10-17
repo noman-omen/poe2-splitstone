@@ -1,9 +1,10 @@
 "use strict";
 /** Overlay snapshot normaliser — minimal panel (step / tip / next). */
 const SCHEMA_VERSION = 1;
-const TIP_MAX = 100;
-const STEP_MAX = 120;
-const NEXT_MAX = 100;
+// Upper bounds on what the renderer may send. Route text is far shorter (a test checks), so nothing real is cut.
+const TIP_MAX = 600;
+const STEP_MAX = 600;
+const NEXT_MAX = 600;
 const DEFAULT_OPACITY = 0.80;
 
 const EMPTY = Object.freeze({
@@ -79,8 +80,11 @@ function normalise(raw) {
     hotkeys: { split: " ", pause: "p", undo: "u" },
   };
   out.v = parseInt(raw.v || SCHEMA_VERSION, 10) || SCHEMA_VERSION;
-  for (const key of ["zone", "section", "step", "nextStep", "nextZone", "progress"]) {
+  for (const key of ["zone", "section", "nextZone", "progress"]) {
     if (raw[key] != null) out[key] = String(raw[key]).slice(0, 240);
+  }
+  for (const key of ["step", "nextStep"]) {
+    if (raw[key] != null) out[key] = String(raw[key]);
   }
   if (raw.tip != null) out.tip = ellipsis(String(raw.tip), TIP_MAX);
   out.step = ellipsis(out.step || "", STEP_MAX);

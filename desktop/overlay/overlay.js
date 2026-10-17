@@ -4,14 +4,13 @@
   function esc(s) {
     return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
   }
-  function clamp(s, n) {
-    s = String(s || "").trim();
-    return s.length > n ? s.slice(0, n - 1).replace(/\s+$/, "") + "…" : s;
-  }
+  const text = s => String(s || "").trim();
   let lastSize = "";
+  /** Ask main for a window exactly the size of the panel (plus its margin), so no line is cut off. */
   function fit() {
-    const r = document.getElementById("wrap").getBoundingClientRect();
-    const w = Math.min(440, Math.ceil(r.width) + 8), h = Math.ceil(r.height) + 16;
+    const wrap = document.getElementById("wrap"), r = wrap.getBoundingClientRect();
+    const m = parseFloat(getComputedStyle(wrap).marginLeft) || 0;
+    const w = Math.ceil(r.width + 2 * m), h = Math.ceil(r.height + 2 * m);
     const key = w + "x" + h;
     if (key === lastSize) return;
     lastSize = key;
@@ -29,16 +28,17 @@
   function render(st) {
     if (!st) return;
     const bits = [];
-    bits.push('<div class="row step">' + esc(clamp(st.step || "—", 120)) + '</div>');
-    if (st.showTip !== false && st.tip) {
-      bits.push('<div class="row tip">' + esc(clamp(st.tip, 100)) + '</div>');
+    bits.push('<div class="row step">' + esc(text(st.step) || "—") + '</div>');
+    if (st.showTip !== false && text(st.tip)) {
+      bits.push('<div class="row tip">' + esc(text(st.tip)) + '</div>');
     }
-    if (st.nextStep) {
-      bits.push('<div class="row next">Next · ' + esc(clamp(st.nextStep, 100)) + '</div>');
+    if (text(st.nextStep)) {
+      bits.push('<div class="row next">Next · ' + esc(text(st.nextStep)) + '</div>');
     }
     panel.innerHTML = bits.join("");
     fit();
   }
+  if (window.ResizeObserver) new ResizeObserver(fit).observe(document.getElementById("wrap"));
   if (window.splitstoneOverlay) {
     window.splitstoneOverlay.onState(render);
     if (window.splitstoneOverlay.onLock) {
