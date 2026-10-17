@@ -18,9 +18,10 @@ def check(name, ok, info=""):
 TIP_IN_VIEW = """() => {
   const t = document.querySelector('#firstRun .first-run');
   if (!t) return 'missing';
-  if (t.closest('.sidebar')) return 'in sidebar';
+  if (t.closest('.play')) return 'in the side panel';
   const r = t.getBoundingClientRect(), vh = innerHeight, now = document.querySelector('#now').getBoundingClientRect();
-  if (r.top < now.bottom - 1) return 'under the now-bar ' + r.top + ' < ' + now.bottom;
+  const sideBySide = r.left >= now.right || r.right <= now.left;
+  if (!sideBySide && r.top < now.bottom - 1) return 'under the now-bar ' + r.top + ' < ' + now.bottom;
   if (r.top > vh - 60) return 'below the fold ' + r.top;
   const hit = document.elementFromPoint(r.left + 20, r.top + 12);
   return hit && t.contains(hit) ? 'ok' : 'covered by ' + (hit && hit.className);
@@ -130,8 +131,8 @@ with sync_playwright() as p:
     # Parchment gold star >= 3:1 on white
     page.evaluate("document.querySelector('#tab-campaign')?.click()")
     page.evaluate("document.documentElement.dataset.theme = 'parchment'; document.body.dataset.theme = 'parchment'")
-    star = page.evaluate("""() => { const e = document.createElement('span'); e.className = 'gold'; e.textContent = '★';
-      document.querySelector('#campaign').appendChild(e); const c = getComputedStyle(e).color; e.remove(); return c; }""")
+    star = page.evaluate("""() => { const e = document.createElement('span'); e.className = 'gold'; e.innerHTML = '<span class="star">★</span> gold';
+      document.querySelector('#campaign').appendChild(e); const c = getComputedStyle(e.firstChild).color; e.remove(); return c; }""")
     rgb = tuple(int(x) for x in star[star.index("(") + 1:star.index(")")].split(",")[:3])
     ratio = (1.05) / (lum(rgb) + 0.05)
     check("Parchment gold star is at least 3:1 on white", ratio >= 3, f"{star} {ratio:.2f}")

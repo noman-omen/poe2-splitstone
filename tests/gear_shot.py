@@ -71,7 +71,9 @@ with sync_playwright() as p:
     check("zone aggregates cues", meta["zoneCues"] >= 1, meta)
 
     # UI: pick monk → see Hollow Palm / Cascade cues
+    page.click("#tab-character")
     page.select_option("#classSelect", "monk")
+    page.click("#tab-campaign")
     page.wait_for_timeout(150)
     ui = page.evaluate("""() => {
       const z02 = document.querySelector('[data-zone="act1-z02"] .gear-cues');

@@ -36,6 +36,12 @@ def new_run(page):
     except Exception:
         pass  # nothing to confirm (fresh run)
 
+def show(page, sel):
+    """Click a tab, then drop focus so Space goes to the split hotkey, not the button."""
+    page.click(sel)
+    page.evaluate("document.activeElement.blur()")
+
+
 URL = TRACKER_URL
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "tests" / "output"
@@ -75,11 +81,12 @@ with sync_playwright() as p:
     js(page, "localStorage.clear()")
     page.reload()
 
-    # --- Structure: interludes split into their own sections/groups ---
-    names = page.locator(".section h2").all_text_contents()
-    check("8 campaign sections + analytics", len(names) == 9, names)
-    check("interludes split (1, 2 part 1/2, 3)",
-          all(any(n.startswith(x) for n in names) for x in ("Interlude 1", "Interlude 2 · part 1", "Interlude 2 · part 2", "Interlude 3")))
+    # --- Structure: interludes split into their own sections, one act on screen ---
+    names = page.locator("#actTabs [role=tab]").all_text_contents()
+    check("8 act tabs in play order", [n.split(",")[0] for n in names] == [
+        "Act 1", "Act 2", "Act 3", "Act 4", "Interlude 2 · 1", "Interlude 3", "Interlude 2 · 2", "Interlude 1"], names)
+    check("one act rendered", page.locator("#campaign .section").count() == 1
+          and page.locator("#campaign .section").get_attribute("data-section") == "act1")
     seg = page.text_content("#totals")
     check("totals table lists Interlude 1/2/3 + acts", all(x in seg for x in ("Act 1", "Act 4", "Interlude 1", "Interlude 2", "Interlude 3")))
 
@@ -106,7 +113,7 @@ with sync_playwright() as p:
     check("current zone highlighted", page.locator(".zone.current").get_attribute("data-zone") == "act1-z02")
     tick(page, 5_000)
     # Ticking the last required step of the timed zone auto-splits
-    page.check('.zone[data-zone="act1-z02"] input[data-id="act1-02"]')
+    page.click('.zone[data-zone="act1-z02"] input[data-id="act1-02"]')
     c = char(page)
     check("checkbox completion auto-splits + advances", "act1-z02" in c["split"] and c["timers"]["zone:act1-z03"]["startedAt"])
     # Undo
@@ -125,17 +132,19 @@ with sync_playwright() as p:
     check("resume restarts the zone", char(page)["timers"]["zone:act1-z03"]["startedAt"])
 
     # Hotkeys must not fire while typing
+    show(page, "#tab-character")
     page.fill("#pobCode", "")
     page.type("#pobCode", "p u r")
     check("hotkeys ignored in text inputs", char(page)["timers"]["zone:act1-z03"]["startedAt"]
           and page.input_value("#pobCode") == "p u r")
     page.fill("#pobCode", "")
     page.keyboard.press("Escape")  # leave the field: hotkeys active again
+    show(page, "#tab-campaign")
 
     # Focus mode
     page.keyboard.press("f")
-    vis = [s for s in page.locator(".section").all() if s.is_visible()]
-    check("focus mode shows only current act (+analytics)", len(vis) == 2)
+    check("focus mode hides completed zones", not page.locator(".zone.complete").first.is_visible()
+          and page.locator(".zone.current").is_visible())
     page.keyboard.press("f")
 
     # --- Complete run 1: every zone 10s ---
@@ -249,11 +258,13 @@ with sync_playwright() as p:
     page.uncheck("#hideExtra")
 
     # Manual zone timers still work
+    show(page, "#act-tab-act2")
     reveal_click(page, '.zone[data-zone="act2-z01"] button.tt')
     c = char(page)
     check("manual zone start stops other zones", c["timers"]["zone:act2-z01"]["startedAt"] and not c["timers"]["zone:act1-z01"]["startedAt"])
 
     # --- Run analytics + CSV ---
+    show(page, "#tab-runs")
     # Chart points follow the history filter (Campaign / Practice / All), like the app.
     hfilter = page.eval_on_selector("#historyFilter", "e => e.value") if page.locator("#historyFilter").count() else "campaign"
     is_practice = lambda h: bool(h.get("practice") or "+p:" in str(h.get("variant", "")))
@@ -296,7 +307,7 @@ with sync_playwright() as p:
     check("maps CSV exported", len(mcsv) == 4 and "Burial Bog" in mcsv[1] and mcsv[0].startswith("run_id,character,map,tier"))
     page.check('[data-eg-milestone="first-map"]')
     check("atlas milestone saved", "first-map" in char(page)["endgame"]["atlas"])
-    page.click("#tab-campaign")
+    show(page, "#tab-character")
 
     # --- PoB ---
     page.fill("#pobCode", "this is not a build!!")
@@ -310,6 +321,7 @@ with sync_playwright() as p:
     page.wait_for_selector("#character .kv")
     panel = page.text_content("#character")
     check("PoB decoded (Witch/Infernalist/93 + Flameblast)", all(s in panel for s in ("Witch", "Infernalist", "93", "Flameblast")))
+    show(page, "#tab-campaign")
 
     # --- Export / characters / import ---
     with page.expect_download() as dl:
@@ -350,6 +362,7 @@ with sync_playwright() as p:
     check("bad import rejected gracefully", "Import failed" in page.text_content("#toast"))
 
     # --- Class-aware campaign notes ---
+    show(page, "#act-tab-act1")
     page.select_option("#routeClass", "monk")
     accept_if_modal(page)
     check("class persisted on character", char(page).get("classId") == "monk")

@@ -45,8 +45,10 @@ with sync_playwright() as p:
         check(f"Levels.{k}", v, u)
 
     # Char lvl 1 vs Cemetery (area 7): gap 6 > window ±3 → bad
+    page.click("#tab-character")
     page.fill("#charLevel", "1")
     page.dispatch_event("#charLevel", "change")
+    page.click("#tab-campaign")
     page.wait_for_timeout(100)
     st = page.evaluate("""() => {
       const c = state_c();

@@ -1,4 +1,4 @@
-"""axe-core WCAG 2 A/AA scan per theme (campaign with ghost race on, endgame, tools, settings).
+"""axe-core WCAG 2 A/AA scan per theme (campaign with ghost race on, runs, character, endgame, tools, settings, phone campaign).
 Needs the app on TRACKER_URL and axe-core: set AXE_PATH to axe.min.js, or
 `npm i axe-core` somewhere and point AXE_PATH at node_modules/axe-core/axe.min.js.
 Skips (exit 0) when axe-core isn't found. CSP is bypassed only to inject axe."""
@@ -42,7 +42,8 @@ with sync_playwright() as p:
         page.evaluate("""(t) => { const s = Storage2.load(); s.settings.theme = t; s.settings.ghostMode = true;
             localStorage.setItem('splitstone:v1', JSON.stringify(s)); }""", theme)
         page.reload(); page.wait_for_timeout(300)
-        for view in ["campaign", "endgame", "tools", "settings"]:
+        page.keyboard.press("Space"); page.wait_for_timeout(1100); page.keyboard.press("Space")  # a folded zone and a live split
+        for view in ["campaign", "runs", "character", "endgame", "tools", "settings"]:
             if view == "settings":
                 page.click("#tab-campaign"); page.click('.topbar [data-action="settings"]')
             else:
@@ -53,6 +54,10 @@ with sync_playwright() as p:
             check(f"{theme}/{view}: no WCAG A/AA violations", not v, summary + " | " + json.dumps([x["sample"] for x in v])[:600])
             if view == "settings":
                 page.keyboard.press("Escape")
+        if theme == "ember":
+            page.set_viewport_size({"width": 390, "height": 844}); page.click("#tab-campaign"); page.wait_for_timeout(200)
+            v = scan(page)
+            check("ember/phone campaign: no WCAG A/AA violations", not v, json.dumps(v)[:600])
         ctx.close()
     b.close()
 

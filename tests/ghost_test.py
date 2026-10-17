@@ -79,7 +79,9 @@ with sync_playwright() as p:
     page.check("#ghostModeSetting")
     page.keyboard.press("Escape")
     check("setting saved", saved(page)["settings"]["ghostMode"] is True)
-    check("ghost panel shown", page.locator("#ghost").is_visible())
+    check("ghost line in the run panel", page.locator("#now [data-ghost-now]").is_visible())
+    page.click("#tab-runs")
+    check("ghost panel shown on the Runs tab", page.locator("#ghost").is_visible())
     check("PB is the default comparison", page.locator("#ghostPick").input_value() == "pb")
 
     # Race: zone 1 in 40 s (20 s ahead), zone 2 in 90 s (30 s behind), zone 3 running.
@@ -167,6 +169,7 @@ with sync_playwright() as p:
     # Focus mode hides the panel, keeps the one-line now-bar summary
     page.evaluate("document.activeElement && document.activeElement.blur()"); page.keyboard.press("f")
     check("focus mode hides the ghost panel", not page.locator("#ghost").is_visible())
+    page.click("#tab-campaign"); page.evaluate("document.activeElement.blur()")
     check("focus mode keeps the now-bar ghost line", page.locator("[data-ghost-now]").is_visible())
     page.keyboard.press("f")
 
