@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0 (unreleased)
+
+- Ghost race (Settings → Ghost race, off by default). Race the current run against your PB, your best segments, any saved run of the character, or a ghost imported from someone else's share code (`SSG1.…`) or Splitstone export file.
+- Ahead/behind delta per split and in total, colour-coded, and a line under the run timer showing which zone the ghost would be in right now.
+- Time gained or lost per act and interlude, including the one in progress.
+- Copy any comparison as a ghost code to share it. Up to 10 imported ghosts per character, saved locally and included in JSON export and import.
+- Imported ghosts keep only zone times for zones Splitstone knows, with capped names and sizes (16 KB codes, 64 KB once expanded, 5 MB export files). Names are escaped wherever they're shown.
+- The ghost panel hides in Focus mode; the one-line summary under the timer stays. The in-game overlay is unchanged.
+- No storage migration: 1.1 saves load as they are and pick up the new fields on the next save.
+
 ## 1.1.0 (2026-10-16)
 
 - New Endgame tab: log map runs with tier, waystone mods, deaths, notes and loot; start, pause and finish each map; mark runs completed or failed.

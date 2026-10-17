@@ -39,6 +39,7 @@ Auto-update is on by default (Settings → Desktop to turn off). Full releases o
 | **Splits and timers** | Per-zone segments, act and interlude totals, pause, undo, auto-advance |
 | **Routes** | Normal or speedrun route, required-steps-only, practice a single act or zone, custom shareable routes |
 | **History and PBs** | Per-character runs, PBs, gold segments, live delta, trend charts, CSV export |
+| **Ghost race** | Race your PB, best segments, any past run or a friend's ghost: ahead/behind per split, where the ghost is now, time gained or lost per act |
 | **Auto-split** | Splits on zone changes from PoE2's `Client.txt` |
 | **Cues** | Basic-class notes, level/XP warnings, gear and gem checkpoints |
 | **Overlay** | Small top-right panel with the current step, hint and next step |
@@ -60,6 +61,12 @@ Log each map with its tier and waystone mods, then mark it completed or failed, 
 
 The checklist lives in `data/endgame.js`. Items I couldn't confirm in patch notes or poe2db are marked with a ?.
 
+### Ghost race
+
+Turn it on under Settings → Ghost race. Pick what to race in the sidebar: your PB (default), your best segments, any saved run of this character, or a ghost a friend sent you. You get the delta for every split and in total, a line under the run timer saying which zone the ghost would be in right now, and how much you gained or lost in each act and interlude. To share a ghost, copy its code (`SSG1.…`) from the panel; to race someone, paste their code or load their Splitstone export file. Only zone times are taken from imports. The overlay stays step, hint and next only.
+
+![Ghost race](screenshots/ghost-mode.png)
+
 ### Tools
 
 Links to the community sites I keep open while playing. The list is in `data/tools.js`.
@@ -80,14 +87,15 @@ My goal is to have Splitstone updated for PoE2 1.0 within the first week after i
 
 **Shipped in 1.0.0:** desktop app with auto-split and auto-update, minimal overlay, Ctrl+Alt global hotkeys, class notes, level/XP warnings, gear and gem checkpoints, custom shareable routes, practice mode.
 
-**New in 1.1.0:** endgame tracking (map runs, sessions, atlas progress, optional auto-detect) and a tools tab.
+**Shipped in 1.1.0:** endgame tracking (map runs, sessions, atlas progress, optional auto-detect) and a tools tab.
+
+**Coming in 1.2.0:** ghost race against your PB, best segments, a past run or a friend's shared ghost.
 
 **Next:**
 
-- Ghost / race mode against your PB
 - Refresh the route and endgame data for PoE2 1.0
 
-**Later:** ascendancy-specific route notes, pinnacle boss logs, league history, shared PBs.
+**Later:** ascendancy-specific route notes, pinnacle boss logs, league history.
 
 See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 
